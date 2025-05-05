@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function MenuItem({
     item,
@@ -9,11 +10,22 @@ export default function MenuItem({
     onAdd: (item: any, quantity: number) => void;
 }) {
     const [quantity, setQuantity] = useState(1);
+    const [showMessage, setShowMessage] = useState(false);
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    const handleAddClick = () => {
+        onAdd(item, quantity);
+
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        setShowMessage(true);
+        timeoutRef.current = setTimeout(() => {
+            setShowMessage(false);
+        }, 1000);
+    };
 
     return (
-        <div className="bg-gray-100 rounded-2xl shadow-md p-4 space-y-3">
+        <div className="bg-gray-100 rounded-2xl shadow-md p-4 space-y-3 pb-6">
             <div className="flex gap-4 items-center">
-                {/* Afbeelding als nette blok */}
                 {item.image && (
                     <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
                         <img
@@ -23,8 +35,6 @@ export default function MenuItem({
                         />
                     </div>
                 )}
-
-                {/* Tekstblok */}
                 <div className="flex-1">
                     <h2 className="text-lg font-semibold">{item.name}</h2>
                     <p className="text-sm text-gray-600">{item.description}</p>
@@ -32,8 +42,7 @@ export default function MenuItem({
                 </div>
             </div>
 
-            {/* Actieblok */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between relative -mt-4">
                 <input
                     type="number"
                     min={1}
@@ -44,12 +53,47 @@ export default function MenuItem({
                     }}
                     className="w-16 border rounded px-2 py-1 text-center bg-white"
                 />
-                <button
-                    onClick={() => onAdd(item, quantity)}
-                    className="bg-black text-white px-4 py-2 rounded-xl hover:bg-gray-800 transition"
+
+                {/* ✅ GROENE MESSAGE */}
+                <div className="absolute left-[85%] transform -translate-x-1/2 top-7">
+                    <AnimatePresence>
+                        {showMessage && (
+                            <motion.div
+                                initial={{ y: -20 }}
+                                animate={{ y: 0 }}
+                                exit={{ y: -20 }}
+                                transition={{ duration: 0.4, ease: "linear" }}
+                                className="bg-black text-white text-sm px-6 py-1 rounded-xl shadow whitespace-nowrap"
+                            >
+                                +{quantity}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                </div>
+
+                {/* ✅ KNOP MET DOEK */}
+                <motion.button
+                    onClick={handleAddClick}
+                    disabled={showMessage}
+                    className={`relative px-4 py-2 rounded-xl overflow-hidden transition ${showMessage ? "bg-gray-400 cursor-not-allowed" : "bg-black hover:bg-gray-800"
+                        }`}
                 >
-                    Voeg toe
-                </button>
+                    <div className="relative h-5 overflow-hidden z-10">
+                        <motion.span
+                            animate={{ y: showMessage ? "100%" : "0%" }}
+                            transition={{ duration: 0.4, ease: "easeInOut" }}
+                            className="block text-white text-sm font-medium"
+                        >
+                            Voeg toe
+                        </motion.span>
+                    </div>
+                    <motion.div
+                        animate={{ y: showMessage ? "0%" : "-100%" }}
+                        transition={{ duration: 0.4, ease: "easeInOut" }}
+                        className="absolute inset-0 bg-black z-0"
+                    />
+                </motion.button>
             </div>
         </div>
     );
