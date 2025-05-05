@@ -63,7 +63,7 @@ export default function MenuPage() {
           <input
             name="title"
             placeholder="Naam gerecht"
-            className="w-full border px-3 py-2 rounded"
+            className="w-full border px-3 py-2 rounded text-gray-800"
             required
           />
           <input
@@ -71,7 +71,7 @@ export default function MenuPage() {
             type="number"
             step="0.01"
             placeholder="Prijs (€)"
-            className="w-full border px-3 py-2 rounded"
+            className="w-full border px-3 py-2 rounded text-gray-800"
             required
           />
           <button
