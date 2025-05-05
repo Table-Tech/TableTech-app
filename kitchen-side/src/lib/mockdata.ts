@@ -105,8 +105,8 @@ export const mockUsers = [
       { id: "m2", title: "Spa Blauw", price: 2.0, description: "Plat mineraalwater", category: "Drankjes", image: "/spa.jpg",}
     ],
     r2: [
-      { id: "m3", title: "Cheeseburger", price: 8.5, description: "Goed gevulde cheeseburger", category: "Burgers",},
-      { id: "m4", title: "Fries", price: 3.0, description: "Heerlijke franse frietjes", category: "Zij-gerecht", },
+      { id: "m3", title: "Cheeseburger", price: 8.5, description: "Goed gevulde cheeseburger", category: "Burgers", image: "/cheeseburger.jpg",},
+      { id: "m4", title: "Fries", price: 3.0, description: "Heerlijke franse frietjes", category: "Zij-gerecht", image: "/fries.jpg",},
       { id: "m5", title: "Cola", price: 2.5, description: "Fris en bruisend", category: "Drankjes", image: "/cola.jpg",},
       { id: "m6", title: "Spa Blauw", price: 2.0, description: "Plat mineraalwater", category: "Drankjes", image: "/spa.jpg",}
     ]
