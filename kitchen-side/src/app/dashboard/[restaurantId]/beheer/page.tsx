@@ -18,11 +18,31 @@ export default function BeheerPage() {
           <section className="bg-white p-6 rounded shadow mb-6 text-gray-800">
             <h2 className="text-lg font-semibold mb-4">Organisatiegegevens</h2>
             <form className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-800">
-              <input name="name" defaultValue={settings.name} placeholder="Bedrijfsnaam" className="border p-2 rounded" />
-              <input name="email" defaultValue={settings.email} placeholder="E-mailadres" className="border p-2 rounded" />
-              <input name="kvk" defaultValue={settings.kvk} placeholder="KVK-nummer" className="border p-2 rounded" />
-              <input name="phone" defaultValue={settings.phone} placeholder="Telefoonnummer" className="border p-2 rounded" />
-              <input name="goLive" type="date" defaultValue={settings.goLiveDate} className="border p-2 rounded col-span-2" />
+              <div className="flex flex-col">
+                <label htmlFor="name" className="text-sm font-medium mb-1">Bedrijfsnaam</label>
+                <input name="name" id="name" defaultValue={settings.name} className="border p-2 rounded" />
+              </div>
+
+              <div className="flex flex-col">
+                <label htmlFor="email" className="text-sm font-medium mb-1">E-mailadres</label>
+                <input name="email" id="email" defaultValue={settings.email} className="border p-2 rounded" />
+              </div>
+
+              <div className="flex flex-col">
+                <label htmlFor="kvk" className="text-sm font-medium mb-1">KVK-nummer</label>
+                <input name="kvk" id="kvk" defaultValue={settings.kvk} className="border p-2 rounded" />
+              </div>
+
+              <div className="flex flex-col">
+                <label htmlFor="phone" className="text-sm font-medium mb-1">Telefoonnummer</label>
+                <input name="phone" id="phone" defaultValue={settings.phone} className="border p-2 rounded" />
+              </div>
+
+              <div className="flex flex-col col-span-2">
+                <label htmlFor="goLive" className="text-sm font-medium mb-1">Go live datum</label>
+                <input name="goLive" id="goLive" type="date" defaultValue={settings.goLiveDate} className="border p-2 rounded" />
+              </div>
+
               <div className="col-span-2">
                 <label className="inline-flex items-center gap-2">
                   <input type="checkbox" defaultChecked={settings.active} />
