@@ -169,18 +169,27 @@ export default function ClientPage() {
                 )}
             </AnimatePresence>
 
-            {cart.length > 0 && (
-                <footer className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-40 px-4 py-4">
-                    <div className="max-w-md mx-auto">
-                        <button
-                            onClick={handleGoToCart}
-                            className="w-full bg-black text-white py-3 rounded-xl hover:bg-gray-800 transition text-center text-lg"
-                        >
-                            🛍️ Bekijk bestelling ({cart.reduce((sum, i) => sum + i.quantity, 0)} items)
-                        </button>
-                    </div>
-                </footer>
-            )}
+            <AnimatePresence>
+                {cart.length > 0 && !startEntryTransition && (
+                    <motion.footer
+                        initial={{ y: 100, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 100, opacity: 0 }}
+                        transition={{ duration: 0.6, ease: "easeOut", delay: 0.6 }}
+                        className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-40 px-4 py-4"
+                    >
+                        <div className="max-w-md mx-auto">
+                            <button
+                                onClick={handleGoToCart}
+                                className="w-full bg-black text-white py-3 rounded-xl hover:bg-gray-800 transition text-center text-lg"
+                            >
+                                🛍️ Bekijk bestelling ({cart.reduce((sum, i) => sum + i.quantity, 0)} items)
+                            </button>
+                        </div>
+                    </motion.footer>
+                )}
+            </AnimatePresence>
+
 
             <AnimatePresence>
                 {startTransition && (
