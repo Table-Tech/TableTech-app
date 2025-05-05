@@ -13,6 +13,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <h2 className="text-2xl font-bold text-[#12395B] mb-6">TableTech</h2>
         <nav className="flex flex-col space-y-3">
           <Link href={`/dashboard/${restaurantId}`} className="text-[#12395B] hover:text-blue-600">Home</Link>
+          <Link href={`/dashboard/${restaurantId}/tables`} className="text-[#12395B] hover:text-blue-600">Tafels</Link>
           <Link href={`/dashboard/${restaurantId}/menu`} className="text-[#12395B] hover:text-blue-600">Menu</Link>
           <Link href={`/dashboard/${restaurantId}/statistics`} className="text-[#12395B] hover:text-blue-600">Statistieken</Link>
         </nav>

@@ -1,5 +1,28 @@
 // lib/mockdata.ts
+export type TableStatus = 'leeg' | 'gereserveerd' | 'bezet' | 'rekening' | 'wachten';
 
+export interface Table {
+  id: number;
+  name: string;
+  status: TableStatus;
+}
+
+export const mockTables: Record<string, Table[]> = {
+  r1: [
+    { id: 1, name: 'Tafel 1', status: 'leeg' },
+    { id: 2, name: 'Tafel 2', status: 'bezet' },
+    { id: 3, name: 'Tafel 3', status: 'rekening' },
+    { id: 4, name: 'Tafel 4', status: 'wachten' },
+    { id: 5, name: 'Tafel 5', status: 'gereserveerd' },
+  ],
+  r2: [
+    { id: 1, name: 'Tafel 1', status: 'leeg' },
+    { id: 2, name: 'Tafel 2', status: 'bezet' },
+    { id: 3, name: 'Tafel 3', status: 'rekening' },
+    { id: 4, name: 'Tafel 4', status: 'wachten' },
+    { id: 5, name: 'Tafel 5', status: 'gereserveerd' },
+  ],
+};
 
 export type MenuItem = {
   id: string;
