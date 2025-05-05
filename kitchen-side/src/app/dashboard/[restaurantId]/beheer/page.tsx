@@ -6,11 +6,18 @@ import { mockOrganizationSettings } from '@/lib/mockdata'
 export default function BeheerPage() {
     const params = useParams()
     const restaurantId = params?.restaurantId as string
-    const settings = mockOrganizationSettings[restaurantId]
 
-    if (!settings) {
-        return <p className="p-8">Geen gegevens gevonden.</p>
+    const defaultSettings = {
+      name: '',
+      email: '',
+      kvk: '',
+      phone: '',
+      goLiveDate: '',
+      active: false,
+      logo: '',
     }
+    
+    const settings = mockOrganizationSettings[restaurantId] ?? defaultSettings
     return (
         <div className="p-8 bg-[#f6fcff] min-h-screen">
           <h1 className="text-2xl font-bold text-[#12395B] mb-6">Beheer</h1>
