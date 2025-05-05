@@ -61,6 +61,7 @@ export type MenuItem = {
   price: number;
   description?: string;
   image?: string;
+  category?: string;
 };
 
 export type Order = {
@@ -98,16 +99,16 @@ export const mockUsers = [
   
   export const mockMenuItems: Record<string, MenuItem[]> = {
     r1: [
-      { id: "m1", title: "Margherita pizza", price: 9.95, description: "Klassieke pizza met tomatensaus, mozzarella en basilicum", image: "/margherita.jpg",},
-      { id: "m2", title: "Pepperoni pizza", price: 11.5, description: "Pikante pepperoni met mozzarella", image: "/pepperoni.jpg",},
-      { id: "m5", title: "Cola", price: 2.5, description: "Fris en bruisend", image: "/cola.jpg",},
-      { id: "m2", title: "Spa Blauw", price: 2.0, description: "Plat mineraalwater", image: "/spa.jpg",}
+      { id: "m1", title: "Margherita pizza", price: 9.95, description: "Klassieke pizza met tomatensaus, mozzarella en basilicum", category: "Pizza", image: "/margherita.jpg",},
+      { id: "m2", title: "Pepperoni pizza", price: 11.5, description: "Pikante pepperoni met mozzarella", category: "Pizza", image: "/pepperoni.jpg",},
+      { id: "m5", title: "Cola", price: 2.5, description: "Fris en bruisend", category: "Drankjes", image: "/cola.jpg",},
+      { id: "m2", title: "Spa Blauw", price: 2.0, description: "Plat mineraalwater", category: "Drankjes", image: "/spa.jpg",}
     ],
     r2: [
-      { id: "m3", title: "Cheeseburger", price: 8.5 },
-      { id: "m4", title: "Fries", price: 3.0 },
-      { id: "m5", title: "Cola", price: 2.5, description: "Fris en bruisend", image: "/cola.jpg",},
-      { id: "m6", title: "Spa Blauw", price: 2.0, description: "Plat mineraalwater", image: "/spa.jpg",}
+      { id: "m3", title: "Cheeseburger", price: 8.5, description: "Goed gevulde cheeseburger", category: "Burgers",},
+      { id: "m4", title: "Fries", price: 3.0, description: "Heerlijke franse frietjes", category: "Zij-gerecht", },
+      { id: "m5", title: "Cola", price: 2.5, description: "Fris en bruisend", category: "Drankjes", image: "/cola.jpg",},
+      { id: "m6", title: "Spa Blauw", price: 2.0, description: "Plat mineraalwater", category: "Drankjes", image: "/spa.jpg",}
     ]
   };
   

@@ -37,6 +37,12 @@ export default function MenuPage() {
     setShowForm(false)
   }
 
+  const groupedMenu = menu.reduce((acc, item) => {
+    const category = item.category || 'Overig'
+    acc[category] = [...(acc[category] || []), item]
+    return acc
+  }, {} as Record<string, MenuItem[]>)  
+
   return (
     <div className="p-8 bg-[#f6fcff] min-h-screen">
       <div className="flex justify-between items-center mb-6">
@@ -53,24 +59,25 @@ export default function MenuPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        {menu.map(item => (
-          <div key={item.id} className="p-4 bg-white shadow rounded-lg space-y-2">
-            {item.image && (
-              <div className="w-full h-40 relative rounded overflow-hidden">
-                <img
-                  src={item.image}
-                  alt={item.title}
-                  className="w-full h-full object-cover"
-                />
+      {Object.entries(groupedMenu).map(([category, items]) => (
+        <div key={category} className="mb-8">
+          <h2 className="text-xl font-bold text-[#12395B] mb-4">{category}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {items.map(item => (
+              <div key={item.id} className="p-4 bg-white shadow rounded-lg space-y-2">
+                {item.image && (
+                  <div className="w-full h-40 relative rounded overflow-hidden">
+                    <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <h3 className="font-semibold text-[#12395B]">{item.title}</h3>
+                {item.description && <p className="text-sm text-gray-600">{item.description}</p>}
+                <p className="text-base font-bold text-gray-600">€{item.price.toFixed(2)}</p>
               </div>
-            )}
-            <h2 className="font-semibold text-[#12395B]">{item.title}</h2>
-            {item.description && (
-              <p className="text-sm text-gray-600">{item.description}</p>
-            )}
-            <p className="text-base font-bold text-gray-600">€{item.price.toFixed(2)}</p>
+            ))}
           </div>
-        ))}
+        </div>
+      ))}
       </div>  
 
       {showForm && (
