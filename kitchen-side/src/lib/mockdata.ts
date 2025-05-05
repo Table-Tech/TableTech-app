@@ -11,22 +11,22 @@ export type OrganizationSettings = {
 
 export const mockOrganizationSettings: Record<string, OrganizationSettings> = {
   r1: {
-    name: "Restaurant 1",
-    email: "info@restaurant1.com",
+    name: "Pizza Palace",
+    email: "info@PizzaPalace.com",
     phone: "010-1234567",
     kvk: "12345678",
     goLiveDate: "2024-01-01",
     active: true,
-    logo: "/logo1.svg", // staat in /public
+    logo: "/PizzaPalace.jpg", // staat in /public
   },
   r2: {
-    name: "Restaurant 2",
-    email: "info@restaurant2.com",
+    name: "Burger Bistro",
+    email: "info@BurgerBistro.com",
     phone: "020-7654321",
     kvk: "87654321",
     goLiveDate: "2024-06-01",
     active: false,
-    logo: "/logo2.svg",
+    logo: "/BurgerBistro.jpg",
   },
 }
 
@@ -73,13 +73,13 @@ export type Order = {
 export const mockUsers = [
     {
       id: "1",
-      email: "admin@restaurant1.com",
+      email: "admin@PizzaPalace.com",
       role: "ADMIN",
       restaurantId: "r1"
     },
     {
       id: "2",
-      email: "user@restaurant1.com",
+      email: "user@PizzaPalace.com",
       role: "USER",
       restaurantId: "r1"
     },
