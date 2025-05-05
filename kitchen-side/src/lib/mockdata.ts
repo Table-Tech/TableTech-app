@@ -1,4 +1,35 @@
 // lib/mockdata.ts
+export type OrganizationSettings = {
+  name: string
+  email: string
+  phone: string
+  kvk: string
+  goLiveDate: string
+  active: boolean
+  logo: string
+}
+
+export const mockOrganizationSettings: Record<string, OrganizationSettings> = {
+  r1: {
+    name: "Restaurant 1",
+    email: "info@restaurant1.com",
+    phone: "010-1234567",
+    kvk: "12345678",
+    goLiveDate: "2024-01-01",
+    active: true,
+    logo: "/logo1.svg", // staat in /public
+  },
+  r2: {
+    name: "Restaurant 2",
+    email: "info@restaurant2.com",
+    phone: "020-7654321",
+    kvk: "87654321",
+    goLiveDate: "2024-06-01",
+    active: false,
+    logo: "/logo2.svg",
+  },
+}
+
 export type TableStatus = 'leeg' | 'gereserveerd' | 'bezet' | 'rekening' | 'wachten';
 
 export interface Table {

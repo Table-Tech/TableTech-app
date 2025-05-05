@@ -16,6 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link href={`/dashboard/${restaurantId}/tables`} className="text-[#12395B] hover:text-blue-600">Tafels</Link>
           <Link href={`/dashboard/${restaurantId}/menu`} className="text-[#12395B] hover:text-blue-600">Menu</Link>
           <Link href={`/dashboard/${restaurantId}/statistics`} className="text-[#12395B] hover:text-blue-600">Statistieken</Link>
+          <Link href={`/dashboard/${restaurantId}/beheer`} className="text-[#12395B] hover:text-blue-600">Beheer</Link>
         </nav>
       </aside>
       <main className="flex-1 bg-[#F6FCFF] p-6 overflow-y-auto">
