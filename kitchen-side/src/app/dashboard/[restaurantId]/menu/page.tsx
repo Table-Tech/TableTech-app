@@ -20,12 +20,16 @@ export default function MenuPage() {
     e.preventDefault()
     const form = e.currentTarget
     const title = (form.elements.namedItem('title') as HTMLInputElement).value
+    const description = (form.elements.namedItem('description') as HTMLInputElement).value
     const price = parseFloat((form.elements.namedItem('price') as HTMLInputElement).value)
+    const image = (form.elements.namedItem('image') as HTMLInputElement).value
 
     const newItem: MenuItem = {
       id: `m${menu.length + 1}`,
       title,
+      description,
       price,
+      image,
     }
 
     setMenu([...menu, newItem])
@@ -50,12 +54,24 @@ export default function MenuPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         {menu.map(item => (
-          <div key={item.id} className="p-4 bg-white shadow rounded-lg">
+          <div key={item.id} className="p-4 bg-white shadow rounded-lg space-y-2">
+            {item.image && (
+              <div className="w-full h-40 relative rounded overflow-hidden">
+                <img
+                  src={item.image}
+                  alt={item.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
             <h2 className="font-semibold text-[#12395B]">{item.title}</h2>
-            <p className="text-gray-600">€{item.price}</p>
+            {item.description && (
+              <p className="text-sm text-gray-600">{item.description}</p>
+            )}
+            <p className="text-base font-bold text-gray-600">€{item.price.toFixed(2)}</p>
           </div>
         ))}
-      </div>
+      </div>  
 
       {showForm && (
         <form onSubmit={handleSubmit} className="max-w-md bg-white p-4 rounded shadow space-y-4">
@@ -67,12 +83,24 @@ export default function MenuPage() {
             required
           />
           <input
+            name="description"
+            placeholder="Beschrijving"
+            className="w-full border px-3 py-2 rounded text-gray-800"
+            required
+          />
+          <input
             name="price"
             type="number"
             step="0.01"
             placeholder="Prijs (€)"
             className="w-full border px-3 py-2 rounded text-gray-800"
             required
+          />
+          <input
+            name="image"
+            placeholder="Afbeeldingspad (bijv. /margherita.jpg)"
+            className="w-full border px-3 py-2 rounded text-gray-800"
+            //required (voor testen ff uitgezet)
           />
           <button
             type="submit"
