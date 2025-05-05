@@ -92,8 +92,8 @@ export const mockUsers = [
   ];
   
   export const mockRestaurants = [
-    { id: "r1", name: "Pizza Palace" },
-    { id: "r2", name: "Burger Bistro" }
+    { id: "r1", name: "Pizza Palace", logo: "/PizzaPalace.jpg" },
+    { id: "r2", name: "Burger Bistro", logo: "/BurgerBistro.jpg" }
   ];
   
   export const mockMenuItems: Record<string, MenuItem[]> = {

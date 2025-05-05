@@ -3,24 +3,23 @@
 import { mockRestaurants } from "../../lib/mockdata";
 import { useRouter } from "next/navigation";
 
-export default function SelectRestaurantPage() {
+export default function SelectPage() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6 text-gray-800">Selecteer een Restaurant</h1>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-          {mockRestaurants.map((restaurant) => (
-            <div
-              key={restaurant.id}
-              onClick={() => router.push(`/dashboard/${restaurant.id}`)}
-              className="bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-lg transition text-gray-800"
-            >
-              <p className="text-lg font-semibold">{restaurant.name}</p>
-            </div>
-          ))}
-        </div>
+    <div className="p-8 min-h-screen bg-gray-100 flex flex-col items-center">
+      <h1 className="text-2xl font-bold mb-6 text-gray-800">Selecteer een Restaurant</h1>
+      <div className="flex gap-6 flex-wrap justify-center">
+        {mockRestaurants.map((r) => (
+          <button
+            key={r.id}
+            onClick={() => router.push(`/dashboard/${r.id}`)}
+            className="bg-white hover:bg-gray-100 p-4 rounded-xl shadow w-60 text-center"
+          >
+            <img src={r.logo} alt={r.name} className="w-20 h-20 mx-auto mb-3 object-contain" />
+            <p className="font-semibold text-[#12395B]">{r.name}</p>
+          </button>
+        ))}
       </div>
     </div>
   );
