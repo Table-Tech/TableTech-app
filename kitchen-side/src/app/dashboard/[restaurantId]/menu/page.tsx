@@ -81,41 +81,52 @@ export default function MenuPage() {
       </div>  
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="max-w-md bg-white p-4 rounded shadow space-y-4">
-          <h2 className="text-lg font-semibold text-[#12395B]">Nieuw menu-item toevoegen</h2>
-          <input
-            name="title"
-            placeholder="Naam gerecht"
-            className="w-full border px-3 py-2 rounded text-gray-800"
-            required
-          />
-          <input
-            name="description"
-            placeholder="Beschrijving"
-            className="w-full border px-3 py-2 rounded text-gray-800"
-            required
-          />
-          <input
-            name="price"
-            type="number"
-            step="0.01"
-            placeholder="Prijs (€)"
-            className="w-full border px-3 py-2 rounded text-gray-800"
-            required
-          />
-          <input
-            name="image"
-            placeholder="Afbeeldingspad (bijv. /margherita.jpg)"
-            className="w-full border px-3 py-2 rounded text-gray-800"
-            //required (voor testen ff uitgezet)
-          />
-          <button
-            type="submit"
-            className="bg-[#12395B] text-white px-4 py-2 rounded hover:bg-[#0a2e4a]"
-          >
-            Toevoegen
-          </button>
-        </form>
+        <div className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-sm bg-white/30">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
+            {/* Sluitknop rechtsboven */}
+            <button
+              onClick={() => setShowForm(false)}
+              className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+            >
+              ✕
+            </button>
+
+            <h2 className="text-lg font-semibold text-[#12395B] mb-4">Nieuw menu-item toevoegen</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input
+                name="title"
+                placeholder="Naam gerecht"
+                className="w-full border px-3 py-2 rounded text-gray-800"
+                required
+              />
+              <input
+                name="description"
+                placeholder="Beschrijving"
+                className="w-full border px-3 py-2 rounded text-gray-800"
+                required
+              />
+              <input
+                name="price"
+                type="number"
+                step="0.01"
+                placeholder="Prijs (€)"
+                className="w-full border px-3 py-2 rounded text-gray-800"
+                required
+              />
+              <input
+                name="image"
+                placeholder="Afbeeldingspad (bijv. /margherita.jpg)"
+                className="w-full border px-3 py-2 rounded text-gray-800"
+              />
+              <button
+                type="submit"
+                className="bg-[#12395B] text-white px-4 py-2 rounded hover:bg-[#0a2e4a] w-full"
+              >
+                Toevoegen
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   )
