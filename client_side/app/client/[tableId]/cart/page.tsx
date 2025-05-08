@@ -52,7 +52,7 @@ export default function CartPage() {
         }
 
         setError(null);
-        alert("✅ Bestelling geplaatst!");
+        router.push(`/client/${tableId}/thankyou`);
     };
 
     const total = cartItems.reduce((sum: number, item: any) => {
