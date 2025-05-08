@@ -12,6 +12,7 @@ export default function MenuItem({
     const [quantity, setQuantity] = useState(1);
     const [showMessage, setShowMessage] = useState(false);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const [showPopup, setShowPopup] = useState(false);
 
     const handleAddClick = () => {
         onAdd(item, quantity);
@@ -95,6 +96,48 @@ export default function MenuItem({
                     />
                 </motion.button>
             </div>
+            <div className="fixed top-5 right-5 z-50">
+                <button
+                    onClick={() => setShowPopup(true)}
+                    className="bg-darkgrey text-white p-3 rounded-full shadow-lg text-xl"
+                >
+                    🧍
+                </button>
+            </div>
+            {showPopup && (
+                <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+                    <div className="bg-white rounded-xl shadow-lg p-6 w-[90%] max-w-sm">
+                    <h2 className="text-lg font-bold mb-4">Maak een keuze</h2>
+                    
+                    <button
+                        onClick={() => {
+                        setShowPopup(false);
+                        alert("🧾 De rekening is aangevraagd.");
+                        }}
+                        className="w-full bg-purple-700 text-white py-3 rounded mb-3"
+                    >
+                        🧾 Vraag de rekening
+                    </button>
+
+                    <button
+                        onClick={() => {
+                        setShowPopup(false);
+                        alert("🙋 Een ober is onderweg.");
+                        }}
+                        className="w-full bg-gray-800 text-white py-3 rounded mb-3"
+                    >
+                        🙋 Vraag om een ober
+                    </button>
+
+                    <button
+                        onClick={() => setShowPopup(false)}
+                        className="w-full text-gray-600 underline"
+                    >
+                        Sluiten
+                    </button>
+                    </div>
+                </div>
+                )}
         </div>
     );
 }
