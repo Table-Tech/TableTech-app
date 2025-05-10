@@ -4,11 +4,14 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import MenuItem from "./components/MenuItem";
+import { mockOrganizationSettings } from "../../../lib/mockdata";
 
 export default function ClientPage() {
   const params = useParams();
   const router = useRouter();
   const tableId = params.tableId as string;
+  const restaurantId = "r1";
+  const restaurantName = mockOrganizationSettings[restaurantId]?.name;
 
   const [cart, setCart] = useState<any[]>([]);
   const [openCategories, setOpenCategories] = useState<{ [key: string]: boolean }>({});
@@ -16,6 +19,8 @@ export default function ClientPage() {
   const [startEntryTransition, setStartEntryTransition] = useState(true);
   const [footerVisible, setFooterVisible] = useState(false);
   const [showPopup, setShowPopup] = useState(false); // 👈 nieuw
+  const total = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const totalItems = cart.reduce((sum, i) => sum + i.quantity, 0);
 
   useEffect(() => {
     const stored = localStorage.getItem("cart");
@@ -117,6 +122,9 @@ export default function ClientPage() {
           className="p-4 max-w-md mx-auto pb-40 space-y-4 bg-white min-h-screen"
         >
           <h1 className="text-2xl font-bold mb-6 text-center">Menu Kaart</h1>
+          <h2 className="text-center text-sm text-gray-600 mt-2 mb-1">
+            {restaurantName} – Tafel {tableId}
+          </h2>
 
           {menuData && Object.entries(menuData).map(([category, items]) => (
             <div key={category} className="border-b-2 border-gray-300 pb-3">
@@ -176,7 +184,8 @@ export default function ClientPage() {
               onClick={handleGoToCart}
               className="w-full bg-black text-white py-3 rounded-xl hover:bg-gray-800 transition text-center text-lg"
             >
-              🛍️ Bekijk bestelling ({cart.reduce((sum, i) => sum + i.quantity, 0)} items)
+              
+              🛍️ Bekijk bestelling ({totalItems} items – €{total.toFixed(2)})
             </button>
           </div>
         </motion.footer>
