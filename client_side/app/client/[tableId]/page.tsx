@@ -5,50 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import MenuItem from "./components/MenuItem";
 
-const mockMenu = {
-  "Pizza's": [
-    {
-      id: 1,
-      name: "Margherita Pizza",
-      description: "Klassieke pizza",
-      price: 9.95,
-      image: "/margherita.jpg",
-    },
-    {
-      id: 2,
-      name: "Pepperoni Pizza",
-      description: "Pikante pepperoni",
-      price: 11.5,
-      image: "/pepperoni.jpg",
-    },
-  ],
-  Salades: [
-    {
-      id: 3,
-      name: "Caesar Salad",
-      description: "Krokante sla met kip",
-      price: 7.5,
-      image: "/caesar.jpg",
-    },
-  ],
-  Dranken: [
-    {
-      id: 4,
-      name: "Cola",
-      description: "Fris en bruisend",
-      price: 2.5,
-      image: "/cola.jpg",
-    },
-    {
-      id: 5,
-      name: "Spa Blauw",
-      description: "Plat mineraalwater",
-      price: 2.0,
-      image: "/spa.jpg",
-    },
-  ],
-};
-
 export default function ClientPage() {
   const params = useParams();
   const router = useRouter();
@@ -92,6 +48,17 @@ export default function ClientPage() {
     setStartTransition(true);
     setTimeout(() => router.push(`/client/${tableId}/cart`), 400);
   };
+
+  const [menuData, setMenuData] = useState<Record<string, any[]> | null>(null);
+
+  useEffect(() => {
+    const fetchMenu = async () => {
+      const res = await fetch("http://192.168.1.114:3000/api/menu?r=r1");
+      const data = await res.json();
+      setMenuData(data);
+    };
+    fetchMenu();
+  }, [[tableId]]);
 
   return (
     <>
@@ -151,7 +118,7 @@ export default function ClientPage() {
         >
           <h1 className="text-2xl font-bold mb-6 text-center">Menu Kaart</h1>
 
-          {Object.entries(mockMenu).map(([category, items]) => (
+          {menuData && Object.entries(menuData).map(([category, items]) => (
             <div key={category} className="border-b-2 border-gray-300 pb-3">
               <button
                 onClick={() => toggleCategory(category)}
