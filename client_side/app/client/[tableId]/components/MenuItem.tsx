@@ -30,13 +30,13 @@ export default function MenuItem({
                     <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
                         <img
                             src={item.image}
-                            alt={item.name}
+                            alt={item.title}
                             className="w-full h-full object-cover"
                         />
                     </div>
                 )}
                 <div className="flex-1">
-                    <h2 className="text-lg font-semibold">{item.name}</h2>
+                    <h2 className="text-lg font-semibold">{item.title}</h2>
                     <p className="text-sm text-gray-600">{item.description}</p>
                     <p className="text-base font-bold mt-1">€ {item.price.toFixed(2)}</p>
                 </div>

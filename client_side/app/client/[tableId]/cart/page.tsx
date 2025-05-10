@@ -102,7 +102,7 @@ export default function CartPage() {
                                             className="bg-gray-100 rounded-xl p-4 shadow-md w-full"
                                         >
                                             <div className="flex justify-between items-center mb-2">
-                                                <h2 className="text-lg font-semibold">{item.name}</h2>
+                                                <h2 className="text-lg font-semibold">{item.title}</h2>
                                                 <p className="text-lg font-bold">
                                                     €{(item.price * (isNaN(item.quantity) ? 0 : item.quantity)).toFixed(2)}
                                                 </p>
