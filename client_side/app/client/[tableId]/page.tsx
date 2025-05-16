@@ -38,8 +38,8 @@ export default function ClientPage() {
     const existing = cart.find((i) => i.id === item.id);
     const newCart = existing
       ? cart.map((i) =>
-          i.id === item.id ? { ...i, quantity: i.quantity + quantity } : i
-        )
+        i.id === item.id ? { ...i, quantity: i.quantity + quantity } : i
+      )
       : [...cart, { ...item, quantity }];
     setCart(newCart);
     localStorage.setItem("cart", JSON.stringify(newCart));
@@ -58,7 +58,7 @@ export default function ClientPage() {
 
   useEffect(() => {
     const fetchMenu = async () => {
-      const res = await fetch("http://192.168.1.114:3000/api/menu?r=r1");
+      const res = await fetch("http://192.168.56.1:3000/api/menu?r=r2");
       const data = await res.json();
       setMenuData(data);
     };
@@ -184,7 +184,7 @@ export default function ClientPage() {
               onClick={handleGoToCart}
               className="w-full bg-black text-white py-3 rounded-xl hover:bg-gray-800 transition text-center text-lg"
             >
-              
+
               🛍️ Bekijk bestelling ({totalItems} items – €{total.toFixed(2)})
             </button>
           </div>
