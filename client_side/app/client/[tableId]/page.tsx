@@ -58,7 +58,7 @@ export default function ClientPage() {
 
   useEffect(() => {
     const fetchMenu = async () => {
-      const res = await fetch("http://192.168.56.1:3000/api/menu?r=r2");
+      const res = await fetch("http://192.168.2.12:3000/api/menu?r=r2");
       const data = await res.json();
       setMenuData(data);
     };

@@ -1,11 +1,16 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react"; // 👈 voeg toe
 
 export default function ThankYouPage() {
   const params = useParams();
   const router = useRouter();
   const tableId = params.tableId as string;
+
+  useEffect(() => {
+    localStorage.removeItem("cart");
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white px-4">
@@ -30,7 +35,7 @@ export default function ThankYouPage() {
           onClick={() => router.push(`/client/${tableId}`)}
           className="w-full bg-purple-700 hover:bg-purple-800 text-white py-3 rounded-lg font-semibold text-sm"
         >
-          Nog iets bestellen →
+          Terug naar menu kaart →
         </button>
       </div>
     </div>
