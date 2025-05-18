@@ -116,6 +116,10 @@ export const mockUsers = [
     r1: [
       { id: "o1", table: 4, items: ["m1"], status: "pending" },
       { id: "o2", table: 8, items: ["m1", "m2"], status: "complete" }
+    ],
+    r2: [
+      { id: "o3", table: 2, items: ["m3"], status: "pending" },
+      { id: "o4", table: 5, items: ["m4", "m5"], status: "complete" }
     ]
   };
   
