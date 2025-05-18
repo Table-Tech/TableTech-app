@@ -10,11 +10,11 @@
   "type": "module",
   "description": "Monorepo for TableTech fullstack app",
   "scripts": {
-    "dev": "concurrently \"npm run dev:client\" \"npm run dev:kitchen\" \"npm run dev:api\"",
-    "dev:client": "cd client_side && npx next dev -p 3000 --turbo",
-    "dev:kitchen": "cd kitchen-side && npx next dev -p 3002 --turbo",
-    "dev:api": "cd api && npm run dev"
-  },
+  "dev": "concurrently \"npm run dev:client\" \"npm run dev:kitchen\" \"npm run dev:api\"",
+  "dev:client": "cd client_side && npx next dev -p 3000",
+  "dev:kitchen": "cd kitchen-side && npx next dev -p 3002",
+  "dev:api": "cd api && npm run dev"
+},
   "repository": {
     "type": "git",
     "url": "https://github.com/Table-Tech/TableTech-app.git"
