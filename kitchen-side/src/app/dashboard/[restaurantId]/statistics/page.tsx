@@ -9,7 +9,7 @@ import {
   DollarSign,
   ShoppingBag,
 } from "lucide-react";
-import { ArrowUpRight, ArrowDownRight, Calendar, Download } from "lucide-react";
+import { Calendar, Download } from "lucide-react";
 
 interface TopSellingItem {
   name: string;
