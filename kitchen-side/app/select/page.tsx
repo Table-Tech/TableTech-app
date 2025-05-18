@@ -1,30 +1,32 @@
-'use client'
+"use client";
 
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
-import { mockRestaurants as initialRestaurants } from '../../lib/mockdata'
-import { Plus } from 'lucide-react'
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { mockRestaurants as initialRestaurants } from "../../lib/mockdata";
+import { Plus } from "lucide-react";
 
 export default function SelectPage() {
-  const router = useRouter()
-  const [restaurants, setRestaurants] = useState(initialRestaurants)
-  const [showForm, setShowForm] = useState(false)
+  const router = useRouter();
+  const [restaurants, setRestaurants] = useState(initialRestaurants);
+  const [showForm, setShowForm] = useState(false);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const form = e.currentTarget
-    const name = (form.elements.namedItem('name') as HTMLInputElement).value
-    const logo = (form.elements.namedItem('logo') as HTMLInputElement).value
-    const newId = `r${restaurants.length + 1}`
+    e.preventDefault();
+    const form = e.currentTarget;
+    const name = (form.elements.namedItem("name") as HTMLInputElement).value;
+    const logo = (form.elements.namedItem("logo") as HTMLInputElement).value;
+    const newId = `r${restaurants.length + 1}`;
 
-    setRestaurants([...restaurants, { id: newId, name, logo }])
-    form.reset()
-    setShowForm(false)
-  }
+    setRestaurants([...restaurants, { id: newId, name, logo }]);
+    form.reset();
+    setShowForm(false);
+  };
 
   return (
     <div className="p-8 min-h-screen bg-gray-100 flex flex-col items-center">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">Selecteer een Restaurant</h1>
+      <h1 className="text-2xl font-bold mb-6 text-gray-800">
+        Selecteer een Restaurant
+      </h1>
 
       <div className="flex gap-6 flex-wrap justify-center">
         {restaurants.map((r) => (
@@ -58,7 +60,9 @@ export default function SelectPage() {
           onSubmit={handleSubmit}
           className="mt-6 bg-white p-6 rounded shadow w-full max-w-md space-y-4"
         >
-          <h2 className="text-lg font-semibold text-[#12395B]">Nieuw restaurant toevoegen</h2>
+          <h2 className="text-lg font-semibold text-[#12395B]">
+            Nieuw restaurant toevoegen
+          </h2>
           <input
             name="name"
             placeholder="Naam restaurant"
@@ -88,5 +92,5 @@ export default function SelectPage() {
         </form>
       )}
     </div>
-  )
+  );
 }
