@@ -33,11 +33,7 @@ export default function StatisticsPage() {
 
   useEffect(() => {
     if (restaurantId) {
-      const filteredOrders = Object.values(mockOrders)
-        .flat()
-        .filter((order) => {
-          return true; // Adjust this filter based on your actual data structure
-        });
+      const filteredOrders = mockOrders[restaurantId] || [];
       setOrders(filteredOrders);
     }
 
