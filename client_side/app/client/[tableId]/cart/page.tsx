@@ -40,7 +40,7 @@ export default function CartPage() {
         localStorage.setItem("cart", JSON.stringify(updated));
     };
 
-    const handlePlaceOrder = () => {
+    const handlePlaceOrder = async () => {
         const hasInvalid = cartItems.some(
             (item) => item.quantity === 0 || item.quantity === "" || isNaN(item.quantity)
         );
@@ -51,8 +51,28 @@ export default function CartPage() {
             return;
         }
 
-        setError(null);
-        alert("✅ Bestelling geplaatst!");
+        try {
+            const res = await fetch("/api/create-payment", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    totalAmount: total,
+                    tableId,
+                }),
+            });
+
+            const data = await res.json();
+            if (data.url) {
+                window.location.href = data.url; // ✅ Redirect naar Mollie checkout
+            } else {
+                setError("Kon geen betaling starten.");
+            }
+        } catch (err) {
+            console.error(err);
+            setError("Er ging iets mis tijdens betaling.");
+        }
     };
 
     const total = cartItems.reduce((sum: number, item: any) => {
@@ -102,7 +122,7 @@ export default function CartPage() {
                                             className="bg-gray-100 rounded-xl p-4 shadow-md w-full"
                                         >
                                             <div className="flex justify-between items-center mb-2">
-                                                <h2 className="text-lg font-semibold">{item.name}</h2>
+                                                <h2 className="text-lg font-semibold">{item.title}</h2>
                                                 <p className="text-lg font-bold">
                                                     €{(item.price * (isNaN(item.quantity) ? 0 : item.quantity)).toFixed(2)}
                                                 </p>
