@@ -1,0 +1,35 @@
+{
+  "name": "tabletech-app",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "client_side",
+    "kitchen-side",
+    "api"
+  ],
+  "type": "module",
+  "description": "Monorepo for TableTech fullstack app",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:client\" \"npm run dev:kitchen\" \"npm run dev:api\"",
+    "dev:client": "cd client_side && npx next dev -p 3000 --turbo",
+    "dev:kitchen": "cd kitchen-side && npx next dev -p 3002 --turbo",
+    "dev:api": "cd api && npm run dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Table-Tech/TableTech-app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Table-Tech/TableTech-app/issues"
+  },
+  "homepage": "https://github.com/Table-Tech/TableTech-app#readme",
+  "author": "",
+  "license": "ISC",
+  "keywords": [],
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
