@@ -12,6 +12,8 @@ import {
   SelectItem,
 } from "../../../../components/select"
 import React, { useState } from 'react'
+import { MenuList } from "../../../../components/MenuList";
+import { mockMenuItems, MenuItem } from "@/lib/mockdata";
 
 export default function BeheerPage() {
     const params = useParams()
@@ -29,6 +31,8 @@ export default function BeheerPage() {
     
     const settings = mockOrganizationSettings[restaurantId] ?? defaultSettings
     const [activeTab, setActiveTab] = useState('General');
+    const [menu, setMenu] = useState<MenuItem[]>(mockMenuItems[restaurantId] || []);
+    const currentUser = { email: "admin@restaurant1.com", role: "ADMIN" };
 
     return (
         <div className="p-8 bg-[#f6fcff] min-h-screen">
@@ -148,11 +152,9 @@ export default function BeheerPage() {
             </section>
           )}
           {activeTab === 'Menu' && (
-            <section className="bg-white p-8 rounded shadow text-gray-800 max-w-3xl">
-              <h2 className="text-2xl font-bold mb-2">Menu Settings</h2>
-              <p className="text-gray-500 mb-2">Configure your menu settings</p>
-              <p className="text-gray-400">Menu settings content would appear here</p>
-            </section>
+            <div className="bg-white p-8 rounded shadow text-gray-800 max-w-3xl">
+              <MenuList menu={menu} setMenu={setMenu} canAdd={true} currentUser={currentUser} />
+            </div>
           )}
           {activeTab === 'Staff' && (
             <section className="bg-white p-8 rounded shadow text-gray-800 max-w-3xl">
