@@ -33,6 +33,7 @@ export default function BeheerPage() {
     return (
         <div className="p-8 bg-[#f6fcff] min-h-screen">
           {/* Top bar with tabs and Save Changes button */}
+          <h1 className="text-2xl font-bold text-[#12395B] mb-6">Beheer</h1>
           <div className="flex items-center justify-between mb-6">
             <div className="flex gap-2">
               {['General', 'Restaurant', 'Menu', 'Staff', 'Payment', 'Notifications'].map(tab => (
@@ -47,7 +48,7 @@ export default function BeheerPage() {
             </div>
             <button className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 rounded shadow transition-all duration-150">Save Changes</button>
           </div>
-          <h1 className="text-2xl font-bold text-[#12395B] mb-6">Settings</h1>
+
 
           {/* Tab content */}
           {activeTab === 'General' && (
