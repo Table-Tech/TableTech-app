@@ -30,7 +30,7 @@ export const mockOrganizationSettings: Record<string, OrganizationSettings> = {
   },
 }
 
-export type TableStatus = 'leeg' | 'gereserveerd' | 'bezet' | 'rekening' | 'wachten' | 'schoonmaken';
+export type TableStatus = 'beschikbaar' | 'gereserveerd' | 'bezet' | 'rekening' | 'wachten' | 'schoonmaken';
 
 export interface Table {
   id: number;
@@ -44,33 +44,33 @@ export interface Table {
 
 export const mockTables: Record<string, Table[]> = {
   r1: [
-    { id: 1, name: 'Tafel 1', status: 'leeg' },
+    { id: 1, name: 'Tafel 1', status: 'beschikbaar' },
     { id: 2, name: 'Tafel 2', status: 'bezet', guests: 4, time: 45, orders: 6 },
     { id: 3, name: 'Tafel 3', status: 'gereserveerd', guests: 6, reservationTime: '18:30' },
     { id: 4, name: 'Tafel 4', status: 'bezet', guests: 3, time: 65, orders: 8 },
-    { id: 5, name: 'Tafel 5', status: 'leeg' },
-    { id: 6, name: 'Tafel 6', status: 'leeg' },
+    { id: 5, name: 'Tafel 5', status: 'beschikbaar' },
+    { id: 6, name: 'Tafel 6', status: 'beschikbaar' },
     { id: 7, name: 'Tafel 7', status: 'gereserveerd', guests: 4, reservationTime: '19:45' },
     { id: 8, name: 'Tafel 8', status: 'bezet', guests: 2, time: 15, orders: 2 },
-    { id: 9, name: 'Tafel 9', status: 'leeg' },
+    { id: 9, name: 'Tafel 9', status: 'beschikbaar' },
     { id: 10, name: 'Tafel 10', status: 'schoonmaken', time: 5 },
-    { id: 11, name: 'Tafel 11', status: 'leeg' },
-    { id: 12, name: 'Tafel 12', status: 'leeg' },
+    { id: 11, name: 'Tafel 11', status: 'beschikbaar' },
+    { id: 12, name: 'Tafel 12', status: 'beschikbaar' },
     { id: 13, name: 'Tafel 13', status: 'rekening', guests: 2, time: 10, orders: 1 },
   ],
   r2: [
-    { id: 1, name: 'Tafel 1', status: 'leeg' },
+    { id: 1, name: 'Tafel 1', status: 'beschikbaar' },
     { id: 2, name: 'Tafel 2', status: 'bezet', guests: 2, time: 30, orders: 2 },
     { id: 3, name: 'Tafel 3', status: 'gereserveerd', guests: 5, reservationTime: '17:45' },
     { id: 4, name: 'Tafel 4', status: 'bezet', guests: 3, time: 50, orders: 5 },
-    { id: 5, name: 'Tafel 5', status: 'leeg' },
-    { id: 6, name: 'Tafel 6', status: 'leeg' },
+    { id: 5, name: 'Tafel 5', status: 'beschikbaar' },
+    { id: 6, name: 'Tafel 6', status: 'beschikbaar' },
     { id: 7, name: 'Tafel 7', status: 'gereserveerd', guests: 2, reservationTime: '20:00' },
     { id: 8, name: 'Tafel 8', status: 'bezet', guests: 4, time: 10, orders: 1 },
-    { id: 9, name: 'Tafel 9', status: 'leeg' },
+    { id: 9, name: 'Tafel 9', status: 'beschikbaar' },
     { id: 10, name: 'Tafel 10', status: 'schoonmaken', time: 3 },
-    { id: 11, name: 'Tafel 11', status: 'leeg' },
-    { id: 12, name: 'Tafel 12', status: 'leeg' },
+    { id: 11, name: 'Tafel 11', status: 'beschikbaar' },
+    { id: 12, name: 'Tafel 12', status: 'beschikbaar' },
     { id: 13, name: 'Tafel 13', status: 'rekening', guests: 3, time: 8, orders: 2 },
   ],
 };
