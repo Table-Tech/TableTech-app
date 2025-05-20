@@ -55,7 +55,7 @@ export const mockTables: Record<string, Table[]> = {
     { id: 9, name: 'Tafel 9', status: 'beschikbaar' },
     { id: 10, name: 'Tafel 10', status: 'schoonmaken', time: 5 },
     { id: 11, name: 'Tafel 11', status: 'beschikbaar' },
-    { id: 12, name: 'Tafel 12', status: 'beschikbaar' },
+    { id: 12, name: 'Tafel 12', status: 'wachten' },
     { id: 13, name: 'Tafel 13', status: 'rekening', guests: 2, time: 10, orders: 1 },
   ],
   r2: [
