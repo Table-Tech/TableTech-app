@@ -63,7 +63,7 @@ enum TableStatus {
 model MenuCategory {
   id           String     @id @default(uuid())
   name         String
-  imageUrl        String?
+  imageUrl     String?
   description  String?
   displayOrder Int        @default(0)
   isActive     Boolean    @default(true)
