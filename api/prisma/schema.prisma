@@ -31,7 +31,6 @@ model Restaurant {
   menuItems       MenuItem[]
   orders          Order[]
   staff           Staff[]
-  users           User[]           // For multiple logins per restaurant
 
   // Optional: add restaurant-level settings
   // settings        Json?         // e.g., opening hours, currency, locale
