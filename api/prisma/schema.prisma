@@ -1,10 +1,8 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Full production-ready schema for TableTech
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-// api/prisma/schema.prisma
+// ----------------------------
+// Prisma Setup
+// ----------------------------
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,9 +12,234 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ----------------------------
+// Models
+// ----------------------------
+
+model Restaurant {
+  id              String           @id @default(uuid())
+  name            String
+  address         String?
+  phone           String?
+  email           String?          @unique
+  logoUrl         String?          // For restaurant branding
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  tables          Table[]
+  menuCategories  MenuCategory[]
+  menuItems       MenuItem[]
+  orders          Order[]
+  staff           Staff[]
+  users           User[]           // For multiple logins per restaurant
+
+  // Optional: add restaurant-level settings
+  // settings        Json?         // e.g., opening hours, currency, locale
+}
+
+model Table {
+  id           String        @id @default(uuid())
+  number       Int
+  code         String        @unique     // Shown in QR codes (e.g., "T1")
+  capacity     Int?
+  status       TableStatus   @default(AVAILABLE)
+  qrCodeUrl    String?       // Optional if you host the generated QR
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id])
+  restaurantId String
+
+  orders       Order[]
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  MAINTENANCE
+}
+
+model MenuCategory {
+  id           String     @id @default(uuid())
+  name         String
+  description  String?
+  displayOrder Int        @default(0)
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId String
+
+  menuItems    MenuItem[]
+}
+
 model MenuItem {
-  id        Int     @id @default(autoincrement())
-  name      String
-  price     Float
-  createdAt DateTime @default(now())
+  id              String           @id @default(uuid())
+  name            String
+  description     String?
+  price           Decimal          @db.Decimal(10, 2)
+  imageUrl        String?
+  isAvailable     Boolean          @default(true)
+  preparationTime Int?             // Minutes estimate
+  displayOrder    Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  category        MenuCategory     @relation(fields: [categoryId], references: [id])
+  categoryId      String
+  restaurant      Restaurant       @relation(fields: [restaurantId], references: [id])
+  restaurantId    String
+
+  orderItems      OrderItem[]
+  modifierGroups  ModifierGroup[]
+}
+
+model ModifierGroup {
+  id             String       @id @default(uuid())
+  name           String
+  required       Boolean      @default(false)
+  multiSelect    Boolean      @default(false)
+  minSelect      Int          @default(0)
+  maxSelect      Int?
+  displayOrder   Int          @default(0)
+
+  menuItem       MenuItem     @relation(fields: [menuItemId], references: [id])
+  menuItemId     String
+
+  modifiers      Modifier[]
+}
+
+model Modifier {
+  id              String        @id @default(uuid())
+  name            String
+  price           Decimal       @default(0) @db.Decimal(10, 2)
+  displayOrder    Int           @default(0)
+
+  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id])
+  modifierGroupId String
+
+  orderItemModifiers OrderItemModifier[]
+}
+
+model Order {
+  id              String        @id @default(uuid())
+  orderNumber     String        @unique
+  status          OrderStatus   @default(PENDING)
+  totalAmount     Decimal       @db.Decimal(10, 2)
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  paymentStatus   PaymentStatus @default(PENDING)
+  molliePaymentId String?       // Track payment with Mollie
+  webhookReceived Boolean       @default(false)
+
+  table           Table         @relation(fields: [tableId], references: [id])
+  tableId         String
+
+  restaurant      Restaurant    @relation(fields: [restaurantId], references: [id])
+  restaurantId    String
+
+  orderItems      OrderItem[]
+  payments        Payment[]
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model OrderItem {
+  id           String         @id @default(uuid())
+  quantity     Int
+  price        Decimal        @db.Decimal(10, 2)
+  notes        String?
+  status       OrderItemStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  order        Order          @relation(fields: [orderId], references: [id])
+  orderId      String
+
+  menuItem     MenuItem       @relation(fields: [menuItemId], references: [id])
+  menuItemId   String
+
+  modifiers    OrderItemModifier[]
+}
+
+enum OrderItemStatus {
+  PENDING
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+model OrderItemModifier {
+  id              String     @id @default(uuid())
+  price           Decimal    @db.Decimal(10, 2)
+
+  orderItem       OrderItem  @relation(fields: [orderItemId], references: [id])
+  orderItemId     String
+
+  modifier        Modifier   @relation(fields: [modifierId], references: [id])
+  modifierId      String
+
+  @@unique([orderItemId, modifierId])
+}
+
+model Staff {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         StaffRole
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId String
+}
+
+enum StaffRole {
+  ADMIN
+  MANAGER
+  CHEF
+  WAITER
+  CASHIER
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  amount         Decimal       @db.Decimal(10, 2)
+  method         PaymentMethod
+  status         PaymentStatus @default(PENDING)
+  transactionId  String?       // From Mollie or other gateway
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  order          Order         @relation(fields: [orderId], references: [id])
+  orderId        String
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  MOBILE_PAYMENT
+  MOLLIE
 }
