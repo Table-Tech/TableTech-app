@@ -1,29 +1,23 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { getMenuByRestaurantId, createMenuItem  } from "../services/menu.service";
-import { GetMenuQuerySchema, CreateMenuItemSchema  } from "../schemas/menu.schema";
+import { createMenuItem, getMenuByRestaurantId } from "../services/menu.service";
+import { CreateMenuItemSchema, GetMenuQuerySchema } from "../schemas/menu.schema";
+
+export const createMenuItemHandler = async (req: FastifyRequest, reply: FastifyReply) => {
+  const result = CreateMenuItemSchema.safeParse(req.body);
+  if (!result.success) {
+    return reply.status(400).send({ error: "Invalid input", details: result.error });
+  }
+
+  const item = await createMenuItem(result.data);
+  return reply.code(201).send(item);
+};
 
 export const getMenuHandler = async (req: FastifyRequest, reply: FastifyReply) => {
   const result = GetMenuQuerySchema.safeParse(req.query);
-
   if (!result.success) {
-    return reply.status(400).send({ error: "Invalid restaurantId" });
+    return reply.status(400).send({ error: "Missing or invalid restaurantId" });
   }
 
-  const { restaurantId } = result.data;
-
-  const menu = await getMenuByRestaurantId(restaurantId);
-
+  const menu = await getMenuByRestaurantId(result.data.restaurantId);
   return reply.send(menu);
-};
-
-export const createMenuItemHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const parsed = CreateMenuItemSchema.safeParse(req.body);
-
-  if (!parsed.success) {
-    return reply.status(400).send({ error: "Invalid input", details: parsed.error });
-  }
-
-  const menuItem = await createMenuItem(parsed.data);
-
-  return reply.code(201).send(menuItem);
 };
