@@ -1,13 +1,17 @@
-// api/index.ts
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import menuRoutes from './src/routes/menu/index.js'; // we’ll create this next
 
+import prismaPlugin from './src/plugins/prisma.js';        // 👈 Prisma plugin
+import menuRoutes from './src/routes/menu/index.js';       // ✅ Menu route
 
-const fastify  = Fastify({ logger: true });
+const fastify = Fastify({ logger: true });
 
-await fastify.register(menuRoutes, { prefix: "/menu" });
+// Register plugins
+await fastify.register(cors);             // if you're calling from a browser
+await fastify.register(prismaPlugin);     // 👈 register Prisma here
+await fastify.register(menuRoutes, { prefix: "/menu" }); // 👈 then routes
 
+// Start server
 const start = async () => {
   try {
     await fastify.listen({ port: 3001, host: '0.0.0.0' });
