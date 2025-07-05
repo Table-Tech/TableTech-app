@@ -1,7 +1,16 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
-export const createRestaurant = async (data: Prisma.RestaurantCreateInput) => {
+// Define the input type ourselves instead of using Prisma.RestaurantCreateInput
+type CreateRestaurantInput = {
+  name: string;
+  email?: string;
+  address?: string;
+  phone?: string;
+  logoUrl?: string;
+};
+
+export const createRestaurant = async (data: CreateRestaurantInput) => {
   return prisma.restaurant.create({ data });
 };
 

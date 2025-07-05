@@ -1,5 +1,5 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { createMenuItem, getMenuByRestaurantId } from "../services/menu.service";
+import { createMenuItem, getMenuByRestaurantId, getCustomerMenu } from "../services/menu.service";
 import { CreateMenuItemSchema, GetMenuQuerySchema } from "../schemas/menu.schema";
 
 export const createMenuItemHandler = async (req: FastifyRequest, reply: FastifyReply) => {
@@ -20,4 +20,17 @@ export const getMenuHandler = async (req: FastifyRequest, reply: FastifyReply) =
 
   const menu = await getMenuByRestaurantId(result.data.restaurantId);
   return reply.send(menu);
+};
+
+// NEW: Get customer menu for QR code scanning
+export const getCustomerMenuHandler = async (req: FastifyRequest, reply: FastifyReply) => {
+  const { tableCode, restaurantId } = req.params as { tableCode: string; restaurantId: string };
+
+  try {
+    const customerMenu = await getCustomerMenu(tableCode, restaurantId);
+    return reply.send(customerMenu);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return reply.status(404).send({ error: errorMessage });
+  }
 };

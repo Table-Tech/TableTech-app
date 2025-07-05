@@ -45,3 +45,64 @@ export const getMenuByRestaurantId = async (restaurantId: string) => {
     },
   });
 };
+
+// NEW: Get customer menu by table code and restaurant ID
+export const getCustomerMenu = async (tableCode: string, restaurantId: string) => {
+  // First, find the table by code and restaurant
+  const table = await prisma.table.findFirst({
+    where: {
+      code: tableCode,
+      restaurantId: restaurantId,
+    },
+    include: {
+      restaurant: {
+        select: {
+          id: true,
+          name: true,
+          logoUrl: true,
+          address: true,
+          phone: true
+        }
+      }
+    }
+  });
+
+  if (!table) {
+    throw new Error("Table not found");
+  }
+
+  // Get the menu for this restaurant
+  const menu = await prisma.menuCategory.findMany({
+    where: { 
+      restaurantId: restaurantId,
+      isActive: true 
+    },
+    orderBy: { displayOrder: "asc" },
+    include: {
+      menuItems: {
+        where: { isAvailable: true },
+        orderBy: { displayOrder: "asc" },
+        include: {
+          modifierGroups: {
+            include: {
+              modifiers: {
+                orderBy: { displayOrder: "asc" }
+              }
+            }
+          }
+        }
+      },
+    },
+  });
+
+  return {
+    restaurant: table.restaurant,
+    table: {
+      id: table.id,
+      number: table.number,
+      code: table.code,
+      capacity: table.capacity
+    },
+    menu
+  };
+};
