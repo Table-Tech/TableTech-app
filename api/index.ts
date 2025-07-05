@@ -1,13 +1,11 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 
-import prismaPlugin from './src/plugins/prisma.js';        // 👈 Prisma plugin
-import menuRoutes from './src/routes/menu/index.js';       // ✅ Menu route
+import prismaPlugin from './src/plugins/prisma.js';
+import menuRoutes from './src/routes/menu/index.js';
 import restaurantRoutes from "./src/routes/restaurants/index.js";
 import tableRoutes from "./src/routes/tables/index.js";
 import orderRoutes from "./src/routes/orders/index.js";
-
-
 
 
 
