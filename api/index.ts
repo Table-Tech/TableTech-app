@@ -9,6 +9,8 @@ import orderRoutes from "./src/routes/orders/index.js";
 import categoryRoutes from "./src/routes/menu-categories/index.js";
 import modifierGroupRoutes from "./src/routes/modifier-groups/index.js";
 import modifierRoutes from "./src/routes/modifiers/index.js";
+import authRoutes from "./src/routes/auth/index.js";
+import staffRoutes from "./src/routes/staff/index.js";
 
 const fastify = Fastify({ logger: true });
 
@@ -45,8 +47,10 @@ const start = async () => {
     await fastify.register(tableRoutes, { prefix: "/api/tables" });
     await fastify.register(orderRoutes, { prefix: "/api/orders" });
     await fastify.register(categoryRoutes, { prefix: "/api/menu-categories" });
-    await fastify.register(modifierGroupRoutes, { prefix: "/api/modifier-groups" });  // NEW
-    await fastify.register(modifierRoutes, { prefix: "/api/modifiers" });              // NEW  // NEW
+    await fastify.register(modifierGroupRoutes, { prefix: "/api/modifier-groups" });
+    await fastify.register(modifierRoutes, { prefix: "/api/modifiers" });
+    await fastify.register(authRoutes, { prefix: "/api/auth" });
+    await fastify.register(staffRoutes, { prefix: "/api/staff" });
 
     // Start server
     await fastify.listen({ port: 3001, host: '0.0.0.0' });
@@ -54,6 +58,8 @@ const start = async () => {
     console.log('📊 Health check: http://localhost:3001/health');
     console.log('🏪 Restaurants: http://localhost:3001/api/restaurants');
     console.log('📂 Categories: http://localhost:3001/api/menu-categories');
+    console.log('🔐 Auth: http://localhost:3001/api/auth');
+    console.log('👥 Staff: http://localhost:3001/api/staff');
     
   } catch (err) {
     fastify.log.error(err);
