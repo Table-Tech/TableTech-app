@@ -8,7 +8,6 @@ import tableRoutes from "./src/routes/tables/index.js";
 import orderRoutes from "./src/routes/orders/index.js";
 
 
-
 const fastify = Fastify({ logger: true });
 
 // Register plugins
