@@ -1,4 +1,5 @@
-// src/utils/jwt.ts
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
