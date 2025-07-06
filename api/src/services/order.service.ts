@@ -1,10 +1,17 @@
 // src/services/order.service.ts
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../utils/prisma.js";
 import { v4 as uuidv4 } from "uuid";
-import { formatPrice } from "../utils/price.js";
-import { BusinessLogicError, ResourceNotFoundError } from "../types/errors.js";
-
-const prisma = new PrismaClient();
+import { formatPriceNumber } from "../utils/price.js";
+import { ResourceNotFoundError } from "../types/errors.js";
+import { 
+  MenuItemNotAvailableError, 
+  ModifierNotAvailableError,
+  TableUnavailableError,
+  OrderValueError,
+  DuplicateOrderError
+} from "../types/errors/order.errors.js";
+import { OrderValidation } from "../utils/validation/order.validation.js";
+import { OrderAuditLogger } from "../utils/audit/order.audit.js";
 
 type CreateOrderInput = {
   tableId: string;
@@ -34,127 +41,191 @@ type UpdateOrderStatusInput = {
   notes?: string;
 };
 
-export const createOrder = async (data: CreateOrderInput) => {
-  // Validate table exists and belongs to restaurant
-  const table = await prisma.table.findFirst({
-    where: { 
-      id: data.tableId, 
-      restaurantId: data.restaurantId 
-    }
-  });
-  
-  if (!table) {
-    throw new ResourceNotFoundError('Table', data.tableId);
-  }
+export const createOrder = async (
+  data: CreateOrderInput, 
+  requestId?: string, 
+  clientIP?: string
+) => {
+  // Enhanced business validation
+  OrderValidation.validateOrderTiming(data.restaurantId);
 
-  // Calculate total amount by fetching prices from database
-  let totalAmount = 0;
-  const processedOrderItems = [];
-
-  for (const item of data.orderItems) {
-    // Get menu item with price - ensure it belongs to the restaurant
-    const menuItem = await prisma.menuItem.findFirst({
+  return await prisma.$transaction(async (tx) => {
+    // 1. Validate table exists, belongs to restaurant, and is available
+    const table = await tx.table.findFirst({
       where: { 
-        id: item.menuItemId,
-        restaurantId: data.restaurantId,
-        isAvailable: true
-      },
-      select: { id: true, price: true, name: true }
+        id: data.tableId, 
+        restaurantId: data.restaurantId 
+      }
+    });
+    
+    if (!table) {
+      throw new ResourceNotFoundError('Table', data.tableId);
+    }
+
+    // Validate table availability - now throws specific error
+    if (table.status !== 'AVAILABLE' && table.status !== 'OCCUPIED') {
+      throw new TableUnavailableError(table.number);
+    }
+
+    // 2. Check for existing pending orders on this table
+    const existingOrder = await tx.order.findFirst({
+      where: {
+        tableId: data.tableId,
+        status: { in: ['PENDING', 'CONFIRMED', 'PREPARING'] }
+      }
     });
 
-    if (!menuItem) {
-      throw new ResourceNotFoundError('Menu item', item.menuItemId);
+    if (existingOrder) {
+      throw new DuplicateOrderError(data.tableId);
     }
 
-    // Get modifier prices if any - ensure they belong to the restaurant
-    let modifierTotal = 0;
-    const processedModifiers = [];
+    // 3. Validate and calculate order total
+    let totalAmount = 0;
+    const processedOrderItems = [];
 
-    if (item.modifiers && item.modifiers.length > 0) {
-      const modifiers = await prisma.modifier.findMany({
+    for (const item of data.orderItems) {
+      // Get menu item with validation
+      const menuItem = await tx.menuItem.findFirst({
         where: { 
-          id: { in: item.modifiers },
+          id: item.menuItemId,
           restaurantId: data.restaurantId,
           isAvailable: true
         },
-        select: { id: true, price: true, name: true }
+        select: { 
+          id: true, 
+          price: true, 
+          name: true,
+          preparationTime: true
+        }
       });
 
-      if (modifiers.length !== item.modifiers.length) {
-        throw new BusinessLogicError('Some modifiers are not available', 'INVALID_MODIFIERS');
+      if (!menuItem) {
+        throw new MenuItemNotAvailableError(item.menuItemId);
       }
 
-      for (const modifier of modifiers) {
-        modifierTotal += Number(modifier.price);
-        processedModifiers.push({
-          modifier: { connect: { id: modifier.id } },
-          price: modifier.price
-        });
-      }
-    }
+      // Validate and get modifier prices
+      let modifierTotal = 0;
+      const processedModifiers = [];
 
-    // Calculate item total: (menu item price + modifier prices) * quantity
-    const itemPrice = Number(menuItem.price);
-    const itemTotal = (itemPrice + modifierTotal) * item.quantity;
-    totalAmount += itemTotal;
-
-    // Prepare order item data
-    processedOrderItems.push({
-      quantity: item.quantity,
-      price: itemPrice, // Store the base menu item price
-      notes: item.notes,
-      menuItem: { connect: { id: item.menuItemId } },
-      modifiers: processedModifiers.length > 0 ? {
-        create: processedModifiers
-      } : undefined
-    });
-  }
-
-  // Create the order with calculated total
-  const order = await prisma.order.create({
-    data: {
-      orderNumber: `ORD-${uuidv4().split("-")[0]}`,
-      status: "PENDING",
-      paymentStatus: "PENDING",
-      notes: data.notes,
-      totalAmount: formatPrice(totalAmount), // Format to 2 decimals
-      table: { connect: { id: data.tableId } },
-      restaurant: { connect: { id: data.restaurantId } },
-      orderItems: {
-        create: processedOrderItems.map(item => ({
-          ...item,
-          price: formatPrice(item.price), // Format item price
-          modifiers: item.modifiers ? {
-            create: item.modifiers.create.map(mod => ({
-              ...mod,
-              price: formatPrice(mod.price) // Format modifier price
-            }))
-          } : undefined
-        }))
-      }
-    },
-    include: {
-      orderItems: {
-        include: {
-          menuItem: {
-            select: { id: true, name: true, price: true }
+      if (item.modifiers && item.modifiers.length > 0) {
+        const modifiers = await tx.modifier.findMany({
+          where: { 
+            id: { in: item.modifiers },
+            modifierGroup: {
+              menuItem: {
+                restaurantId: data.restaurantId
+              }
+            }
           },
-          modifiers: {
-            include: {
-              modifier: {
-                select: { id: true, name: true, price: true }
+          select: { 
+            id: true, 
+            price: true, 
+            name: true,
+            modifierGroup: {
+              select: { 
+                required: true, 
+                multiSelect: true,
+                minSelect: true,
+                maxSelect: true
               }
             }
           }
+        });
+
+        if (modifiers.length !== item.modifiers.length) {
+          const missingModifiers = item.modifiers.filter(
+            modId => !modifiers.find(mod => mod.id === modId)
+          );
+          throw new ModifierNotAvailableError(missingModifiers[0]);
+        }
+
+        // Validate modifier group rules
+        for (const modifier of modifiers) {
+          modifierTotal += Number(modifier.price);
+          processedModifiers.push({
+            modifier: { connect: { id: modifier.id } },
+            price: formatPriceNumber(modifier.price)
+          });
+        }
+      }
+
+      // Calculate item total
+      const itemPrice = Number(menuItem.price);
+      const itemTotal = (itemPrice + modifierTotal) * item.quantity;
+      totalAmount += itemTotal;
+
+      processedOrderItems.push({
+        quantity: item.quantity,
+        price: formatPriceNumber(itemPrice),
+        notes: item.notes?.trim() || null,
+        menuItem: { connect: { id: item.menuItemId } },
+        modifiers: processedModifiers.length > 0 ? {
+          create: processedModifiers
+        } : undefined
+      });
+    }
+
+    // 4. Validate order total - now throws specific error
+    if (totalAmount < 1.00) {
+      throw new OrderValueError(`Order total must be at least €1.00`, totalAmount);
+    }
+    if (totalAmount > 5000.00) {
+      throw new OrderValueError(`Order total cannot exceed €5000.00`, totalAmount);
+    }
+
+    // 5. Create the order
+    const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${uuidv4().split("-")[0].toUpperCase()}`;
+    
+    const order = await tx.order.create({
+      data: {
+        orderNumber,
+        status: "PENDING",
+        paymentStatus: "PENDING",
+        notes: data.notes?.trim() || null,
+        totalAmount: formatPriceNumber(totalAmount),
+        table: { connect: { id: data.tableId } },
+        restaurant: { connect: { id: data.restaurantId } },
+        orderItems: {
+          create: processedOrderItems
         }
       },
-      table: {
-        select: { id: true, number: true, code: true }
+      include: {
+        orderItems: {
+          include: {
+            menuItem: {
+              select: { id: true, name: true, price: true }
+            },
+            modifiers: {
+              include: {
+                modifier: {
+                  select: { id: true, name: true, price: true }
+                }
+              }
+            }
+          }
+        },
+        table: {
+          select: { id: true, number: true, code: true }
+        },
+        restaurant: {
+          select: { id: true, name: true }
+        }
       }
-    }
-  });
+    });
 
-  return order;
+    // 6. Audit logging
+    OrderAuditLogger.logOrderCreation(
+      order.id,
+      data.restaurantId,
+      data.tableId,
+      totalAmount,
+      data.orderItems.length,
+      requestId,
+      clientIP
+    );
+
+    return order;
+  });
 };
 
 export const getOrderById = async (id: string) => {
@@ -164,7 +235,7 @@ export const getOrderById = async (id: string) => {
       orderItems: {
         include: {
           menuItem: {
-            select: { id: true, name: true, price: true }
+            select: { id: true, name: true, price: true, description: true }
           },
           modifiers: {
             include: {
@@ -177,6 +248,9 @@ export const getOrderById = async (id: string) => {
       },
       table: {
         select: { id: true, number: true, code: true }
+      },
+      restaurant: {
+        select: { id: true, name: true }
       }
     }
   });
@@ -184,10 +258,13 @@ export const getOrderById = async (id: string) => {
   return order;
 };
 
-export const getOrdersByRestaurant = async (restaurantId: string, query: GetOrdersQuery = { limit: 50, offset: 0 }) => {
-  // Build dynamic where clause
+export const getOrdersByRestaurant = async (
+  restaurantId: string, 
+  query: GetOrdersQuery = { limit: 20, offset: 0 }
+) => {
   const where: any = { restaurantId };
 
+  // Build dynamic filters
   if (query.status) {
     where.status = query.status;
   }
@@ -206,51 +283,81 @@ export const getOrdersByRestaurant = async (restaurantId: string, query: GetOrde
     }
   }
 
-  const orders = await prisma.order.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: query.limit,
-    skip: query.offset,
-    include: {
-      table: {
-        select: { id: true, number: true, code: true }
-      },
-      orderItems: {
-        include: {
-          menuItem: {
-            select: { id: true, name: true, price: true }
-          },
-          modifiers: {
-            include: { 
-              modifier: {
-                select: { id: true, name: true, price: true }
+  // Get orders with total count for pagination
+  const [orders, totalCount] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: query.limit,
+      skip: query.offset,
+      include: {
+        table: {
+          select: { id: true, number: true, code: true }
+        },
+        orderItems: {
+          include: {
+            menuItem: {
+              select: { id: true, name: true, price: true }
+            },
+            modifiers: {
+              include: { 
+                modifier: {
+                  select: { id: true, name: true, price: true }
+                }
               }
             }
           }
         }
       }
-    }
-  });
+    }),
+    prisma.order.count({ where })
+  ]);
 
-  return orders;
+  return { orders, totalCount };
 };
 
-export const updateOrderStatus = async (id: string, data: UpdateOrderStatusInput) => {
-  const updateData: any = {
-    status: data.status,
-    updatedAt: new Date()
-  };
+export const updateOrderStatus = async (
+  id: string, 
+  data: UpdateOrderStatusInput,
+  staffId?: string,
+  staffRole?: string,
+  requestId?: string
+) => {
+  return await prisma.$transaction(async (tx) => {
+    // Get current order
+    const currentOrder = await tx.order.findUnique({
+      where: { id },
+      select: { 
+        id: true, 
+        status: true, 
+        restaurantId: true,
+        orderNumber: true
+      }
+    });
 
-  if (data.estimatedTime) {
-    updateData.estimatedTime = data.estimatedTime;
-  }
+    if (!currentOrder) {
+      throw new ResourceNotFoundError('Order', id);
+    }
 
-  if (data.notes) {
-    updateData.statusNotes = data.notes;
-  }
+    // Validate status transition - using validation class
+    OrderValidation.validateOrderStatusTransition(currentOrder.status, data.status);
 
-  try {
-    const order = await prisma.order.update({
+    // Prepare update data
+    const updateData: any = {
+      status: data.status,
+      updatedAt: new Date()
+    };
+
+    if (data.estimatedTime) {
+      updateData.estimatedTime = data.estimatedTime;
+    }
+
+    if (data.notes) {
+      updateData.statusNotes = data.notes.trim();
+    }
+
+    // Update order
+    const updatedOrder = await tx.order.update({
       where: { id },
       data: updateData,
       include: {
@@ -270,15 +377,52 @@ export const updateOrderStatus = async (id: string, data: UpdateOrderStatusInput
         },
         table: {
           select: { id: true, number: true, code: true }
+        },
+        restaurant: {
+          select: { id: true, name: true }
         }
       }
     });
 
-    return order;
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('Record to update not found')) {
-      throw new ResourceNotFoundError('Order', id);
+    // Audit logging
+    OrderAuditLogger.logStatusChange(
+      id,
+      currentOrder.restaurantId,
+      currentOrder.status,
+      data.status,
+      staffId,
+      staffRole,
+      data.estimatedTime,
+      requestId
+    );
+
+    return updatedOrder;
+  });
+};
+
+// Additional utility functions
+export const getOrderStatistics = async (restaurantId: string, days: number = 7) => {
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const stats = await prisma.order.groupBy({
+    by: ['status'],
+    where: {
+      restaurantId,
+      createdAt: { gte: since }
+    },
+    _count: { status: true },
+    _sum: { totalAmount: true }
+  });
+
+  return stats;
+};
+
+export const getActiveOrdersCount = async (restaurantId: string) => {
+  return await prisma.order.count({
+    where: {
+      restaurantId,
+      status: { in: ['PENDING', 'CONFIRMED', 'PREPARING'] }
     }
-    throw error;
-  }
+  });
 };
