@@ -1,101 +1,86 @@
-import { FastifyRequest, FastifyReply } from "fastify";
+import { FastifyReply } from "fastify";
+import { AuthenticatedRequest } from "../middleware/auth.middleware.js";
+import { ApiError } from "../types/errors.js";
+import { StaffService } from "../services/staff.service.js";
 import {
   CreateStaffSchema,
   UpdateStaffSchema,
   StaffIdParamSchema,
   GetStaffQuerySchema,
-} from "../schemas/auth.schema";
-import {
-  createStaff,
-  getStaffByRestaurant,
-  getStaffById,
-  updateStaff,
-  deleteStaff,
-} from "../services/staff.service";
+} from "../schemas/auth.schema.js";
 
-export const createStaffHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const result = CreateStaffSchema.safeParse(req.body);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Invalid input", details: result.error });
-  }
+export class StaffController {
+  private svc = new StaffService();
 
-  try {
-    const staff = await createStaff(result.data);
-    return reply.code(201).send({
+  /** POST /staff */
+  async create(
+    req: AuthenticatedRequest<typeof CreateStaffSchema._type>,
+    reply: FastifyReply
+  ) {
+    const staff = await this.svc.createStaff(req.body); // Changed from create to createStaff
+    return reply.status(201).send({
+      success: true,
       message: "Staff member created successfully",
-      staff
+      data: staff
     });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return reply.status(400).send({ error: errorMessage });
-  }
-};
-
-export const getStaffHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const query = req.query as any;
-  
-  // If no restaurantId provided, use the authenticated staff's restaurant
-  const restaurantId = query.restaurantId || req.staff?.restaurantId;
-  
-  if (!restaurantId) {
-    return reply.status(400).send({ error: "Restaurant ID required" });
   }
 
-  try {
-    const staff = await getStaffByRestaurant(restaurantId);
-    return reply.send(staff);
-  } catch (error) {
-    return reply.status(500).send({ error: "Failed to fetch staff" });
-  }
-};
+  /** GET /staff */
+  async list(
+    req: AuthenticatedRequest<unknown, unknown, typeof GetStaffQuerySchema._type>,
+    reply: FastifyReply
+  ) {
+    // Use restaurantId from query or authenticated user's restaurant
+    const restaurantId = req.query?.restaurantId || req.user.restaurantId;
+    
+    if (!restaurantId) {
+      throw new ApiError(400, 'MISSING_RESTAURANT_ID', 'Restaurant ID required');
+    }
 
-export const getStaffByIdHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const result = StaffIdParamSchema.safeParse(req.params);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Invalid staff ID" });
-  }
-
-  try {
-    const staff = await getStaffById(result.data.id);
-    return reply.send(staff);
-  } catch (error) {
-    return reply.status(404).send({ error: "Staff member not found" });
-  }
-};
-
-export const updateStaffHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const paramResult = StaffIdParamSchema.safeParse(req.params);
-  if (!paramResult.success) {
-    return reply.status(400).send({ error: "Invalid staff ID" });
+    const staff = await this.svc.findByRestaurant(restaurantId);
+    return reply.send({ success: true, data: staff });
   }
 
-  const bodyResult = UpdateStaffSchema.safeParse(req.body);
-  if (!bodyResult.success) {
-    return reply.status(400).send({ error: "Invalid input", details: bodyResult.error });
+  /** GET /staff/:id */
+  async findById(
+    req: AuthenticatedRequest<unknown, typeof StaffIdParamSchema._type>,
+    reply: FastifyReply
+  ) {
+    const staff = await this.svc.findById(req.params.id);
+    if (!staff) {
+      throw new ApiError(404, 'NOT_FOUND', 'Staff member not found');
+    }
+    return reply.send({ success: true, data: staff });
   }
 
-  try {
-    const staff = await updateStaff(paramResult.data.id, bodyResult.data);
+  /** PATCH /staff/:id */
+  async update(
+    req: AuthenticatedRequest<typeof UpdateStaffSchema._type, typeof StaffIdParamSchema._type>,
+    reply: FastifyReply
+  ) {
+    const staff = await this.svc.update(req.params.id, req.body);
     return reply.send({
+      success: true,
       message: "Staff member updated successfully",
-      staff
+      data: staff
     });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return reply.status(400).send({ error: errorMessage });
-  }
-};
-
-export const deleteStaffHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const result = StaffIdParamSchema.safeParse(req.params);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Invalid staff ID" });
   }
 
-  try {
-    await deleteStaff(result.data.id);
+  /** DELETE /staff/:id */
+  async delete(
+    req: AuthenticatedRequest<unknown, typeof StaffIdParamSchema._type>,
+    reply: FastifyReply
+  ) {
+    await this.svc.delete(req.params.id);
     return reply.status(204).send();
-  } catch (error) {
-    return reply.status(404).send({ error: "Staff member not found" });
   }
-};
+}
+
+// Export handler functions for routes
+const staffController = new StaffController();
+
+export const createStaffHandler = (req: any, reply: FastifyReply) => staffController.create(req, reply);
+export const getStaffHandler = (req: any, reply: FastifyReply) => staffController.list(req, reply);
+export const getStaffByIdHandler = (req: any, reply: FastifyReply) => staffController.findById(req, reply);
+export const updateStaffHandler = (req: any, reply: FastifyReply) => staffController.update(req, reply);
+export const deleteStaffHandler = (req: any, reply: FastifyReply) => staffController.delete(req, reply);

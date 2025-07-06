@@ -1,95 +1,76 @@
 // src/routes/orders/index.ts
 import { FastifyInstance } from "fastify";
-import {
-  createOrderHandler,
-  getOrderHandler,
-  listOrdersHandler,
-  updateOrderStatusHandler,
-  getOrderStatisticsHandler,
-  getActiveOrdersHandler
-} from "../../controllers/order.controller.js";
+import { OrderController } from "../../controllers/order.controller.js";
 import { 
   CreateOrderSchema, 
-  UpdateOrderStatusSchema,
-  GetOrdersQuerySchema,
-  OrderIdParamSchema,
-  OrderStatisticsQuerySchema,
-  RestaurantIdParamSchema
+  OrderParamsSchema
 } from "../../schemas/order.schema.js";
-import { validateRequest, limitRequestSize } from "../../middleware/validation.middleware.js";
-import { authenticateStaff, requireRestaurantAccess, requireRole } from "../../middleware/auth.middleware.js";
-import { OrderSecurity } from "../../middleware/order.security.js";
+import { validationMiddleware } from "../../middleware/validation.middleware.js";
+import { requireUser } from "../../middleware/auth.middleware.js";
+import { preventDuplicateOrders } from "../../middleware/order.security.js";
 
 export default async function orderRoutes(server: FastifyInstance) {
+  const controller = new OrderController();
   
-  // POST /api/orders - Create new order (public endpoint for customers)
+  // POST /api/orders - Create new order (protected)
   server.post("/", {
     preHandler: [
-      limitRequestSize(1024 * 100), // 100KB limit for order creation
-      OrderSecurity.rateLimitOrderCreation(10, 60000), // 10 orders per minute per IP
-      OrderSecurity.preventDuplicateOrders(30000), // Prevent duplicate orders within 30s
-      OrderSecurity.validateOrderSession(),
-      OrderSecurity.validateBusinessHours,
-      validateRequest({
-        body: CreateOrderSchema
-      }),
-      OrderSecurity.sanitizeOrderData,
-      OrderSecurity.logOrderAttempt
+      requireUser,
+      preventDuplicateOrders(30000), // 30 second window
+      validationMiddleware(CreateOrderSchema)
     ]
-  }, createOrderHandler);
+  }, async (request, reply) => {
+    return controller.create(request as any, reply);
+  });
   
-  // GET /api/orders?restaurantId=xxx - Get orders by restaurant (protected)
+  // GET /api/orders - List orders (protected)
   server.get("/", {
-    preHandler: [
-      authenticateStaff,
-      requireRestaurantAccess,
-      validateRequest({
-        query: GetOrdersQuerySchema
-      })
-    ]
-  }, listOrdersHandler);
-  
-  // GET /api/orders/active - Get active orders count (protected)
-  server.get("/active", {
-    preHandler: [
-      authenticateStaff,
-      requireRole(['CHEF', 'MANAGER', 'ADMIN', 'WAITER'])
-    ]
-  }, getActiveOrdersHandler);
-  
-  // GET /api/orders/statistics/:restaurantId - Get order statistics (protected)
-  server.get("/statistics/:restaurantId", {
-    preHandler: [
-      authenticateStaff,
-      requireRole(['MANAGER', 'ADMIN']),
-      requireRestaurantAccess,
-      validateRequest({
-        params: RestaurantIdParamSchema,
-        query: OrderStatisticsQuerySchema
-      })
-    ]
-  }, getOrderStatisticsHandler);
+    preHandler: [requireUser]
+  }, async (request, reply) => {
+    return controller.list(request as any, reply);
+  });
+
+  // GET /api/orders/statistics - Get order statistics (protected)
+  server.get("/statistics", {
+    preHandler: [requireUser]
+  }, async (request, reply) => {
+    return controller.getStatistics(request as any, reply);
+  });
+
+  // GET /api/orders/active-count - Get active orders count (protected)
+  server.get("/active-count", {
+    preHandler: [requireUser]
+  }, async (request, reply) => {
+    return controller.getActiveCount(request as any, reply);
+  });
   
   // GET /api/orders/:id - Get specific order (protected) 
   server.get("/:id", {
     preHandler: [
-      authenticateStaff,
-      requireRestaurantAccess,
-      validateRequest({
-        params: OrderIdParamSchema
-      })
+      requireUser,
+      validationMiddleware(OrderParamsSchema)
     ]
-  }, getOrderHandler);
+  }, async (request, reply) => {
+    return controller.findById(request as any, reply);
+  });
   
   // PATCH /api/orders/:id/status - Update order status (protected)
   server.patch("/:id/status", {
     preHandler: [
-      authenticateStaff,
-      requireRestaurantAccess,
-      validateRequest({
-        params: OrderIdParamSchema,
-        body: UpdateOrderStatusSchema
-      })
+      requireUser,
+      validationMiddleware(OrderParamsSchema)
     ]
-  }, updateOrderStatusHandler);
+  }, async (request, reply) => {
+    return controller.updateStatus(request as any, reply);
+  });
+  
+  // DELETE /api/orders/:id - Delete order (protected)
+  server.delete("/:id", {
+    preHandler: [
+      requireUser,
+      validationMiddleware(OrderParamsSchema)
+    ]
+  }, async (request, reply) => {
+    return controller.delete(request as any, reply);
+  });
 }

@@ -1,159 +1,144 @@
-import { PrismaClient } from "@prisma/client";
-import { hashPassword, validatePassword } from "../utils/password";
-
-const prisma = new PrismaClient();
-
-type StaffRole = "ADMIN" | "MANAGER" | "CHEF" | "WAITER" | "CASHIER";
+import { Staff, Prisma } from "@prisma/client";
+import { BaseService } from "./base.service.js";
+import { hashPassword, validatePassword } from "../utils/password.js";
+import { ApiError } from "../types/errors.js";
 
 type CreateStaffInput = {
   name: string;
   email: string;
   password: string;
-  role: StaffRole;
+  role: "ADMIN" | "MANAGER" | "CHEF" | "WAITER" | "CASHIER";
   restaurantId: string;
 };
 
-type UpdateStaffInput = {
-  name?: string;
-  email?: string;
-  password?: string;
-  role?: StaffRole;
-  isActive?: boolean;
-};
+export class StaffService extends BaseService<Prisma.StaffCreateInput, Staff> {
+  protected model = 'staff' as const;
 
-export const createStaff = async (data: CreateStaffInput) => {
-  // Validate password strength
-  const passwordValidation = validatePassword(data.password);
-  if (!passwordValidation.valid) {
-    throw new Error(`Password validation failed: ${passwordValidation.errors.join(', ')}`);
-  }
+  /**
+   * Create a new staff member with password hashing
+   */
+  async createStaff(data: CreateStaffInput): Promise<Staff> {
+    const { name, email, password, role, restaurantId } = data;
 
-  // Check if email already exists
-  const existingStaff = await prisma.staff.findUnique({
-    where: { email: data.email }
-  });
-
-  if (existingStaff) {
-    throw new Error("Email already exists");
-  }
-
-  // Hash password
-  const passwordHash = await hashPassword(data.password);
-
-  // Create staff member
-  const staff = await prisma.staff.create({
-    data: {
-      name: data.name,
-      email: data.email,
-      passwordHash,
-      role: data.role,
-      restaurant: {
-        connect: { id: data.restaurantId }
-      }
-    },
-    include: {
-      restaurant: {
-        select: { id: true, name: true }
-      }
-    }
-  });
-
-  // Return staff without password hash
-  return {
-    id: staff.id,
-    name: staff.name,
-    email: staff.email,
-    role: staff.role,
-    isActive: staff.isActive,
-    createdAt: staff.createdAt,
-    restaurant: staff.restaurant
-  };
-};
-
-export const getStaffByRestaurant = async (restaurantId: string) => {
-  return prisma.staff.findMany({
-    where: { restaurantId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      isActive: true,
-      createdAt: true,
-      updatedAt: true
-    },
-    orderBy: { createdAt: "desc" }
-  });
-};
-
-export const getStaffById = async (id: string) => {
-  const staff = await prisma.staff.findUnique({
-    where: { id },
-    include: {
-      restaurant: {
-        select: { id: true, name: true }
-      }
-    }
-  });
-
-  if (!staff) {
-    throw new Error("Staff member not found");
-  }
-
-  // Return staff without password hash
-  return {
-    id: staff.id,
-    name: staff.name,
-    email: staff.email,
-    role: staff.role,
-    isActive: staff.isActive,
-    createdAt: staff.createdAt,
-    updatedAt: staff.updatedAt,
-    restaurant: staff.restaurant
-  };
-};
-
-export const updateStaff = async (id: string, data: UpdateStaffInput) => {
-  const updateData: any = {};
-
-  if (data.name) updateData.name = data.name;
-  if (data.email) updateData.email = data.email;
-  if (data.role) updateData.role = data.role;
-  if (data.isActive !== undefined) updateData.isActive = data.isActive;
-
-  // Handle password update
-  if (data.password) {
-    const passwordValidation = validatePassword(data.password);
+    // Validate password strength using your utility
+    const passwordValidation = validatePassword(password);
     if (!passwordValidation.valid) {
-      throw new Error(`Password validation failed: ${passwordValidation.errors.join(', ')}`);
+      throw new ApiError(
+        400, 
+        'WEAK_PASSWORD', 
+        `Password validation failed: ${passwordValidation.errors.join(', ')}`
+      );
     }
-    updateData.passwordHash = await hashPassword(data.password);
+
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check if staff with this email already exists
+    const existingStaff = await this.prisma.staff.findUnique({
+      where: { email: normalizedEmail }
+    });
+
+    if (existingStaff) {
+      throw new ApiError(409, 'EMAIL_EXISTS', 'Staff member with this email already exists');
+    }
+
+    // Hash the password using your utility
+    const passwordHash = await hashPassword(password);
+
+    // Transform the data to match Prisma.StaffCreateInput
+    const staffCreateData: Prisma.StaffCreateInput = {
+      name,
+      email: normalizedEmail,
+      passwordHash, // Use hashed password
+      role,
+      restaurant: {
+        connect: { id: restaurantId } // Connect to existing restaurant
+      }
+    };
+
+    // Create the staff member
+    const staff = await this.prisma.staff.create({
+      data: staffCreateData,
+      include: {
+        restaurant: {
+          select: { id: true, name: true }
+        }
+      }
+    });
+
+    return staff;
   }
 
-  const staff = await prisma.staff.update({
-    where: { id },
-    data: updateData,
-    include: {
-      restaurant: {
-        select: { id: true, name: true }
+  /**
+   * Find staff members by restaurant
+   */
+  async findByRestaurant(restaurantId: string): Promise<Staff[]> {
+    return this.prisma.staff.findMany({
+      where: { 
+        restaurantId,
+        isActive: true 
+      },
+      include: {
+        restaurant: {
+          select: { id: true, name: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  /**
+   * Find staff member by ID
+   */
+  async findById(id: string): Promise<Staff | null> {
+    return this.prisma.staff.findUnique({
+      where: { id },
+      include: {
+        restaurant: {
+          select: { id: true, name: true }
+        }
       }
+    });
+  }
+
+  /**
+   * Update staff member
+   */
+  async update(id: string, data: Partial<CreateStaffInput>): Promise<Staff> {
+    const { password, restaurantId, ...otherData } = data;
+    
+    const updateData: Prisma.StaffUpdateInput = {
+      ...otherData
+    };
+
+    // If password is being updated, hash it
+    if (password) {
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        throw new ApiError(
+          400, 
+          'WEAK_PASSWORD', 
+          `Password validation failed: ${passwordValidation.errors.join(', ')}`
+        );
+      }
+      updateData.passwordHash = await hashPassword(password);
     }
-  });
 
-  // Return staff without password hash
-  return {
-    id: staff.id,
-    name: staff.name,
-    email: staff.email,
-    role: staff.role,
-    isActive: staff.isActive,
-    updatedAt: staff.updatedAt,
-    restaurant: staff.restaurant
-  };
-};
+    // If restaurant is being changed, update the relation
+    if (restaurantId) {
+      updateData.restaurant = {
+        connect: { id: restaurantId }
+      };
+    }
 
-export const deleteStaff = async (id: string) => {
-  return prisma.staff.delete({
-    where: { id }
-  });
-};
+    return this.prisma.staff.update({
+      where: { id },
+      data: updateData,
+      include: {
+        restaurant: {
+          select: { id: true, name: true }
+        }
+      }
+    });
+  }
+}

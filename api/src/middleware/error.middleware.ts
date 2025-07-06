@@ -1,126 +1,146 @@
-import { FastifyRequest, FastifyReply, FastifyError } from "fastify";
-import { ZodError } from "zod";
-import { 
-  ErrorFormatter, 
-  ValidationError, 
-  BusinessLogicError, 
-  AuthenticationError, 
-  AuthorizationError, 
-  ResourceNotFoundError,
-  RateLimitError 
-} from "../types/errors";
+// src/middleware/error.middleware.ts
+import { FastifyError, FastifyReply, FastifyRequest, FastifyInstance } from 'fastify';
+import { ZodError } from 'zod';
+import { ApiError } from '../types/errors.js';
 
-// Global error handler for Fastify
-export const globalErrorHandler = (
-  error: FastifyError,
-  request: FastifyRequest,
-  reply: FastifyReply
-) => {
-  const requestId = request.requestId || 'unknown';
-  const path = request.url;
+/**
+ * Registers global error and timeout handlers on the Fastify instance.
+ */
+export function registerErrorHandlers(fastify: FastifyInstance) {
+  // Set global error handler
+  fastify.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
+    // Log error with request context
+    const requestId = request.id || 'unknown';
+    const context = {
+      url: request.url,
+      method: request.method,
+      ip: request.ip,
+      userAgent: request.headers['user-agent'],
+      requestId
+    };
 
-  // Log error for monitoring (in production, use proper logging service)
-  console.error(`[${requestId}] Error on ${request.method} ${path}:`, {
-    error: error.message,
-    stack: error.stack,
-    userId: request.staff?.staffId,
-    restaurantId: request.staff?.restaurantId
-  });
+    // Handle ApiError (our custom errors)
+    if (error instanceof ApiError) {
+      request.log.warn({ error: error.serialize(), context }, 'API Error');
+      return reply.status(error.statusCode).send({ 
+        success: false, 
+        error: error.serialize(),
+        requestId 
+      });
+    }
 
-  // Handle Zod validation errors
-  if (error instanceof ZodError) {
-    const errorResponse = ErrorFormatter.formatZodError(error, path);
-    errorResponse.error.requestId = requestId;
-    return reply.status(400).send(errorResponse);
-  }
+    // Handle Zod validation errors
+    if (error instanceof ZodError) {
+      request.log.warn({ error: error.flatten(), context }, 'Validation Error');
+      return reply.status(400).send({ 
+        success: false, 
+        error: {
+          type: 'VALIDATION_ERROR',
+          message: 'Request validation failed',
+          details: error.flatten()
+        },
+        requestId 
+      });
+    }
 
-  // Handle custom error types
-  if (error instanceof ValidationError ||
-      error instanceof BusinessLogicError ||
-      error instanceof AuthenticationError ||
-      error instanceof AuthorizationError ||
-      error instanceof ResourceNotFoundError ||
-      error instanceof RateLimitError) {
+    // Handle Prisma errors
+    if (error.message?.includes('Unique constraint')) {
+      request.log.warn({ error: error.message, context }, 'Database Constraint Error');
+      return reply.status(409).send({
+        success: false,
+        error: {
+          type: 'DUPLICATE_RESOURCE',
+          message: 'Resource already exists'
+        },
+        requestId
+      });
+    }
+
+    if (error.message?.includes('Foreign key constraint')) {
+      request.log.warn({ error: error.message, context }, 'Database Reference Error');
+      return reply.status(400).send({
+        success: false,
+        error: {
+          type: 'INVALID_REFERENCE',
+          message: 'Referenced resource does not exist'
+        },
+        requestId
+      });
+    }
+
+    // Handle Fastify built-in errors (like 404, 405, etc.)
+    if (error.statusCode) {
+      request.log.warn({ error: error.message, statusCode: error.statusCode, context }, 'HTTP Error');
+      return reply.status(error.statusCode).send({
+        success: false,
+        error: {
+          type: 'HTTP_ERROR',
+          message: error.message
+        },
+        requestId
+      });
+    }
+
+    // Handle unexpected errors
+    request.log.error({ error: error.stack || error.message, context }, 'Unexpected Error');
     
-    const errorResponse = ErrorFormatter.formatCustomError(error, path, requestId);
-    return reply.status(error.statusCode).send(errorResponse);
-  }
+    // In production, don't expose internal error details
+    const message = process.env.NODE_ENV === 'production' 
+      ? 'An unexpected error occurred' 
+      : error.message;
 
-  // Handle Fastify built-in errors
-  if (error.statusCode) {
-    return reply.status(error.statusCode).send({
+    return reply.status(500).send({
+      success: false,
       error: {
-        type: 'HTTP_ERROR',
-        message: error.message,
-        timestamp: new Date().toISOString(),
-        path,
-        requestId
-      }
-    });
-  }
-
-  // Handle database errors
-  if (error.message.includes('Unique constraint')) {
-    return reply.status(409).send({
-      error: {
-        type: 'DUPLICATE_RESOURCE',
-        message: 'Resource already exists',
-        timestamp: new Date().toISOString(),
-        path,
-        requestId
-      }
-    });
-  }
-
-  if (error.message.includes('Foreign key constraint')) {
-    return reply.status(400).send({
-      error: {
-        type: 'INVALID_REFERENCE',
-        message: 'Referenced resource does not exist',
-        timestamp: new Date().toISOString(),
-        path,
-        requestId
-      }
-    });
-  }
-
-  // Handle unexpected errors
-  const errorResponse = ErrorFormatter.formatGenericError(error, path, requestId);
-  
-  // In production, don't expose internal error details
-  if (process.env.NODE_ENV === 'production') {
-    errorResponse.error.message = 'An unexpected error occurred';
-  }
-
-  return reply.status(500).send(errorResponse);
-};
-
-// 404 handler for undefined routes
-export const notFoundHandler = (request: FastifyRequest, reply: FastifyReply) => {
-  const requestId = request.requestId || 'unknown';
-  
-  return reply.status(404).send({
-    error: {
-      type: 'ROUTE_NOT_FOUND',
-      message: `Route ${request.method} ${request.url} not found`,
-      timestamp: new Date().toISOString(),
-      path: request.url,
+        type: 'INTERNAL_ERROR',
+        message
+      },
       requestId
-    }
+    });
   });
-};
 
-// Request timeout handler
-export const timeoutHandler = (request: FastifyRequest, reply: FastifyReply) => {
-  const requestId = request.requestId || 'unknown';
-  
-  return reply.status(408).send({
-    error: {
-      type: 'REQUEST_TIMEOUT',
-      message: 'Request took too long to process',
-      timestamp: new Date().toISOString(),
-      path: request.url,
-      requestId
-    }
+  // Set request timeout (use server.requestTimeout instead of setTimeout)
+  fastify.addHook('onRequest', async (request, reply) => {
+    const timeout = setTimeout(() => {
+      if (!reply.sent) {
+        reply.status(408).send({
+          success: false,
+          error: {
+            type: 'REQUEST_TIMEOUT',
+            message: 'Request took too long to process',
+            timestamp: new Date().toISOString(),
+            path: request.url,
+          },
+          requestId: request.id
+        });
+      }
+    }, 30000); // 30 second timeout
+
+    reply.raw.on('finish', () => {
+      clearTimeout(timeout);
+    });
   });
-};
+
+  // 404 handler for undefined routes
+  fastify.setNotFoundHandler((request: FastifyRequest, reply: FastifyReply) => {
+    const requestId = request.id || 'unknown';
+    
+    request.log.warn({
+      url: request.url,
+      method: request.method,
+      ip: request.ip,
+      requestId
+    }, 'Route Not Found');
+
+    return reply.status(404).send({
+      success: false,
+      error: {
+        type: 'ROUTE_NOT_FOUND',
+        message: `Route ${request.method} ${request.url} not found`,
+        timestamp: new Date().toISOString(),
+        path: request.url,
+      },
+      requestId
+    });
+  });
+}

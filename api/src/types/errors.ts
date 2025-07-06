@@ -13,6 +13,27 @@ export class ValidationError extends Error {
   }
 }
 
+// src/types/errors.ts
+
+export class ApiError extends Error {
+  constructor(
+    public statusCode: number,
+    public code: string,
+    public message: string
+  ) {
+    super(message);
+  }
+
+  /** Return the shape our error.middleware expects */
+  serialize() {
+    return {
+      code: this.code,
+      message: this.message
+    };
+  }
+}
+
+
 export class BusinessLogicError extends Error {
   public readonly statusCode = 422;
   public readonly type = 'BUSINESS_LOGIC_ERROR';

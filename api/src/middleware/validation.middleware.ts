@@ -1,156 +1,186 @@
-import { FastifyRequest, FastifyReply } from "fastify";
-import { ZodSchema, ZodError } from "zod";
-import { ErrorFormatter, ValidationError } from "../types/errors";
-import { v4 as uuidv4 } from "uuid";
+// src/middleware/validation.middleware.ts
+import { FastifyReply, FastifyRequest } from 'fastify';
+import { ZodSchema, ZodError } from 'zod';
+import { ApiError } from '../types/errors.js';
 
-// Extend FastifyRequest to include validated data and request ID
-declare module 'fastify' {
-  interface FastifyRequest {
-    validatedData?: any;
-    requestId?: string;
-  }
-}
-
-// Input sanitization helpers
-export class InputSanitizer {
-  static sanitizeString(input: string): string {
-    return input
-      .trim()
-      .replace(/[<>]/g, '') // Remove potential HTML tags
-      .substring(0, 10000); // Prevent extremely long strings
-  }
-
-  static sanitizeObject(obj: any): any {
-    if (typeof obj === 'string') {
-      return this.sanitizeString(obj);
-    }
-    
-    if (Array.isArray(obj)) {
-      return obj.map(item => this.sanitizeObject(item));
-    }
-    
-    if (obj && typeof obj === 'object') {
-      const sanitized: any = {};
-      for (const [key, value] of Object.entries(obj)) {
-        // Skip dangerous keys
-        if (['__proto__', 'constructor', 'prototype'].includes(key)) {
-          continue;
-        }
-        sanitized[key] = this.sanitizeObject(value);
-      }
-      return sanitized;
-    }
-    
-    return obj;
-  }
-}
-
-// Main validation middleware factory
-export const validateRequest = (schemas: {
-  body?: ZodSchema;
-  query?: ZodSchema;
-  params?: ZodSchema;
-}) => {
-  return async (request: FastifyRequest, reply: FastifyReply) => {
-    const requestId = uuidv4();
-    request.requestId = requestId;
-
+/**
+ * Generic validation middleware for request body
+ */
+export function validationMiddleware<T extends ZodSchema<any>>(schema: T) {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
     try {
-      const validatedData: any = {};
-
-      // Validate and sanitize request body
-      if (schemas.body && request.body) {
-        const sanitizedBody = InputSanitizer.sanitizeObject(request.body);
-        const bodyResult = schemas.body.safeParse(sanitizedBody);
+      req.body = schema.parse(req.body);
+    } catch (err) {
+      if (err instanceof ZodError) {
+        // Log validation failure for monitoring
+        req.log.debug({
+          url: req.url,
+          method: req.method,
+          errors: err.flatten(),
+          ip: req.ip
+        }, 'Request validation failed');
         
-        if (!bodyResult.success) {
-          const errorResponse = ErrorFormatter.formatZodError(
-            bodyResult.error, 
-            request.url
-          );
-          errorResponse.error.requestId = requestId;
-          return reply.status(400).send(errorResponse);
-        }
-        
-        validatedData.body = bodyResult.data;
+        throw new ApiError(400, 'VALIDATION_ERROR', 'Request validation failed');
       }
-
-      // Validate query parameters
-      if (schemas.query && request.query) {
-        const queryResult = schemas.query.safeParse(request.query);
-        
-        if (!queryResult.success) {
-          const errorResponse = ErrorFormatter.formatZodError(
-            queryResult.error,
-            request.url
-          );
-          errorResponse.error.requestId = requestId;
-          return reply.status(400).send(errorResponse);
-        }
-        
-        validatedData.query = queryResult.data;
-      }
-
-      // Validate URL parameters
-      if (schemas.params && request.params) {
-        const paramsResult = schemas.params.safeParse(request.params);
-        
-        if (!paramsResult.success) {
-          const errorResponse = ErrorFormatter.formatZodError(
-            paramsResult.error,
-            request.url
-          );
-          errorResponse.error.requestId = requestId;
-          return reply.status(400).send(errorResponse);
-        }
-        
-        validatedData.params = paramsResult.data;
-      }
-
-      // Attach validated data to request
-      request.validatedData = validatedData;
-
-    } catch (error) {
-      const errorResponse = ErrorFormatter.formatGenericError(
-        error as Error,
-        request.url,
-        requestId
-      );
-      return reply.status(500).send(errorResponse);
+      throw err;
     }
   };
-};
+}
 
-// Request size limiter
-export const limitRequestSize = (maxSize: number = 1024 * 1024) => { // 1MB default
-  return async (request: FastifyRequest, reply: FastifyReply) => {
-    const contentLength = request.headers['content-length'];
+/**
+ * Validation middleware for request parameters
+ */
+export function validateParams<T extends ZodSchema<any>>(schema: T) {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    try {
+      req.params = schema.parse(req.params);
+    } catch (err) {
+      if (err instanceof ZodError) {
+        req.log.debug({
+          url: req.url,
+          method: req.method,
+          errors: err.flatten(),
+          params: req.params,
+          ip: req.ip
+        }, 'Parameter validation failed');
+        
+        throw new ApiError(400, 'VALIDATION_ERROR', 'Parameter validation failed');
+      }
+      throw err;
+    }
+  };
+}
+
+/**
+ * Validation middleware for query parameters
+ */
+export function validateQuery<T extends ZodSchema<any>>(schema: T) {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    try {
+      req.query = schema.parse(req.query);
+    } catch (err) {
+      if (err instanceof ZodError) {
+        req.log.debug({
+          url: req.url,
+          method: req.method,
+          errors: err.flatten(),
+          query: req.query,
+          ip: req.ip
+        }, 'Query validation failed');
+        
+        throw new ApiError(400, 'VALIDATION_ERROR', 'Query validation failed');
+      }
+      throw err;
+    }
+  };
+}
+
+/**
+ * Combined validation middleware for body, params, and query
+ */
+export function validateRequest<
+  TBody extends ZodSchema<any> = ZodSchema<any>,
+  TParams extends ZodSchema<any> = ZodSchema<any>,
+  TQuery extends ZodSchema<any> = ZodSchema<any>
+>(schemas: {
+  body?: TBody;
+  params?: TParams;
+  query?: TQuery;
+}) {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    try {
+      if (schemas.body) {
+        req.body = schemas.body.parse(req.body);
+      }
+      if (schemas.params) {
+        req.params = schemas.params.parse(req.params);
+      }
+      if (schemas.query) {
+        req.query = schemas.query.parse(req.query);
+      }
+    } catch (err) {
+      if (err instanceof ZodError) {
+        req.log.debug({
+          url: req.url,
+          method: req.method,
+          errors: err.flatten(),
+          ip: req.ip
+        }, 'Request validation failed');
+        
+        throw new ApiError(400, 'VALIDATION_ERROR', 'Request validation failed');
+      }
+      throw err;
+    }
+  };
+}
+
+/**
+ * Request size limiting middleware
+ */
+export function limitRequestSize(maxSizeBytes: number) {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    const contentLength = req.headers['content-length'];
     
-    if (contentLength && parseInt(contentLength) > maxSize) {
-      return reply.status(413).send({
-        error: {
-          type: 'REQUEST_TOO_LARGE',
-          message: `Request body too large. Maximum size: ${maxSize} bytes`,
-          timestamp: new Date().toISOString()
-        }
-      });
+    if (contentLength && parseInt(contentLength) > maxSizeBytes) {
+      req.log.warn({
+        contentLength: parseInt(contentLength),
+        maxSize: maxSizeBytes,
+        url: req.url,
+        ip: req.ip
+      }, 'Request size limit exceeded');
+      
+      throw new ApiError(413, 'PAYLOAD_TOO_LARGE', `Request size exceeds ${maxSizeBytes} bytes`);
     }
   };
-};
+}
 
-// Content type validator
-export const validateContentType = (allowedTypes: string[] = ['application/json']) => {
-  return async (request: FastifyRequest, reply: FastifyReply) => {
-    const contentType = request.headers['content-type'];
+/**
+ * Rate limiting middleware (simple in-memory implementation)
+ * For production, use Redis-based rate limiting
+ */
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+export function rateLimit(maxRequests: number, windowMs: number) {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    const clientIP = req.ip || 'unknown';
+    const now = Date.now();
+    const key = `${clientIP}:${req.url}`;
     
-    if (!contentType || !allowedTypes.some(type => contentType.includes(type))) {
-      return reply.status(415).send({
-        error: {
-          type: 'UNSUPPORTED_MEDIA_TYPE',
-          message: `Content-Type must be one of: ${allowedTypes.join(', ')}`,
-          timestamp: new Date().toISOString()
-        }
-      });
+    const current = rateLimitStore.get(key);
+    
+    if (!current || now > current.resetTime) {
+      // Reset or initialize counter
+      rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
+      return;
     }
+    
+    if (current.count >= maxRequests) {
+      const retryAfter = Math.ceil((current.resetTime - now) / 1000);
+      
+      req.log.warn({
+        ip: clientIP,
+        url: req.url,
+        count: current.count,
+        maxRequests,
+        retryAfter
+      }, 'Rate limit exceeded');
+      
+      reply.header('Retry-After', retryAfter.toString());
+      throw new ApiError(429, 'RATE_LIMIT_EXCEEDED', `Too many requests. Try again in ${retryAfter} seconds.`);
+    }
+    
+    // Increment counter
+    current.count++;
+    rateLimitStore.set(key, current);
   };
-};
+}
+
+// Cleanup rate limit store periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of rateLimitStore.entries()) {
+    if (now > value.resetTime) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 60000); // Cleanup every minute

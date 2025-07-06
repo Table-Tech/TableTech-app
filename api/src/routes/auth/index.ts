@@ -1,8 +1,8 @@
 import { FastifyInstance } from "fastify";
 import { loginHandler, getMeHandler, logoutHandler } from "../../controllers/auth.controller";
-import { authenticateStaff } from "../../middleware/auth.middleware";
-import { CreateStaffSchema } from "../../schemas/auth.schema";        // NEW
-import { createStaff } from "../../services/staff.service";            // NEW
+import { requireUser } from "../../middleware/auth.middleware"; // Changed from authenticateStaff
+import { CreateStaffSchema } from "../../schemas/auth.schema";
+import { StaffService } from "../../services/staff.service"; // Use the class instead
 
 export default async function authRoutes(server: FastifyInstance) {
   // POST /api/auth/login - Staff login
@@ -13,7 +13,7 @@ export default async function authRoutes(server: FastifyInstance) {
   
   // GET /api/auth/me - Get current staff info (requires authentication)
   server.get("/me", {
-    preHandler: [authenticateStaff]
+    preHandler: [requireUser] // Changed from authenticateStaff
   }, getMeHandler);
 
   // POST /api/auth/create-first-admin - Create first admin (no auth required)
@@ -24,7 +24,8 @@ export default async function authRoutes(server: FastifyInstance) {
     }
 
     try {
-      const staff = await createStaff(result.data);
+      const staffService = new StaffService();
+      const staff = await staffService.createStaff(result.data); // Use the class method
       return reply.code(201).send({
         message: "First admin created successfully",
         staff

@@ -6,11 +6,11 @@ import {
   updateStaffHandler,
   deleteStaffHandler,
 } from "../../controllers/staff.controller";
-import { authenticateStaff, requireRole, requireRestaurantAccess } from "../../middleware/auth.middleware";
+import { requireStaff, requireRole, requireRestaurantAccess } from "../../middleware/auth.middleware"; // Fixed import
 
 export default async function staffRoutes(server: FastifyInstance) {
   // All staff routes require authentication
-  server.addHook('preHandler', authenticateStaff);
+  server.addHook('preHandler', requireStaff); // Changed from authenticateStaff
   
   // GET /api/staff - Get staff by restaurant (any authenticated staff)
   server.get("/", {

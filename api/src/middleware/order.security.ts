@@ -1,159 +1,227 @@
 // src/middleware/order.security.ts
-import { FastifyRequest, FastifyReply } from "fastify";
-import { RateLimitError } from "../types/errors.js";
-import { OrderTimeoutError, DuplicateOrderError } from "../types/errors/order.errors.js";
+import { FastifyReply, FastifyRequest } from 'fastify';
+import { ApiError } from '../types/errors.js';
+import { AuthenticatedRequest } from './auth.middleware.js';
 
-// In-memory rate limiting store (use Redis in production)
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
-const orderAttempts = new Map<string, { attempts: number; lastAttempt: number }>();
+// Simple in-memory stores (use Redis in production)
+const lastOrderTimestamps: Record<string, number> = {};
+const orderAttempts: Record<string, { attempts: number; firstAttempt: number }> = {};
 
-export class OrderSecurity {
-  // Rate limiting for order creation (per IP)
-  static rateLimitOrderCreation = (maxAttempts: number = 5, windowMs: number = 60000) => {
-    return async (request: FastifyRequest, reply: FastifyReply) => {
-      const clientIP = request.ip || 'unknown';
-      const now = Date.now();
-      const key = `order_create_${clientIP}`;
+/**
+ * Prevent duplicate orders within a time window (ms)
+ */
+export function preventDuplicateOrders(windowMs: number) {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user) {
+      // requireUser should run first
+      throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required');
+    }
+
+    const key = user.staffId || user.email;
+    const now = Date.now();
+    const last = lastOrderTimestamps[key];
+    
+    if (last && now - last < windowMs) {
+      const waitTime = Math.ceil((windowMs - (now - last)) / 1000);
       
-      const current = rateLimitStore.get(key);
+      req.log.warn({
+        staffId: user.staffId,
+        timeSinceLastOrder: now - last,
+        windowMs,
+        waitTime,
+        ip: req.ip
+      }, 'Duplicate order attempt blocked');
       
-      if (!current || now > current.resetTime) {
-        // Reset or initialize counter
-        rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
-        return;
-      }
-      
-      if (current.count >= maxAttempts) {
-        const retryAfter = Math.ceil((current.resetTime - now) / 1000);
-        throw new RateLimitError(retryAfter);
-      }
-      
-      // Increment counter
-      current.count++;
-      rateLimitStore.set(key, current);
-    };
+      throw new ApiError(
+        429,
+        'TOO_MANY_REQUESTS',
+        `Please wait ${waitTime} more seconds before placing another order`
+      );
+    }
+    
+    lastOrderTimestamps[key] = now;
   };
+}
 
-  // Prevent duplicate orders from same table within time window
-  static preventDuplicateOrders = (windowMs: number = 30000) => {
-    return async (request: FastifyRequest, reply: FastifyReply) => {
-      const orderData = request.validatedData?.body;
-      if (!orderData?.tableId) return;
+/**
+ * Rate limiting for order creation (per user)
+ */
+export function rateLimitOrderCreation(maxAttempts: number, windowMs: number) {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user) {
+      throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required');
+    }
+
+    const key = `order_create_${user.staffId}`;
+    const now = Date.now();
+    
+    const current = orderAttempts[key];
+    
+    if (!current || now - current.firstAttempt > windowMs) {
+      // Reset or initialize counter
+      orderAttempts[key] = { attempts: 1, firstAttempt: now };
+      return;
+    }
+    
+    if (current.attempts >= maxAttempts) {
+      const retryAfter = Math.ceil((windowMs - (now - current.firstAttempt)) / 1000);
       
-      const now = Date.now();
-      const key = `table_${orderData.tableId}`;
+      req.log.warn({
+        staffId: user.staffId,
+        attempts: current.attempts,
+        maxAttempts,
+        retryAfter,
+        ip: req.ip
+      }, 'Order creation rate limit exceeded');
       
-      const lastOrder = orderAttempts.get(key);
-      
-      if (lastOrder && (now - lastOrder.lastAttempt) < windowMs) {
-        throw new DuplicateOrderError(orderData.tableId);
-      }
-      
-      // Record this order attempt
-      orderAttempts.set(key, { attempts: 1, lastAttempt: now });
-    };
+      reply.header('Retry-After', retryAfter.toString());
+      throw new ApiError(
+        429,
+        'RATE_LIMIT_EXCEEDED',
+        `Too many order attempts. Try again in ${retryAfter} seconds.`
+      );
+    }
+    
+    // Increment counter
+    current.attempts++;
+    orderAttempts[key] = current;
   };
+}
 
-  // Validate order session (prevent stale orders)
-  static validateOrderSession = (maxSessionMs: number = 30 * 60 * 1000) => {
-    return async (request: FastifyRequest, reply: FastifyReply) => {
-      const sessionStart = request.headers['x-session-start'];
+/**
+ * Validate business hours for order creation
+ */
+export function validateBusinessHours() {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    const now = new Date();
+    const hour = now.getHours();
+    const day = now.getDay(); // 0 = Sunday, 6 = Saturday
+    
+    // Example business hours: Monday-Saturday 8AM-10PM, Closed Sunday
+    if (day === 0) {
+      req.log.warn({
+        day,
+        hour,
+        ip: req.ip
+      }, 'Order attempt during closed day');
       
-      if (sessionStart) {
-        const sessionStartTime = parseInt(sessionStart as string);
-        const now = Date.now();
-        
-        if (now - sessionStartTime > maxSessionMs) {
-          throw new OrderTimeoutError('session');
-        }
-      }
-    };
+      throw new ApiError(400, 'RESTAURANT_CLOSED', 'Restaurant is closed on Sundays');
+    }
+    
+    if (hour < 8 || hour >= 22) {
+      req.log.warn({
+        day,
+        hour,
+        ip: req.ip
+      }, 'Order attempt outside business hours');
+      
+      throw new ApiError(400, 'RESTAURANT_CLOSED', 'Restaurant is closed. Business hours: 8AM-10PM');
+    }
   };
+}
 
-  // Sanitize order data for security
-  static sanitizeOrderData = async (request: FastifyRequest, reply: FastifyReply) => {
-    const orderData = request.validatedData?.body;
+/**
+ * Sanitize order data for security
+ */
+export function sanitizeOrderData() {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    const orderData = req.body as any;
     if (!orderData) return;
 
-    // Remove any potentially harmful fields
-    delete (orderData as any).__proto__;
-    delete (orderData as any).constructor;
+    // Remove potentially harmful fields
+    delete orderData.__proto__;
+    delete orderData.constructor;
     
-    // Sanitize notes fields
+    // Sanitize notes fields if present
     if (orderData.notes) {
-      orderData.notes = orderData.notes
-        .replace(/<[^>]*>/g, '') // Remove HTML tags
-        .replace(/javascript:/gi, '') // Remove javascript: protocol
-        .replace(/on\w+=/gi, '') // Remove event handlers
-        .trim();
+      orderData.notes = sanitizeText(orderData.notes);
     }
 
     // Sanitize item notes
-    if (orderData.orderItems) {
-      orderData.orderItems.forEach((item: any) => {
+    if (orderData.items && Array.isArray(orderData.items)) {
+      orderData.items.forEach((item: any) => {
         if (item.notes) {
-          item.notes = item.notes
-            .replace(/<[^>]*>/g, '')
-            .replace(/javascript:/gi, '')
-            .replace(/on\w+=/gi, '')
-            .trim();
+          item.notes = sanitizeText(item.notes);
         }
       });
     }
   };
+}
 
-  // Log order attempts for audit
-  static logOrderAttempt = async (request: FastifyRequest, reply: FastifyReply) => {
-    const clientIP = request.ip;
-    const userAgent = request.headers['user-agent'];
-    const orderData = request.validatedData?.body;
+/**
+ * Log order attempts for audit
+ */
+export function logOrderAttempt() {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    const user = (req as AuthenticatedRequest).user;
+    const orderData = req.body as any;
     
-    // In production, use proper logging service
-    console.log(`[ORDER_ATTEMPT] ${new Date().toISOString()}`, {
-      ip: clientIP,
-      userAgent,
+    req.log.info({
+      staffId: user?.staffId,
+      restaurantId: user?.restaurantId,
       tableId: orderData?.tableId,
-      restaurantId: orderData?.restaurantId,
-      itemCount: orderData?.orderItems?.length || 0,
-      requestId: request.requestId
-    });
+      itemCount: orderData?.items?.length || 0,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+      timestamp: new Date().toISOString()
+    }, 'Order creation attempt');
   };
+}
 
-  // Validate business hours
-  static validateBusinessHours = async (request: FastifyRequest, reply: FastifyReply) => {
-    const orderData = request.validatedData?.body;
-    if (!orderData?.restaurantId) return;
-
-    // TODO: Fetch restaurant business hours from database
-    // For now, simple time check
-    const hour = new Date().getHours();
-    const day = new Date().getDay(); // 0 = Sunday, 6 = Saturday
+/**
+ * Validate order session (prevent stale orders)
+ */
+export function validateOrderSession(maxSessionMs: number = 30 * 60 * 1000) {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    const sessionStart = req.headers['x-session-start'];
     
-    // Example: Closed on Sundays and late nights
-    if (day === 0 || hour < 8 || hour > 22) {
-      throw new OrderTimeoutError('outside_business_hours');
-    }
-  };
-
-  // Clean up old rate limit entries (run periodically)
-  static cleanup = () => {
-    const now = Date.now();
-    
-    // Clean rate limit store
-    for (const [key, value] of rateLimitStore.entries()) {
-      if (now > value.resetTime) {
-        rateLimitStore.delete(key);
-      }
-    }
-    
-    // Clean order attempts (keep for 1 hour)
-    for (const [key, value] of orderAttempts.entries()) {
-      if (now - value.lastAttempt > 3600000) { // 1 hour
-        orderAttempts.delete(key);
+    if (sessionStart) {
+      const sessionStartTime = parseInt(sessionStart as string);
+      const now = Date.now();
+      
+      if (isNaN(sessionStartTime) || now - sessionStartTime > maxSessionMs) {
+        req.log.warn({
+          sessionStart: sessionStartTime,
+          now,
+          maxSessionMs,
+          ip: req.ip
+        }, 'Order session validation failed');
+        
+        throw new ApiError(400, 'SESSION_EXPIRED', 'Order session has expired. Please refresh and try again.');
       }
     }
   };
 }
 
-// Start cleanup interval
-setInterval(OrderSecurity.cleanup, 300000); // Every 5 minutes
+// Helper function to sanitize text input
+function sanitizeText(text: string): string {
+  return text
+    .replace(/<[^>]*>/g, '') // Remove HTML tags
+    .replace(/javascript:/gi, '') // Remove javascript: protocol
+    .replace(/on\w+=/gi, '') // Remove event handlers
+    .replace(/[<>]/g, '') // Remove angle brackets
+    .trim()
+    .slice(0, 500); // Limit length
+}
+
+// Cleanup old entries periodically
+setInterval(() => {
+  const now = Date.now();
+  const oneHour = 60 * 60 * 1000;
+  
+  // Clean order timestamps older than 1 hour
+  for (const [key, timestamp] of Object.entries(lastOrderTimestamps)) {
+    if (now - timestamp > oneHour) {
+      delete lastOrderTimestamps[key];
+    }
+  }
+  
+  // Clean order attempts older than 1 hour
+  for (const [key, data] of Object.entries(orderAttempts)) {
+    if (now - data.firstAttempt > oneHour) {
+      delete orderAttempts[key];
+    }
+  }
+}, 300000); // Cleanup every 5 minutes
