@@ -1,4 +1,5 @@
 import { createRequire } from 'module';
+import { ApiError } from '../types/errors.js';
 const require = createRequire(import.meta.url);
 const jwt = require('jsonwebtoken');
 
@@ -20,7 +21,7 @@ export const verifyToken = (token: string): JWTPayload => {
   try {
     return jwt.verify(token, JWT_SECRET) as JWTPayload;
   } catch (error) {
-    throw new Error('Invalid or expired token');
+    throw new ApiError(401, 'INVALID_TOKEN', 'Invalid or expired token');
   }
 };
 

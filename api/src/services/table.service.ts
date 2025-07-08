@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { ApiError } from '../types/errors.js';
 const prisma = new PrismaClient();
 
 type TableStatus = "AVAILABLE" | "OCCUPIED" | "RESERVED" | "MAINTENANCE";
@@ -51,7 +52,7 @@ export const generateQRUrl = async (tableId: string) => {
   });
 
   if (!table) {
-    throw new Error("Table not found");
+    throw new ApiError(404, 'TABLE_NOT_FOUND', 'Table not found');
   }
 
   // Generate the customer menu URL

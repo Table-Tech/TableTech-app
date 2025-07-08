@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { ApiError } from '../types/errors.js';
 const prisma = new PrismaClient();
 
 type CreateMenuInput = {
@@ -68,7 +69,7 @@ export const getCustomerMenu = async (tableCode: string, restaurantId: string) =
   });
 
   if (!table) {
-    throw new Error("Table not found");
+    throw new ApiError(404, 'TABLE_NOT_FOUND', 'Table not found for the provided code and restaurant');
   }
 
   // Get the menu for this restaurant

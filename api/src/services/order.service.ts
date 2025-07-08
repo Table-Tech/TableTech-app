@@ -1,6 +1,7 @@
 // src/services/order.service.ts
 import { Order, Prisma, OrderStatus, TableStatus } from '@prisma/client';
 import { BaseService } from './base.service.js';
+import { ApiError } from '../types/errors.js';
 import { randomBytes } from 'crypto';
 
 // Order with full relations for responses
@@ -310,6 +311,6 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
       await new Promise(resolve => setTimeout(resolve, 1));
     }
 
-    throw new Error('Failed to generate unique order number');
+    throw new ApiError(500, 'ORDER_NUMBER_GENERATION_FAILED', 'Failed to generate unique order number');
   }
 }

@@ -1,6 +1,32 @@
 import { ZodError, ZodIssue } from "zod";
 
-// Custom error classes for different types of failures
+/**
+ * Primary error class for all API errors
+ * Provides consistent error handling across the application
+ */
+export class ApiError extends Error {
+  constructor(
+    public statusCode: number,
+    public code: string,
+    public message: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+
+  /** Return the shape our error.middleware expects */
+  serialize() {
+    return {
+      code: this.code,
+      message: this.message
+    };
+  }
+}
+
+/**
+ * Validation error for complex validation scenarios with structured details
+ * Use only when you need to return multiple field errors or complex validation info
+ */
 export class ValidationError extends Error {
   public readonly statusCode = 400;
   public readonly type = 'VALIDATION_ERROR';
@@ -13,27 +39,10 @@ export class ValidationError extends Error {
   }
 }
 
-// src/types/errors.ts
-
-export class ApiError extends Error {
-  constructor(
-    public statusCode: number,
-    public code: string,
-    public message: string
-  ) {
-    super(message);
-  }
-
-  /** Return the shape our error.middleware expects */
-  serialize() {
-    return {
-      code: this.code,
-      message: this.message
-    };
-  }
-}
-
-
+/**
+ * Business logic error for domain-specific rule violations
+ * Use when business rules are violated and you need structured error codes
+ */
 export class BusinessLogicError extends Error {
   public readonly statusCode = 422;
   public readonly type = 'BUSINESS_LOGIC_ERROR';
@@ -43,54 +52,6 @@ export class BusinessLogicError extends Error {
     super(message);
     this.name = 'BusinessLogicError';
     this.code = code;
-  }
-}
-
-export class AuthenticationError extends Error {
-  public readonly statusCode = 401;
-  public readonly type = 'AUTHENTICATION_ERROR';
-
-  constructor(message: string = 'Authentication required') {
-    super(message);
-    this.name = 'AuthenticationError';
-  }
-}
-
-export class AuthorizationError extends Error {
-  public readonly statusCode = 403;
-  public readonly type = 'AUTHORIZATION_ERROR';
-  public readonly requiredRole?: string;
-  public readonly userRole?: string;
-
-  constructor(message: string, requiredRole?: string, userRole?: string) {
-    super(message);
-    this.name = 'AuthorizationError';
-    this.requiredRole = requiredRole;
-    this.userRole = userRole;
-  }
-}
-
-export class ResourceNotFoundError extends Error {
-  public readonly statusCode = 404;
-  public readonly type = 'RESOURCE_NOT_FOUND';
-  public readonly resource: string;
-
-  constructor(resource: string, id?: string) {
-    super(`${resource}${id ? ` with ID ${id}` : ''} not found`);
-    this.name = 'ResourceNotFoundError';
-    this.resource = resource;
-  }
-}
-
-export class RateLimitError extends Error {
-  public readonly statusCode = 429;
-  public readonly type = 'RATE_LIMIT_ERROR';
-  public readonly retryAfter: number;
-
-  constructor(retryAfter: number = 60) {
-    super('Too many requests. Please try again later.');
-    this.name = 'RateLimitError';
-    this.retryAfter = retryAfter;
   }
 }
 
@@ -132,7 +93,7 @@ export class ErrorFormatter {
     };
   }
 
-  static formatCustomError(error: ValidationError | BusinessLogicError | AuthenticationError | AuthorizationError | ResourceNotFoundError | RateLimitError, path?: string, requestId?: string): ErrorResponse {
+  static formatCustomError(error: ValidationError | BusinessLogicError, path?: string, requestId?: string): ErrorResponse {
     const response: ErrorResponse = {
       error: {
         type: error.type,
@@ -149,22 +110,9 @@ export class ErrorFormatter {
       response.error.details = error.details;
     }
 
-    if (error instanceof AuthorizationError) {
-      response.error.details = {
-        requiredRole: error.requiredRole,
-        userRole: error.userRole
-      };
-    }
-
     if (error instanceof BusinessLogicError) {
       response.error.details = {
-        code: (error as BusinessLogicError).code
-      };
-    }
-
-    if (error instanceof RateLimitError) {
-      response.error.details = {
-        retryAfter: (error as RateLimitError).retryAfter
+        code: error.code
       };
     }
 

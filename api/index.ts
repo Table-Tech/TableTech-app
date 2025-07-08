@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 
 import prismaPlugin from './src/plugins/prisma.js';
+import { registerErrorHandlers } from './src/middleware/error.middleware.js';
 import menuRoutes from './src/routes/menu/index.js';
 import restaurantRoutes from "./src/routes/restaurants/index.js";
 import tableRoutes from "./src/routes/tables/index.js";
@@ -12,16 +13,25 @@ import modifierRoutes from "./src/routes/modifiers/index.js";
 import authRoutes from "./src/routes/auth/index.js";
 import staffRoutes from "./src/routes/staff/index.js";
 
-const fastify = Fastify({ logger: true });
+const fastify = Fastify({ 
+  logger: true,
+  requestIdHeader: 'x-request-id',
+  requestIdLogLabel: 'requestId'
+});
 
 const start = async () => {
   try {
-    // Register plugins
+    // Register core plugins first
     await fastify.register(cors, {
-      origin: true // Allow all origins for development
+      origin: true, // Allow all origins for development
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
     });
     
     await fastify.register(prismaPlugin);
+    
+    // Register error handling (CRITICAL - was missing!)
+    registerErrorHandlers(fastify);
 
     // Health check endpoint
     fastify.get('/health', async (request, reply) => {
@@ -53,13 +63,25 @@ const start = async () => {
     await fastify.register(staffRoutes, { prefix: "/api/staff" });
 
     // Start server
-    await fastify.listen({ port: 3001, host: '0.0.0.0' });
-    console.log('✅ Fastify API running on http://localhost:3001');
-    console.log('📊 Health check: http://localhost:3001/health');
-    console.log('🏪 Restaurants: http://localhost:3001/api/restaurants');
-    console.log('📂 Categories: http://localhost:3001/api/menu-categories');
-    console.log('🔐 Auth: http://localhost:3001/api/auth');
-    console.log('👥 Staff: http://localhost:3001/api/staff');
+    const port = process.env.PORT ? parseInt(process.env.PORT) : 3001;
+    const host = process.env.HOST || '0.0.0.0';
+    
+    await fastify.listen({ port, host });
+    
+    // Improved startup logs
+    console.log('\n🚀 TableTech API Server Started');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`📡 Server: http://localhost:${port}`);
+    console.log(`🏥 Health: http://localhost:${port}/health`);
+    console.log('\n📚 API Endpoints:');
+    console.log(`   🔐 Auth:       /api/auth`);
+    console.log(`   👥 Staff:      /api/staff`);
+    console.log(`   🏪 Restaurants: /api/restaurants`);
+    console.log(`   🍽️  Menu:       /api/menu`);
+    console.log(`   📂 Categories: /api/menu-categories`);
+    console.log(`   🛎️  Orders:     /api/orders`);
+    console.log(`   🪑 Tables:     /api/tables`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     
   } catch (err) {
     fastify.log.error(err);
