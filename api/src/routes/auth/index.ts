@@ -16,23 +16,4 @@ export default async function authRoutes(server: FastifyInstance) {
     preHandler: [requireUser] // Changed from authenticateStaff
   }, getMeHandler);
 
-  // POST /api/auth/create-first-admin - Create first admin (no auth required)
-  server.post("/create-first-admin", async (request, reply) => {
-    const result = CreateStaffSchema.safeParse(request.body);
-    if (!result.success) {
-      return reply.status(400).send({ error: "Invalid input", details: result.error });
-    }
-
-    try {
-      const staffService = new StaffService();
-      const staff = await staffService.createStaff(result.data); // Use the class method
-      return reply.code(201).send({
-        message: "First admin created successfully",
-        staff
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-      return reply.status(400).send({ error: errorMessage });
-    }
-  });
 }
