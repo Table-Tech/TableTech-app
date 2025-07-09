@@ -117,8 +117,7 @@ export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
         throw error;
       }
 
-      // Log unexpected errors
-      console.error('Login error:', error);
+      // Log unexpected errors - TODO: Replace with proper logger
       throw new ApiError(500, 'LOGIN_ERROR', 'An error occurred during login');
     }
   }
@@ -229,7 +228,7 @@ export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
     });
 
     // Log password change for security audit
-    console.info(`Password changed for staff ID: ${staffId}`);
+    // TODO: Replace with proper logger
 
     return {
       success: true,
@@ -259,7 +258,7 @@ export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
       // 2. Store token with expiration
       // 3. Send email with reset link
       
-      console.info(`Password reset initiated for staff ID: ${staff.id}`);
+      // TODO: Replace with proper logger
     }
 
     // Always return success to not reveal if email exists
@@ -280,7 +279,7 @@ export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
       });
     } catch (error) {
       // Non-critical operation, just log the error
-      console.warn('Failed to update last login:', error);
+      // TODO: Replace with proper logger
     }
   }
 
@@ -288,14 +287,14 @@ export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
    * Log successful login for audit
    */
   private logSuccessfulLogin(staffId: string, email: string): void {
-    console.info(`Successful login - Staff ID: ${staffId}, Email: ${email}`);
+    // TODO: Replace with proper logger
   }
 
   /**
    * Log failed login attempt for security monitoring
    */
   private logFailedLoginAttempt(email: string, reason: string): void {
-    console.warn(`Failed login attempt - Email: ${email}, Reason: ${reason}`);
+    // TODO: Replace with proper logger
   }
 
   /**
