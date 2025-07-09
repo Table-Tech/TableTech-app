@@ -3,6 +3,7 @@ import {
   createTable,
   getTablesByRestaurantId,
   updateTableStatus,
+  generateQRUrl,
 } from "../services/table.service";
 import {
   CreateTableSchema,
@@ -40,4 +41,17 @@ export const updateTableStatusHandler = async (req: FastifyRequest, reply: Fasti
 
   const updated = await updateTableStatus(id, result.data.status);
   return reply.send(updated);
+};
+
+// NEW: Generate QR URL for table
+export const generateQRUrlHandler = async (req: FastifyRequest, reply: FastifyReply) => {
+  const { id } = req.params as { id: string };
+
+  try {
+    const qrData = await generateQRUrl(id);
+    return reply.send(qrData);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return reply.status(404).send({ error: errorMessage });
+  }
 };

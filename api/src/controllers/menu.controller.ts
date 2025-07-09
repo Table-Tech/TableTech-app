@@ -1,23 +1,27 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { createMenuItem, getMenuByRestaurantId } from "../services/menu.service";
+import { createMenuItem, getMenuByRestaurantId, getCustomerMenu } from "../services/menu.service";
 import { CreateMenuItemSchema, GetMenuQuerySchema } from "../schemas/menu.schema";
+import { z } from "zod";
 
-export const createMenuItemHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const result = CreateMenuItemSchema.safeParse(req.body);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Invalid input", details: result.error });
-  }
+type CreateMenuItemRequest = FastifyRequest<{ Body: z.infer<typeof CreateMenuItemSchema> }>;
+type GetMenuRequest = FastifyRequest<{ Querystring: z.infer<typeof GetMenuQuerySchema> }>;
 
-  const item = await createMenuItem(result.data);
-  return reply.code(201).send(item);
+export const createMenuItemHandler = async (req: CreateMenuItemRequest, reply: FastifyReply) => {
+  // req.body is now validated by middleware
+  const item = await createMenuItem(req.body);
+  return reply.status(201).send({ success: true, data: item });
 };
 
-export const getMenuHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const result = GetMenuQuerySchema.safeParse(req.query);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Missing or invalid restaurantId" });
-  }
+export const getMenuHandler = async (req: GetMenuRequest, reply: FastifyReply) => {
+  // req.query is now validated by middleware
+  const menu = await getMenuByRestaurantId(req.query.restaurantId);
+  return reply.send({ success: true, data: menu });
+};
 
-  const menu = await getMenuByRestaurantId(result.data.restaurantId);
-  return reply.send(menu);
+// NEW: Get customer menu for QR code scanning
+export const getCustomerMenuHandler = async (req: FastifyRequest, reply: FastifyReply) => {
+  const { tableCode, restaurantId } = req.params as { tableCode: string; restaurantId: string };
+
+  const customerMenu = await getCustomerMenu(tableCode, restaurantId);
+  return reply.send({ success: true, data: customerMenu });
 };
