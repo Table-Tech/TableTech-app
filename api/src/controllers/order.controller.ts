@@ -1,12 +1,17 @@
 // src/controllers/order.controller.ts
 import { FastifyReply } from 'fastify';
+import { z } from 'zod';
 import { AuthenticatedRequest } from '../middleware/auth.middleware.js';
 import { ApiError } from '../types/errors.js';
 import { OrderService } from '../services/order.service.js';
 import {
-  CreateOrderDTO,
-  OrderParamsDTO,
+  CreateOrderSchema,
+  OrderParamsSchema,
 } from '../schemas/order.schema.js';
+
+// Infer types locally
+type CreateOrderDTO = z.infer<typeof CreateOrderSchema>;
+type OrderParamsDTO = z.infer<typeof OrderParamsSchema>;
 import { 
   enforceOrderRules, 
   convertOrderDTOToPrisma 

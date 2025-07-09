@@ -15,10 +15,6 @@ export const CreateOrderSchema = z.object({
     .min(1),
 });
 
-export type CreateOrderDTO = z.infer<typeof CreateOrderSchema>;
-
-// Optional params schema
 export const OrderParamsSchema = z.object({
   id: z.string().uuid(),
 });
-export type OrderParamsDTO = z.infer<typeof OrderParamsSchema>;

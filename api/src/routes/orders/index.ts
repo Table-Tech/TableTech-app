@@ -5,7 +5,7 @@ import {
   CreateOrderSchema, 
   OrderParamsSchema
 } from "../../schemas/order.schema.js";
-import { validationMiddleware } from "../../middleware/validation.middleware.js";
+import { validationMiddleware, validateParams } from "../../middleware/validation.middleware.js";
 import { requireUser } from "../../middleware/auth.middleware.js";
 import { preventDuplicateOrders } from "../../middleware/order.security.js";
 
@@ -48,7 +48,7 @@ export default async function orderRoutes(server: FastifyInstance) {
   server.get("/:id", {
     preHandler: [
       requireUser,
-      validationMiddleware(OrderParamsSchema)
+      validateParams(OrderParamsSchema)
     ]
   }, async (request, reply) => {
     return controller.findById(request as any, reply);
@@ -58,7 +58,7 @@ export default async function orderRoutes(server: FastifyInstance) {
   server.patch("/:id/status", {
     preHandler: [
       requireUser,
-      validationMiddleware(OrderParamsSchema)
+      validateParams(OrderParamsSchema)
     ]
   }, async (request, reply) => {
     return controller.updateStatus(request as any, reply);
@@ -68,7 +68,7 @@ export default async function orderRoutes(server: FastifyInstance) {
   server.delete("/:id", {
     preHandler: [
       requireUser,
-      validationMiddleware(OrderParamsSchema)
+      validateParams(OrderParamsSchema)
     ]
   }, async (request, reply) => {
     return controller.delete(request as any, reply);

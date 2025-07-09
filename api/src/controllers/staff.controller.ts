@@ -1,4 +1,5 @@
 import { FastifyReply } from "fastify";
+import { z } from "zod";
 import { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 import { ApiError } from "../types/errors.js";
 import { StaffService } from "../services/staff.service.js";
@@ -7,7 +8,13 @@ import {
   UpdateStaffSchema,
   StaffIdParamSchema,
   GetStaffQuerySchema,
-} from "../schemas/auth.schema.js";
+} from "../schemas/staff.schema.js";
+
+// Infer types locally
+type CreateStaffDTO = z.infer<typeof CreateStaffSchema>;
+type UpdateStaffDTO = z.infer<typeof UpdateStaffSchema>;
+type StaffIdParamDTO = z.infer<typeof StaffIdParamSchema>;
+type GetStaffQueryDTO = z.infer<typeof GetStaffQuerySchema>;
 
 export class StaffController {
   private svc = new StaffService();

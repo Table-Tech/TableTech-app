@@ -1,7 +1,11 @@
+import { z } from 'zod';
 import { ApiError } from '../../types/errors.js';
-import { CreateOrderDTO } from '../../schemas/order.schema.js';
+import { CreateOrderSchema } from '../../schemas/order.schema.js';
 import { prisma } from '../prisma.js';
 import { Prisma } from '@prisma/client';
+
+// Infer type locally
+type CreateOrderDTO = z.infer<typeof CreateOrderSchema>;
 
 /**
  * Business logic validation for orders
