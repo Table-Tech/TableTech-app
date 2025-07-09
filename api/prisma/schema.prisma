@@ -32,7 +32,7 @@ model Restaurant {
   orders          Order[]
   staff           Staff[]
 
-  // Optional: add restaurant-level settings
+  // For future: add restaurant-level settings
   // settings        Json?         // e.g., opening hours, currency, locale
 }
 
