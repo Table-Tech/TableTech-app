@@ -45,8 +45,8 @@ export default function ClientPage() {
         const fetchMenu = async () => {
             try {
                 const [restaurantRes, menuRes] = await Promise.all([
-                    fetch(`http://192.168.2.12:3001/api/restaurants/${restaurantId}`),
-                    fetch(`http://192.168.2.12:3001/api/menu?restaurantId=${restaurantId}`)
+                    fetch(`http://localhost:3001/api/restaurants/${restaurantId}`),
+                    fetch(`http://localhost:3001/api/menu?restaurantId=${restaurantId}`)
                 ]);
 
                 const restaurantData = await restaurantRes.json();
