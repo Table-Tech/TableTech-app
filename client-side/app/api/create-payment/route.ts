@@ -5,7 +5,11 @@ const mollie = createMollieClient({ apiKey: process.env.MOLLIE_API_KEY! });
 
 export async function POST(req: NextRequest) {
     const body = await req.json();
-    const { totalAmount, tableId } = body;
+    const { totalAmount, tableId, restaurantId } = body;
+
+    if (!totalAmount || !tableId || !restaurantId) {
+        return NextResponse.json({ error: "Missing data" }, { status: 400 });
+    }
 
     try {
         const payment = await mollie.payments.create({
@@ -14,10 +18,10 @@ export async function POST(req: NextRequest) {
                 currency: "EUR",
             },
             description: `Bestelling voor tafel ${tableId}`,
-            redirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/client/${tableId}/thankyou`,
-            // webhookUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook`, // optioneel
+            redirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/client/${restaurantId}/${tableId}/thankyou`,
             metadata: {
                 tableId,
+                restaurantId,
             },
         });
 

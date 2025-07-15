@@ -3,24 +3,28 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import MenuItem from "./[tableId]/components/MenuItem";
+import MenuItem from "./components/MenuItem";
 
 export default function ClientPage() {
-    const params = useParams();
     const router = useRouter();
-    const tableId = params.tableId as string;
+    const { restaurantId, tableId } = useParams() as {
+        restaurantId: string;
+        tableId: string;
+    };
 
+    const [restaurantName, setRestaurantName] = useState<string | null>(null);
     const [cart, setCart] = useState<any[]>([]);
-    const [menuData, setMenuData] = useState<Record<string, any[]> | null>(null);
     const [openCategories, setOpenCategories] = useState<{ [key: string]: boolean }>({});
     const [startTransition, setStartTransition] = useState(false);
     const [startEntryTransition, setStartEntryTransition] = useState(true);
-    const [footerVisible, setFooterVisible] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
+    const [menuData, setMenuData] = useState<Record<string, any[]> | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     const total = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
     const totalItems = cart.reduce((sum, i) => sum + i.quantity, 0);
 
+    // ⏱️ Cart uit localStorage ophalen
     useEffect(() => {
         const stored = localStorage.getItem("cart");
         if (stored) {
@@ -29,9 +33,55 @@ export default function ClientPage() {
             setCart(filtered);
             localStorage.setItem("cart", JSON.stringify(filtered));
         }
+
         const timeout = setTimeout(() => setStartEntryTransition(false), 600);
         return () => clearTimeout(timeout);
     }, []);
+
+    // 📦 Menu en restaurant ophalen
+    useEffect(() => {
+        if (!restaurantId || !tableId) return;
+
+        const fetchMenu = async () => {
+            try {
+                const [restaurantRes, menuRes] = await Promise.all([
+                    fetch(`http://192.168.2.12:3001/api/restaurants/${restaurantId}`),
+                    fetch(`http://192.168.2.12:3001/api/menu?restaurantId=${restaurantId}`)
+                ]);
+
+                const restaurantData = await restaurantRes.json();
+                const menuRaw = await menuRes.json();
+
+                console.log("🍽️ MENU RESPONSE:", menuRaw);
+
+                // ✅ FIX restaurantnaam ophalen
+                setRestaurantName(restaurantData?.data?.name ?? "Onbekend");
+
+                const categories = menuRaw?.data || [];
+
+                // ✅ Groepeer menuItems per categorie
+                const grouped: Record<string, any[]> = {};
+                categories.forEach((category: any, index: number) => {
+                    console.log(`🔍 Categorie #${index}:`, category);
+
+                    const catName = category.name || "Overig";
+                    if (!Array.isArray(category.menuItems)) {
+                        console.warn("⚠️ Geen geldige menuItems array:", category);
+                        return;
+                    }
+
+                    grouped[catName] = category.menuItems;
+                });
+
+                setMenuData(grouped);
+            } catch (err) {
+                console.error("❌ Fout bij ophalen data:", err);
+                setError("Kan menu of restaurantgegevens niet laden.");
+            }
+        };
+
+        fetchMenu();
+    }, [restaurantId, tableId]);
 
     const handleAddToCart = (item: any, quantity: number) => {
         const existing = cart.find((i) => i.id === item.id);
@@ -50,35 +100,22 @@ export default function ClientPage() {
 
     const handleGoToCart = () => {
         setStartTransition(true);
-        setTimeout(() => router.push(`/client/${tableId}/cart`), 400);
+        setTimeout(() => {
+            router.push(`/client/${restaurantId}/${tableId}/cart`);
+        }, 400);
     };
 
-    useEffect(() => {
-        const fetchMenu = async () => {
-            try {
-                const res = await fetch("http://localhost:5000/products");
-                const data = await res.json();
-
-                // groepeer op category of gebruik 'Menu'
-                const grouped: Record<string, any[]> = {};
-                data.forEach((item: any) => {
-                    const cat = item.category || "Menu";
-                    if (!grouped[cat]) grouped[cat] = [];
-                    grouped[cat].push(item);
-                });
-
-                setMenuData(grouped);
-            } catch (err) {
-                console.error("Fout bij ophalen menu:", err);
-            }
-        };
-
-        fetchMenu();
-    }, [tableId]);
+    if (!restaurantId || !tableId) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <p className="text-red-600">Geen geldige link. Scan opnieuw.</p>
+            </div>
+        );
+    }
 
     return (
         <>
-            {/* Knop voor popup */}
+            {/* Pop-up knop rechtsboven */}
             <div className="fixed top-5 right-5 z-50">
                 <button
                     onClick={() => setShowPopup(true)}
@@ -88,7 +125,7 @@ export default function ClientPage() {
                 </button>
             </div>
 
-            {/* Popup voor rekening/ober */}
+            {/* Pop-up */}
             {showPopup && (
                 <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
                     <div className="bg-white rounded-xl shadow-lg p-6 w-[90%] max-w-sm">
@@ -121,6 +158,7 @@ export default function ClientPage() {
                 </div>
             )}
 
+            {/* Hoofdinhoud */}
             {!startEntryTransition && (
                 <motion.main
                     key="clientMain"
@@ -132,8 +170,12 @@ export default function ClientPage() {
                 >
                     <h1 className="text-2xl font-bold mb-6 text-center">Menu Kaart</h1>
                     <h2 className="text-center text-sm text-gray-600 mt-2 mb-1">
-                        Tafel {tableId}
+                        {restaurantName ?? "Laden..."}
                     </h2>
+
+                    {error && (
+                        <p className="text-red-600 text-center text-sm">{error}</p>
+                    )}
 
                     {menuData &&
                         Object.entries(menuData).map(([category, items]) => (
@@ -182,13 +224,13 @@ export default function ClientPage() {
                 </motion.main>
             )}
 
+            {/* Winkelwagen footer */}
             {cart.length > 0 && !startEntryTransition && (
                 <motion.footer
                     initial={{ y: 100, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 100, opacity: 0 }}
                     transition={{ duration: 0.6, ease: "easeOut", delay: 0.6 }}
-                    onAnimationComplete={() => setFooterVisible(true)}
                     className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-40 px-4 py-4"
                 >
                     <div className="max-w-md mx-auto">
@@ -202,6 +244,7 @@ export default function ClientPage() {
                 </motion.footer>
             )}
 
+            {/* Overgang naar cart */}
             {startTransition && (
                 <motion.div
                     initial={{ y: "100%", opacity: 0 }}

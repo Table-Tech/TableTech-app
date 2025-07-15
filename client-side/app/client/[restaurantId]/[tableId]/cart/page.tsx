@@ -6,8 +6,10 @@ import { AnimatePresence, motion } from "framer-motion";
 
 export default function CartPage() {
     const router = useRouter();
-    const params = useParams();
-    const tableId = params.tableId as string;
+    const { restaurantId, tableId } = useParams() as {
+        restaurantId: string;
+        tableId: string;
+    };
 
     const [cartItems, setCartItems] = useState<any[]>([]);
     const [error, setError] = useState<string | null>(null);
@@ -40,51 +42,61 @@ export default function CartPage() {
         localStorage.setItem("cart", JSON.stringify(updated));
     };
 
+    const total = cartItems.reduce((sum: number, item: any) => {
+        const qty = isNaN(item.quantity) ? 0 : item.quantity;
+        return sum + item.price * qty;
+    }, 0);
+
     const handlePlaceOrder = async () => {
         const hasInvalid = cartItems.some(
-            (item) => item.quantity === 0 || item.quantity === "" || isNaN(item.quantity)
+            (item) =>
+                item.quantity === 0 ||
+                item.quantity === "" ||
+                isNaN(item.quantity) ||
+                !item.id
         );
 
-        if (hasInvalid) {
+        if (hasInvalid || cartItems.length === 0) {
             setError("Verwijder/corrigeer lege hoeveelheden voordat je bestelt.");
             setTimeout(() => setError(null), 3000);
             return;
         }
 
         try {
-            // 1. Bestelling eerst opslaan in eigen backend
-            const orderRes = await fetch("http://localhost:5000/orders", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    tableId,
-                    items: cartItems.map((item) => ({
-                        productId: item.id,
-                        quantity: item.quantity,
-                    })),
-                }),
-            });
+            const orderRes = await fetch(
+                `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/orders`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        restaurantId,
+                        tableId,
+                        items: cartItems.map((item) => ({
+                            productId: item.id,
+                            quantity: item.quantity,
+                        })),
+                    }),
+                }
+            );
 
-            if (!orderRes.ok) {
-                throw new Error("Kon bestelling niet opslaan.");
-            }
+            if (!orderRes.ok) throw new Error("Bestelling opslaan mislukt");
 
-            // 2. Nu Mollie aanroepen voor betaling
+            const orderData = await orderRes.json();
+
             const paymentRes = await fetch("/api/create-payment", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     totalAmount: total,
                     tableId,
+                    restaurantId,
                 }),
             });
 
             const paymentData = await paymentRes.json();
+
             if (paymentData.url) {
+                localStorage.removeItem("cart");
                 window.location.href = paymentData.url;
             } else {
                 setError("Kon geen betaling starten.");
@@ -95,11 +107,6 @@ export default function CartPage() {
         }
     };
 
-    const total = cartItems.reduce((sum: number, item: any) => {
-        const qty = isNaN(item.quantity) ? 0 : item.quantity;
-        return sum + item.price * qty;
-    }, 0);
-
     return (
         <>
             {showContent && (
@@ -109,7 +116,6 @@ export default function CartPage() {
                     transition={{ duration: 0.6, ease: "easeOut" }}
                     className="flex flex-col min-h-screen bg-white text-black relative"
                 >
-                    {/* Sticky Header incl. totaal */}
                     <div className="sticky top-0 bg-white z-40 w-full border-b border-gray-300">
                         <div className="max-w-md mx-auto px-4 pt-6 pb-2">
                             <h1 className="text-2xl font-bold text-center">🛒 Winkelwagen</h1>
@@ -120,7 +126,6 @@ export default function CartPage() {
                         </div>
                     </div>
 
-                    {/* Scrollable main content */}
                     <main className="relative flex-1 overflow-y-auto max-w-md w-full mx-auto px-4 pb-40">
                         <div className="pointer-events-none absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white to-transparent z-10" />
                         <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent z-10" />
@@ -144,11 +149,16 @@ export default function CartPage() {
                                             <div className="flex justify-between items-center mb-2">
                                                 <h2 className="text-lg font-semibold">{item.name}</h2>
                                                 <p className="text-lg font-bold">
-                                                    €{(item.price * (isNaN(item.quantity) ? 0 : item.quantity)).toFixed(2)}
+                                                    €
+                                                    {(
+                                                        item.price *
+                                                        (isNaN(item.quantity) ? 0 : item.quantity)
+                                                    ).toFixed(2)}
                                                 </p>
                                             </div>
                                             <p className="text-sm text-gray-600 mb-2">
-                                                €{item.price.toFixed(2)} × {isNaN(item.quantity) ? 0 : item.quantity}
+                                                €{Number(item.price).toFixed(2)} ×{" "}
+                                                {isNaN(item.quantity) ? 0 : item.quantity}
                                             </p>
                                             <div className="flex gap-2 items-center">
                                                 <input
@@ -160,7 +170,9 @@ export default function CartPage() {
                                                             ? ""
                                                             : String(item.quantity)
                                                     }
-                                                    onChange={(e) => updateQuantity(item.id, e.target.value)}
+                                                    onChange={(e) =>
+                                                        updateQuantity(item.id, e.target.value)
+                                                    }
                                                     className="w-16 text-center px-2 py-1 border border-gray-300 rounded-lg bg-white shadow-sm"
                                                 />
                                                 <button
@@ -177,15 +189,10 @@ export default function CartPage() {
                         )}
                     </main>
 
-                    {/* Footer met fade-up animatie */}
                     <motion.footer
                         initial={{ y: 100 }}
                         animate={{ y: 0 }}
-                        transition={{
-                            duration: 0.5,
-                            ease: "easeOut",
-                            delay: 0.6
-                        }}
+                        transition={{ duration: 0.5, ease: "easeOut", delay: 0.6 }}
                         className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-40 px-4 py-4"
                     >
                         <div className="max-w-md mx-auto">
@@ -200,7 +207,7 @@ export default function CartPage() {
                                 onClick={() => {
                                     setStartExitTransition(true);
                                     setTimeout(() => {
-                                        router.push(`/client/${tableId}`);
+                                        router.push(`/client/${restaurantId}/${tableId}`);
                                     }, 600);
                                 }}
                             >
@@ -209,7 +216,6 @@ export default function CartPage() {
                         </div>
                     </motion.footer>
 
-                    {/* Toast pop-up */}
                     <AnimatePresence>
                         {error && (
                             <motion.div
@@ -228,7 +234,6 @@ export default function CartPage() {
                 </motion.div>
             )}
 
-            {/* Slide-down white overlay bij terug naar menu */}
             <AnimatePresence>
                 {startExitTransition && (
                     <motion.div
