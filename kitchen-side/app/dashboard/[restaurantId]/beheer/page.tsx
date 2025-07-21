@@ -10,7 +10,6 @@ import {
   SelectContent,
   SelectItem,
 } from "../../../../components/select"
-import { StaffList } from "../../../../components/StaffList";
 import React, { useState, useEffect } from 'react'
 import MenuList from "../../../../components/MenuList";
 
@@ -36,7 +35,11 @@ type StaffMember = {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: string; // StaffRole enum: "ADMIN", "MANAGER", etc.
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  restaurantId: string;
 };
 
 // Voeg User type toe
@@ -51,6 +54,7 @@ export default function BeheerPage() {
     const params = useParams()
     const restaurantId = params?.restaurantId as string
     const [staff, setStaff] = useState<StaffMember[]>([]);
+    const [staffLoading, setStaffLoading] = useState(true);
 
     // Settings kunnen later via API opgehaald worden
     const settings = {
@@ -73,10 +77,15 @@ export default function BeheerPage() {
     useEffect(() => {
       // Staff ophalen
       const fetchStaff = async () => {
+        setStaffLoading(true);
         const token = localStorage.getItem('token');
-        if (!token) return;
+        if (!token) {
+          setStaffLoading(false);
+          return;
+        }
+  
         try {
-          const res = await fetch(`${API_URL}/api/orders?restaurantId=${restaurantId}`, {
+          const res = await fetch(`${API_URL}/api/staff?restaurantId=${restaurantId}`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -89,6 +98,9 @@ export default function BeheerPage() {
           }
         } catch (err) {
           console.error('Netwerkfout:', err);
+
+        } finally {
+          setStaffLoading(false);
         }
       };
       
@@ -128,6 +140,106 @@ export default function BeheerPage() {
         fetchCategories();
       }
     }, [restaurantId]);
+
+    // Functies voor staff CRUD
+    const handleAddStaff = async () => {
+      const name = window.prompt('Naam van nieuwe medewerker:');
+      if (!name) return;
+
+      const email = window.prompt('E-mailadres:');
+      if (!email) return;
+
+      const role = window.prompt('Rol (ADMIN, MANAGER, EMPLOYEE):');
+      if (!role) return;
+
+      const token = localStorage.getItem('token');
+
+      try {
+        const res = await fetch(`${API_URL}/api/staff`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ 
+            name, 
+            email, 
+            role: role.toUpperCase(),
+            restaurantId 
+          }),
+        });
+
+        if (res.ok) {
+          // Refresh staff list
+          const updatedRes = await fetch(`${API_URL}/api/staff?restaurantId=${restaurantId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (updatedRes.ok) {
+            const updatedData = await updatedRes.json();
+            setStaff(updatedData);
+          }
+        } else {
+          const errorData = await res.json();
+          alert(`Fout bij toevoegen medewerker: ${errorData.message || 'Onbekende fout'}`);
+        }
+      } catch (err) {
+        alert('Netwerkfout bij toevoegen medewerker');
+      }
+    };
+
+    const handleDeleteStaff = async (staffId: string) => {
+      if (!window.confirm('Weet je zeker dat je deze medewerker wilt verwijderen?')) return;
+
+      const token = localStorage.getItem('token');
+
+      try {
+        const res = await fetch(`${API_URL}/api/staff/${staffId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+          // Remove from local state
+          setStaff(staff.filter(member => member.id !== staffId));
+        } else {
+          alert('Fout bij verwijderen medewerker');
+        }
+
+      } catch (err) {
+        alert('Netwerkfout bij verwijderen medewerker');
+      }
+    };
+
+    const handleUpdateStaff = async (staffId: string, field: string, currentValue: string) => {
+      const newValue = window.prompt(`Nieuwe ${field}:`, currentValue);
+      if (!newValue || newValue === currentValue) return;
+
+      const token = localStorage.getItem('token');
+
+      try {
+        const res = await fetch(`${API_URL}/api/staff/${staffId}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ [field]: newValue }),
+        });
+
+        if (res.ok) {
+          // Update local state
+          setStaff(staff.map(member => 
+            member.id === staffId 
+              ? { ...member, [field]: newValue }
+              : member
+          ));
+        } else {
+          alert(`Fout bij bewerken ${field}`);
+        }
+      } catch (err) {
+        alert(`Netwerkfout bij bewerken ${field}`);
+      }
+    };
 
     // Functies voor categorie CRUD
     const handleAddCategory = async () => {
@@ -313,10 +425,85 @@ export default function BeheerPage() {
             </div>
           )}
           {activeTab === 'Staff' && (
-            <section className="bg-white p-8 rounded shadow text-gray-800 max-w-3xl">
-              <h2 className="text-2xl font-bold mb-4">Teamleden</h2>
-              {staff.length > 0 ? (
-                <StaffList staff={staff} />
+            <section className="bg-white p-8 rounded shadow text-gray-800 max-w-6xl">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">Teamleden</h2>
+                <button
+                  onClick={handleAddStaff}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+                >
+                  + Medewerker toevoegen
+                </button>
+              </div>
+              
+              {staffLoading ? (
+                <p className="text-gray-500">Teamleden laden...</p>
+              ) : staff.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse border border-gray-300">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="border border-gray-300 px-4 py-2 text-left">Naam</th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">E-mail</th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">Rol</th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">Status</th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">Aangemaakt</th>
+                        <th className="border border-gray-300 px-4 py-2 text-left">Acties</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {staff.map((member) => (
+                        <tr key={member.id} className="hover:bg-gray-50">
+                          <td 
+                            className="border border-gray-300 px-4 py-2 cursor-pointer hover:text-blue-600"
+                            onClick={() => handleUpdateStaff(member.id, 'name', member.name)}
+                            title="Klik om te bewerken"
+                          >
+                            {member.name}
+                          </td>
+                          <td 
+                            className="border border-gray-300 px-4 py-2 cursor-pointer hover:text-blue-600"
+                            onClick={() => handleUpdateStaff(member.id, 'email', member.email)}
+                            title="Klik om te bewerken"
+                          >
+                            {member.email}
+                          </td>
+                          <td 
+                            className="border border-gray-300 px-4 py-2 cursor-pointer hover:text-blue-600"
+                            onClick={() => handleUpdateStaff(member.id, 'role', member.role)}
+                            title="Klik om te bewerken"
+                          >
+                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                              member.role === 'ADMIN' ? 'bg-red-100 text-red-800' :
+                              member.role === 'MANAGER' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-green-100 text-green-800'
+                            }`}>
+                              {member.role}
+                            </span>
+                          </td>
+                          <td className="border border-gray-300 px-4 py-2">
+                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                              member.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                              {member.isActive ? 'Actief' : 'Inactief'}
+                            </span>
+                          </td>
+                          <td className="border border-gray-300 px-4 py-2 text-sm text-gray-600">
+                            {new Date(member.createdAt).toLocaleDateString('nl-NL')}
+                          </td>
+                          <td className="border border-gray-300 px-4 py-2">
+                            <button
+                              onClick={() => handleDeleteStaff(member.id)}
+                              className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs"
+                            >
+                              🗑️ Verwijderen
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
                 <p className="text-gray-500">Geen medewerkers gevonden.</p>
               )}
