@@ -1,25 +1,73 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { mockRestaurants as initialRestaurants } from "../../lib/mockdata";
+import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
+
+interface Restaurant {
+  id: string;
+  name: string;
+  logo: string;
+}
+
+const API_URL = "http://localhost:3001";
 
 export default function SelectPage() {
   const router = useRouter();
-  const [restaurants, setRestaurants] = useState(initialRestaurants);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [showForm, setShowForm] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  // 👉 Restaurants ophalen
+  useEffect(() => {
+    const fetchRestaurants = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${API_URL}/api/restaurants`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await res.json();
+        setRestaurants(data.data);
+      } catch (err) {
+        console.error("Fout bij ophalen restaurants:", err);
+      }
+    };
+
+    fetchRestaurants();
+  }, []);
+
+  // 👉 Nieuw restaurant toevoegen
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
     const name = (form.elements.namedItem("name") as HTMLInputElement).value;
     const logo = (form.elements.namedItem("logo") as HTMLInputElement).value;
-    const newId = `r${restaurants.length + 1}`;
 
-    setRestaurants([...restaurants, { id: newId, name, logo }]);
-    form.reset();
-    setShowForm(false);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/restaurants`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name, logo }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert("Fout bij toevoegen restaurant: " + data.message);
+        return;
+      }
+
+      setRestaurants((prev) => [...prev, data.data]);
+      form.reset();
+      setShowForm(false);
+    } catch (err) {
+      console.error("Fout bij POST:", err);
+    }
   };
 
   return (
