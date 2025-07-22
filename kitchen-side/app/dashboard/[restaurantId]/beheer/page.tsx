@@ -48,98 +48,127 @@ type User = {
   role: string;
 };
 
-const API_URL = 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function BeheerPage() {
-    const params = useParams()
-    const restaurantId = params?.restaurantId as string
-    const [staff, setStaff] = useState<StaffMember[]>([]);
-    const [staffLoading, setStaffLoading] = useState(true);
+  const params = useParams();
+  const restaurantId = params?.restaurantId as string;
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [staffLoading, setStaffLoading] = useState(true);
 
-    // Settings kunnen later via API opgehaald worden
-    const settings = {
-      name: '',
-      email: '',
-      kvk: '',
-      phone: '',
-      goLiveDate: '',
-      active: false,
-      logo: '',
-    };
-    
-    const [activeTab, setActiveTab] = useState('General');
-    const [menu, setMenu] = useState<Category[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
-    const [categoryLoading, setCategoryLoading] = useState(true);
-    const [menuLoading, setMenuLoading] = useState(true);
-    const currentUser: User = { email: "admin@restaurant1.com", role: "ADMIN" };
+  const [restaurantData, setRestaurantData] = useState<any>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    kvk: '',
+    logoUrl: '',
+    goLiveDate: '',
+    active: false,
+  });
+  const [restaurantLoading, setRestaurantLoading] = useState(true);
 
-    useEffect(() => {
-      // Staff ophalen
-      const fetchStaff = async () => {
-        setStaffLoading(true);
-        const token = localStorage.getItem('token');
-        if (!token) {
-          setStaffLoading(false);
-          return;
-        }
-  
-        try {
-          const res = await fetch(`${API_URL}/api/staff?restaurantId=${restaurantId}`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          const data = await res.json();
-          if (res.ok) {
-            setStaff(data);
-          } else {
-            console.error('Fout bij ophalen van staff:', data);
-          }
-        } catch (err) {
-          console.error('Netwerkfout:', err);
+  const [activeTab, setActiveTab] = useState('General');
+  const [menu, setMenu] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryLoading, setCategoryLoading] = useState(true);
+  const [menuLoading, setMenuLoading] = useState(true);
+  const currentUser: User = { email: "admin@restaurant1.com", role: "ADMIN" };
 
-        } finally {
-          setStaffLoading(false);
-        }
-      };
-      
-      // Menu ophalen
-      const fetchMenu = async () => {
-        setMenuLoading(true);
-        try {
-          const res = await fetch(`/api/menu?restaurantId=${restaurantId}`);
-          const json = await res.json();
-          if (!res.ok) throw new Error(json.error || 'Menu ophalen mislukt');
-          setMenu(json.data);
-        } catch (err) {
-          console.error('Fout bij menu ophalen:', err);
-        } finally {
-          setMenuLoading(false);
-        }
-      };
-      
-      // Categorieën ophalen
-      const fetchCategories = async () => {
-        setCategoryLoading(true);
-        try {
-          const res = await fetch(`/api/menu-categories?restaurantId=${restaurantId}`);
-          const json = await res.json();
-          if (!res.ok) throw new Error(json.error || 'Categorieën ophalen mislukt');
-          setCategories(json);
-        } catch (err) {
-          console.error('Fout bij categorieën ophalen:', err);
-        } finally {
-          setCategoryLoading(false);
-        }
-      };
-      
-      if (restaurantId) {
-        fetchStaff();
-        fetchMenu();
-        fetchCategories();
+  useEffect(() => {
+    const fetchStaff = async () => {
+      setStaffLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setStaffLoading(false);
+        return;
       }
-    }, [restaurantId]);
+      try {
+        const res = await fetch(`${API_URL}/api/staff?restaurantId=${restaurantId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (res.ok) setStaff(data);
+      } catch (err) {
+        console.error('Fout bij ophalen van staff:', err);
+      } finally {
+        setStaffLoading(false);
+      }
+    };
+
+    const fetchMenu = async () => {
+      setMenuLoading(true);
+      try {
+        const res = await fetch(`/api/menu?restaurantId=${restaurantId}`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Menu ophalen mislukt');
+        setMenu(json.data);
+      } catch (err) {
+        console.error('Fout bij menu ophalen:', err);
+      } finally {
+        setMenuLoading(false);
+      }
+    };
+
+    const fetchCategories = async () => {
+      setCategoryLoading(true);
+      try {
+        const res = await fetch(`/api/menu-categories?restaurantId=${restaurantId}`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Categorieën ophalen mislukt');
+        setCategories(json);
+      } catch (err) {
+        console.error('Fout bij categorieën ophalen:', err);
+      } finally {
+        setCategoryLoading(false);
+      }
+    };
+
+    const fetchRestaurantData = async () => {
+      setRestaurantLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/restaurants/${restaurantId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to fetch restaurant data');
+        }
+
+        const json = await res.json();
+        
+        if (json.success && json.data) {
+          setRestaurantData(json.data);
+          setFormData({
+            name: json.data.name || '',
+            email: json.data.email || '',
+            phone: json.data.phone || '',
+            kvk: json.data.kvk || '',
+            logoUrl: json.data.logoUrl || '',
+            goLiveDate: json.data.goLiveDate?.split('T')[0] || '',
+            active: json.data.active || false,
+          });
+        } else {
+          throw new Error('Invalid response format');
+        }
+      } catch (err) {
+        console.error('Error fetching restaurant data:', err);
+      } finally {
+        setRestaurantLoading(false);
+      }
+    };
+
+    if (restaurantId) {
+      fetchStaff();
+      fetchMenu();
+      fetchCategories();
+      fetchRestaurantData();
+    }
+  }, [restaurantId]);
 
     // Functies voor staff CRUD
     const handleAddStaff = async () => {
@@ -298,6 +327,28 @@ export default function BeheerPage() {
         window.alert('Fout bij verwijderen categorie');
       }
     };
+    const handleSaveChanges = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/restaurants/${restaurantId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(formData)
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to update restaurant');
+        }
+
+        alert('Restaurant gegevens succesvol opgeslagen!');
+      } catch (err) {
+        console.error('Error saving restaurant data:', err);
+        alert('Er is een fout opgetreden bij het opslaan van de gegevens');
+      }
+    };
 
     return (
         <div className="p-8 bg-[#f6fcff] min-h-screen">
@@ -315,97 +366,143 @@ export default function BeheerPage() {
                 </button>
               ))}
             </div>
-            <button className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 rounded shadow transition-all duration-150">Save Changes</button>
+            <button 
+              onClick={handleSaveChanges}
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 rounded shadow transition-all duration-150"
+            >
+              Save Changes
+            </button>
           </div>
 
           {/* Tab content */}
           {activeTab === 'General' && (
             <>
-              {/* Existing General content */}
-              <section className="bg-white p-6 rounded shadow mb-6 text-gray-800">
-                <h2 className="text-lg font-semibold mb-4">Organisatiegegevens</h2>
-                <form className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-800">
-                  <div className="flex flex-col">
-                    <label htmlFor="name" className="text-sm font-medium mb-1">Bedrijfsnaam</label>
-                    <input name="name" id="name" defaultValue={settings.name} className="border p-2 rounded" />
-                  </div>
-
-                  <div className="flex flex-col">
-                    <label htmlFor="email" className="text-sm font-medium mb-1">E-mailadres</label>
-                    <input name="email" id="email" defaultValue={settings.email} className="border p-2 rounded" />
-                  </div>
-
-                  <div className="flex flex-col">
-                    <label htmlFor="kvk" className="text-sm font-medium mb-1">KVK-nummer</label>
-                    <input name="kvk" id="kvk" defaultValue={settings.kvk} className="border p-2 rounded" />
-                  </div>
-
-                  <div className="flex flex-col">
-                    <label htmlFor="phone" className="text-sm font-medium mb-1">Telefoonnummer</label>
-                    <input name="phone" id="phone" defaultValue={settings.phone} className="border p-2 rounded" />
-                  </div>
-
-                  <div className="flex flex-col col-span-2">
-                    <label htmlFor="goLive" className="text-sm font-medium mb-1">Go live datum</label>
-                    <input name="goLive" id="goLive" type="date" defaultValue={settings.goLiveDate} className="border p-2 rounded" />
-                  </div>
-
-                  <div className="col-span-2">
-                    <label className="inline-flex items-center gap-2">
-                      <input type="checkbox" defaultChecked={settings.active} />
-                      Actief
-                    </label>
-                  </div>
-                </form>
-              </section>
-              <section className="bg-white p-6 rounded shadow text-gray-600 mb-6">
-                <h2 className="text-lg font-semibold mb-4">Logo</h2>
-                <img src={settings.logo} alt="Logo" className="h-24 mb-4" />
-                <input type="file" accept="image/*" />
-              </section>
-              <section className="bg-white p-6 rounded shadow text-gray-800">
-                <h2 className="text-lg font-semibold mb-4">Openingstijden</h2>
-                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(
-                  (day, index) => (
-                    <div key={index} className="flex items-center justify-between mb-4">
-                      <div className="flex items-center">
-                        <Switch id={`${day.toLowerCase()}-open`} defaultChecked={index < 6} />
-                        <Label htmlFor={`${day.toLowerCase()}-open`} className="ml-2">
-                          {day}
-                        </Label>
+              {restaurantLoading ? (
+                <div className="text-center py-8">Loading restaurant data...</div>
+              ) : (
+                <>
+                  {/* Existing General content */}
+                  <section className="bg-white p-6 rounded shadow mb-6 text-gray-800">
+                    <h2 className="text-lg font-semibold mb-4">Organisatiegegevens</h2>
+                    <form className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-800">
+                      <div className="flex flex-col">
+                        <label htmlFor="name" className="text-sm font-medium mb-1">Bedrijfsnaam</label>
+                          <input
+                            name="name"
+                            id="name"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            className="border p-2 rounded"
+                          />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Select defaultValue={index < 6 ? "09:00" : "closed"}>
-                          <SelectTrigger className="w-24">
-                            <SelectValue placeholder="Opening" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="closed">Closed</SelectItem>
-                            <SelectItem value="08:00">8:00 AM</SelectItem>
-                            <SelectItem value="09:00">9:00 AM</SelectItem>
-                            <SelectItem value="10:00">10:00 AM</SelectItem>
-                            <SelectItem value="11:00">11:00 AM</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <span>to</span>
-                        <Select defaultValue={index < 6 ? "22:00" : "closed"}>
-                          <SelectTrigger className="w-24">
-                            <SelectValue placeholder="Closing" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="closed">Closed</SelectItem>
-                            <SelectItem value="20:00">8:00 PM</SelectItem>
-                            <SelectItem value="21:00">9:00 PM</SelectItem>
-                            <SelectItem value="22:00">10:00 PM</SelectItem>
-                            <SelectItem value="23:00">11:00 PM</SelectItem>
-                            <SelectItem value="00:00">12:00 AM</SelectItem>
-                          </SelectContent>
-                        </Select>
+
+                      <div className="flex flex-col">
+                        <label htmlFor="email" className="text-sm font-medium mb-1">E-mailadres</label>
+                          <input
+                            name="email"
+                            id="email"
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            className="border p-2 rounded"
+                          />
                       </div>
-                    </div>
-                  ),
-                )}
-              </section>
+
+                      <div className="flex flex-col">
+                        <label htmlFor="kvk" className="text-sm font-medium mb-1">KVK-nummer</label>
+                          <input
+                            name="kvk"
+                            id="kvk"
+                            value={formData.kvk}
+                            onChange={(e) => setFormData({ ...formData, kvk: e.target.value })}
+                            className="border p-2 rounded"
+                          />
+                      </div>
+
+                      <div className="flex flex-col">
+                        <label htmlFor="phone" className="text-sm font-medium mb-1">Telefoonnummer</label>
+                          <input
+                            name="phone"
+                            id="phone"
+                            value={formData.phone}
+                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                            className="border p-2 rounded"
+                          />
+                      </div>
+
+                      <div className="flex flex-col col-span-2">
+                        <label htmlFor="goLive" className="text-sm font-medium mb-1">Go live datum</label>
+                          <input
+                            name="goLiveDate"
+                            id="goLiveDate"
+                            type="date"
+                            value={formData.goLiveDate}
+                            onChange={(e) => setFormData({ ...formData, goLiveDate: e.target.value })}
+                            className="border p-2 rounded"
+                          />
+                      </div>
+
+                      <div className="col-span-2">
+                        <label className="inline-flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={formData.active}
+                            onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                          />
+                          Actief
+                        </label>
+                      </div>
+                    </form>
+                  </section>
+                  <section className="bg-white p-6 rounded shadow text-gray-600 mb-6">
+                    <h2 className="text-lg font-semibold mb-4">Logo</h2>
+                    <img src={formData.logoUrl} alt="Logo" className="h-24 mb-4" />
+                    <input type="file" accept="image/*" />
+                  </section>
+                  <section className="bg-white p-6 rounded shadow text-gray-800">
+                    <h2 className="text-lg font-semibold mb-4">Openingstijden</h2>
+                    {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(
+                      (day, index) => (
+                        <div key={index} className="flex items-center justify-between mb-4">
+                          <div className="flex items-center">
+                            <Switch id={`${day.toLowerCase()}-open`} defaultChecked={index < 6} />
+                            <Label htmlFor={`${day.toLowerCase()}-open`} className="ml-2">
+                              {day}
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Select defaultValue={index < 6 ? "09:00" : "closed"}>
+                              <SelectTrigger className="w-24">
+                                <SelectValue placeholder="Opening" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="closed">Closed</SelectItem>
+                                <SelectItem value="08:00">8:00 AM</SelectItem>
+                                <SelectItem value="09:00">9:00 AM</SelectItem>
+                                <SelectItem value="10:00">10:00 AM</SelectItem>
+                                <SelectItem value="11:00">11:00 AM</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <span>to</span>
+                            <Select defaultValue={index < 6 ? "22:00" : "closed"}>
+                              <SelectTrigger className="w-24">
+                                <SelectValue placeholder="Closing" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="closed">Closed</SelectItem>
+                                <SelectItem value="20:00">8:00 PM</SelectItem>
+                                <SelectItem value="21:00">9:00 PM</SelectItem>
+                                <SelectItem value="22:00">10:00 PM</SelectItem>
+                                <SelectItem value="23:00">11:00 PM</SelectItem>
+                                <SelectItem value="00:00">12:00 AM</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      ),
+                    )}
+                  </section>
+                </>
+              )}
             </>
           )}
           {activeTab === 'Restaurant' && (
