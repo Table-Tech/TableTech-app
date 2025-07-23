@@ -1,16 +1,19 @@
 import { Staff, Prisma } from "@prisma/client";
 import { BaseService } from "./base.service.js";
-import { comparePassword } from "../utils/password.js";
-import { generateToken, JWTPayload } from "../utils/jwt.js";
+import { comparePassword, hashPassword, generateResetToken } from "../utils/password.js";
+import { generateToken, generateRefreshToken, verifyRefreshToken, JWTPayload } from "../utils/jwt.js";
 import { ApiError } from "../types/errors.js";
-
-type LoginInput = {
-  email: string;
-  password: string;
-};
+import { 
+  LoginDTO, 
+  RegisterStaffDTO, 
+  ChangePasswordDTO,
+  ForgotPasswordDTO,
+  ResetPasswordDTO 
+} from "../schemas/auth.schema.js";
 
 type LoginResponse = {
   token: string;
+  refreshToken: string;
   staff: {
     id: string;
     name: string;
@@ -23,118 +26,240 @@ type LoginResponse = {
   };
 };
 
-type StaffResponse = {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  restaurant: {
-    id: string;
-    name: string;
-  };
-};
-
 export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
   protected model = 'staff' as const;
 
   /**
-   * Authenticate staff member with email and password
+   * Register new staff member
    */
-  async login(data: LoginInput): Promise<LoginResponse> {
-    // Input validation
-    if (!data.email || !data.password) {
-      throw new ApiError(400, 'MISSING_CREDENTIALS', 'Email and password are required');
+  async register(data: RegisterStaffDTO): Promise<LoginResponse> {
+    // Check if email already exists
+    const existing = await this.prisma.staff.findUnique({
+      where: { email: data.email }
+    });
+
+    if (existing) {
+      throw new ApiError(409, 'EMAIL_EXISTS', 'Email already registered');
     }
 
-    // Normalize email
-    const email = data.email.toLowerCase().trim();
+    // Create staff member
+    const passwordHash = await hashPassword(data.password);
     
-    if (!this.isValidEmail(email)) {
-      throw new ApiError(400, 'INVALID_EMAIL', 'Invalid email format');
+    const staff = await this.prisma.staff.create({
+      data: {
+        name: data.name,
+        email: data.email,
+        passwordHash,
+        role: data.role,
+        restaurant: { connect: { id: data.restaurantId } }
+      },
+      include: {
+        restaurant: { select: { id: true, name: true } }
+      }
+    });
+
+    // Generate tokens
+    const tokenPayload: JWTPayload = {
+      staffId: staff.id,
+      restaurantId: staff.restaurantId,
+      role: staff.role,
+      email: staff.email
+    };
+
+    const token = generateToken(tokenPayload);
+    const refreshToken = generateRefreshToken(tokenPayload);
+
+    return {
+      token,
+      refreshToken,
+      staff: {
+        id: staff.id,
+        name: staff.name,
+        email: staff.email,
+        role: staff.role,
+        restaurant: staff.restaurant
+      }
+    };
+  }
+
+  /**
+   * Login staff member
+   */
+  async login(data: LoginDTO): Promise<LoginResponse> {
+    // Find staff by email
+    const staff = await this.prisma.staff.findUnique({
+      where: { email: data.email },
+      include: {
+        restaurant: { select: { id: true, name: true } }
+      }
+    });
+
+    if (!staff) {
+      throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
     }
 
-    // Rate limiting check could be added here
-    // this.checkLoginRateLimit(email);
+    if (!staff.isActive) {
+      throw new ApiError(401, 'ACCOUNT_DEACTIVATED', 'Account has been deactivated');
+    }
 
+    // Verify password
+    const isValid = await comparePassword(data.password, staff.passwordHash);
+    if (!isValid) {
+      throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
+    }
+
+    // Generate tokens
+    const tokenPayload: JWTPayload = {
+      staffId: staff.id,
+      restaurantId: staff.restaurantId,
+      role: staff.role,
+      email: staff.email
+    };
+
+    const token = generateToken(tokenPayload);
+    const refreshToken = generateRefreshToken(tokenPayload);
+
+    // Update last login to be implemented!!!
+
+    return {
+      token,
+      refreshToken,
+      staff: {
+        id: staff.id,
+        name: staff.name,
+        email: staff.email,
+        role: staff.role,
+        restaurant: staff.restaurant
+      }
+    };
+  }
+
+  /**
+   * Refresh access token
+   */
+  async refreshToken(refreshToken: string): Promise<{ token: string; refreshToken: string }> {
     try {
-      // Find staff member by email
+      const payload = verifyRefreshToken(refreshToken);
+      
+      // Verify staff still exists and is active
       const staff = await this.prisma.staff.findUnique({
-        where: { email },
-        include: {
-          restaurant: {
-            select: { id: true, name: true }
-          }
-        }
+        where: { id: payload.staffId },
+        select: { id: true, isActive: true, role: true, email: true, restaurantId: true }
       });
 
-      if (!staff) {
-        // Use same error message for security (don't reveal if email exists)
-        throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
+      if (!staff || !staff.isActive) {
+        throw new ApiError(401, 'INVALID_TOKEN', 'Invalid refresh token');
       }
 
-      if (!staff.isActive) {
-        throw new ApiError(401, 'ACCOUNT_DEACTIVATED', 'Account has been deactivated');
-      }
-
-      // Verify password
-      const isPasswordValid = await comparePassword(data.password, staff.passwordHash);
-      if (!isPasswordValid) {
-        // Log failed login attempt for security monitoring
-        this.logFailedLoginAttempt(email, 'invalid_password');
-        throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
-      }
-
-      // Generate JWT token
-      const tokenPayload: JWTPayload = {
+      // Generate new tokens
+      const newPayload: JWTPayload = {
         staffId: staff.id,
         restaurantId: staff.restaurantId,
         role: staff.role,
         email: staff.email
       };
 
-      const token = generateToken(tokenPayload);
-
-      // Log successful login for audit
-      this.logSuccessfulLogin(staff.id, staff.email);
-
-      // Update last login timestamp (optional)
-      await this.updateLastLogin(staff.id);
-
       return {
-        token,
-        staff: {
-          id: staff.id,
-          name: staff.name,
-          email: staff.email,
-          role: staff.role,
-          restaurant: staff.restaurant
-        }
+        token: generateToken(newPayload),
+        refreshToken: generateRefreshToken(newPayload)
       };
 
     } catch (error) {
-      // Re-throw ApiErrors
-      if (error instanceof ApiError) {
-        throw error;
-      }
-
-      // Log unexpected errors - TODO: Replace with proper logger
-      throw new ApiError(500, 'LOGIN_ERROR', 'An error occurred during login');
+      throw new ApiError(401, 'INVALID_TOKEN', 'Invalid or expired refresh token');
     }
   }
 
   /**
-   * Get staff member details from token payload
+   * Change password
    */
-  async getStaffFromToken(staffId: string): Promise<StaffResponse> {
-    if (!staffId || !this.isValidUUID(staffId)) {
-      throw new ApiError(400, 'INVALID_STAFF_ID', 'Invalid staff ID');
-    }
-
+  async changePassword(staffId: string, data: ChangePasswordDTO): Promise<void> {
     const staff = await this.prisma.staff.findUnique({
       where: { id: staffId },
-      include: {
+      select: { passwordHash: true }
+    });
+
+    if (!staff) {
+      throw new ApiError(404, 'STAFF_NOT_FOUND', 'Staff member not found');
+    }
+
+    // Verify current password
+    const isValid = await comparePassword(data.currentPassword, staff.passwordHash);
+    if (!isValid) {
+      throw new ApiError(401, 'INVALID_PASSWORD', 'Current password is incorrect');
+    }
+
+    // Update password
+    const newPasswordHash = await hashPassword(data.newPassword);
+    await this.prisma.staff.update({
+      where: { id: staffId },
+      data: { passwordHash: newPasswordHash }
+    });
+  }
+
+  /**
+   * Initiate password reset
+   */
+  async forgotPassword(data: ForgotPasswordDTO): Promise<void> {
+    const staff = await this.prisma.staff.findUnique({
+      where: { email: data.email, isActive: true },
+      select: { id: true, name: true }
+    });
+
+    if (staff) {
+      const resetToken = generateResetToken();
+      const expiresAt = new Date(Date.now() + 3600000); // 1 hour
+
+      // Store reset token (you'll need a PasswordReset model)
+      // await this.prisma.passwordReset.create({
+      //   data: { staffId: staff.id, token: resetToken, expiresAt }
+      // });
+
+      // TODO: Send email with reset link
+      console.log(`Reset token for ${staff.id}: ${resetToken}`);
+    }
+
+    // Always return success (don't reveal if email exists)
+  }
+
+  /**
+   * Reset password with token
+   */
+  async resetPassword(data: ResetPasswordDTO): Promise<void> {
+    // TODO: Implement with PasswordReset model
+    // const reset = await this.prisma.passwordReset.findUnique({
+    //   where: { token: data.token },
+    //   include: { staff: true }
+    // });
+
+    // if (!reset || reset.expiresAt < new Date()) {
+    //   throw new ApiError(400, 'INVALID_TOKEN', 'Invalid or expired reset token');
+    // }
+
+    // const passwordHash = await hashPassword(data.newPassword);
+    // await this.prisma.staff.update({
+    //   where: { id: reset.staffId },
+    //   data: { passwordHash }
+    // });
+
+    // await this.prisma.passwordReset.delete({ where: { id: reset.id } });
+    
+    throw new ApiError(501, 'NOT_IMPLEMENTED', 'Password reset not yet implemented');
+  }
+
+  /**
+   * Get current user info
+   */
+  async getCurrentUser(staffId: string) {
+    const staff = await this.prisma.staff.findUnique({
+      where: { id: staffId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
         restaurant: {
-          select: { id: true, name: true }
+          select: { id: true, name: true, logoUrl: true }
         }
       }
     });
@@ -143,205 +268,6 @@ export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
       throw new ApiError(404, 'STAFF_NOT_FOUND', 'Staff member not found');
     }
 
-    if (!staff.isActive) {
-      throw new ApiError(401, 'ACCOUNT_DEACTIVATED', 'Account has been deactivated');
-    }
-
-    return {
-      id: staff.id,
-      name: staff.name,
-      email: staff.email,
-      role: staff.role,
-      restaurant: staff.restaurant
-    };
-  }
-
-  /**
-   * Refresh JWT token for authenticated user
-   */
-  async refreshToken(currentPayload: JWTPayload): Promise<{ token: string }> {
-    // Verify staff is still active
-    const staff = await this.getStaffFromToken(currentPayload.staffId);
-    
-    // Generate new token with fresh expiration
-    const newTokenPayload: JWTPayload = {
-      staffId: staff.id,
-      restaurantId: staff.restaurant.id,
-      role: staff.role,
-      email: staff.email
-    };
-
-    const token = generateToken(newTokenPayload);
-
-    return { token };
-  }
-
-  /**
-   * Change password for authenticated user
-   */
-  async changePassword(
-    staffId: string, 
-    currentPassword: string, 
-    newPassword: string
-  ): Promise<{ success: boolean; message: string }> {
-    if (!staffId || !this.isValidUUID(staffId)) {
-      throw new ApiError(400, 'INVALID_STAFF_ID', 'Invalid staff ID');
-    }
-
-    if (!currentPassword || !newPassword) {
-      throw new ApiError(400, 'MISSING_PASSWORDS', 'Current and new passwords are required');
-    }
-
-    const staff = await this.prisma.staff.findUnique({
-      where: { id: staffId },
-      select: { id: true, passwordHash: true, isActive: true, email: true }
-    });
-
-    if (!staff || !staff.isActive) {
-      throw new ApiError(404, 'STAFF_NOT_FOUND', 'Staff member not found or inactive');
-    }
-
-    // Verify current password
-    const isCurrentPasswordValid = await comparePassword(currentPassword, staff.passwordHash);
-    if (!isCurrentPasswordValid) {
-      this.logFailedLoginAttempt(staff.email, 'invalid_current_password');
-      throw new ApiError(401, 'INVALID_CURRENT_PASSWORD', 'Current password is incorrect');
-    }
-
-    // Validate new password strength
-    const passwordValidation = this.validatePasswordStrength(newPassword);
-    if (!passwordValidation.valid) {
-      throw new ApiError(
-        400, 
-        'WEAK_PASSWORD', 
-        `Password validation failed: ${passwordValidation.errors.join(', ')}`
-      );
-    }
-
-    // Hash and update password
-    const { hashPassword } = await import('../utils/password.js');
-    const newPasswordHash = await hashPassword(newPassword);
-
-    await this.prisma.staff.update({
-      where: { id: staffId },
-      data: { passwordHash: newPasswordHash }
-    });
-
-    // Log password change for security audit
-    // TODO: Replace with proper logger
-
-    return {
-      success: true,
-      message: 'Password changed successfully'
-    };
-  }
-
-  /**
-   * Initiate password reset (would send email in real implementation)
-   */
-  async initiatePasswordReset(email: string): Promise<{ success: boolean; message: string }> {
-    const normalizedEmail = email.toLowerCase().trim();
-    
-    if (!this.isValidEmail(normalizedEmail)) {
-      throw new ApiError(400, 'INVALID_EMAIL', 'Invalid email format');
-    }
-
-    // Check if staff exists (but don't reveal if email exists for security)
-    const staff = await this.prisma.staff.findUnique({
-      where: { email: normalizedEmail, isActive: true },
-      select: { id: true, name: true }
-    });
-
-    if (staff) {
-      // In real implementation:
-      // 1. Generate secure reset token
-      // 2. Store token with expiration
-      // 3. Send email with reset link
-      
-      // TODO: Replace with proper logger
-    }
-
-    // Always return success to not reveal if email exists
-    return {
-      success: true,
-      message: 'If the email exists, a password reset link has been sent'
-    };
-  }
-
-  /**
-   * Update last login timestamp
-   */
-  private async updateLastLogin(staffId: string): Promise<void> {
-    try {
-      await this.prisma.staff.update({
-        where: { id: staffId },
-        data: { updatedAt: new Date() } // Use updatedAt as last login for now
-      });
-    } catch (error) {
-      // Non-critical operation, just log the error
-      // TODO: Replace with proper logger
-    }
-  }
-
-  /**
-   * Log successful login for audit
-   */
-  private logSuccessfulLogin(staffId: string, email: string): void {
-    // TODO: Replace with proper logger
-  }
-
-  /**
-   * Log failed login attempt for security monitoring
-   */
-  private logFailedLoginAttempt(email: string, reason: string): void {
-    // TODO: Replace with proper logger
-  }
-
-  /**
-   * Validate email format
-   */
-  private isValidEmail(email: string): boolean {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  }
-
-  /**
-   * Validate UUID format
-   */
-  private isValidUUID(uuid: string): boolean {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(uuid);
-  }
-
-  /**
-   * Basic password strength validation
-   */
-  private validatePasswordStrength(password: string): { valid: boolean; errors: string[] } {
-    const errors: string[] = [];
-
-    if (password.length < 8) {
-      errors.push('Password must be at least 8 characters long');
-    }
-
-    if (!/[A-Z]/.test(password)) {
-      errors.push('Password must contain at least one uppercase letter');
-    }
-
-    if (!/[a-z]/.test(password)) {
-      errors.push('Password must contain at least one lowercase letter');
-    }
-
-    if (!/\d/.test(password)) {
-      errors.push('Password must contain at least one number');
-    }
-
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-      errors.push('Password must contain at least one special character');
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors
-    };
+    return staff;
   }
 }
