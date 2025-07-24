@@ -24,32 +24,32 @@ export default async function orderRoutes(server: FastifyInstance) {
     // All routes here require authentication
     server.addHook('preHandler', requireUser);
 
-    // POST /api/orders - Create staff order
-    server.post("/", {
+    // POST /api/staff/orders - Create staff order
+    server.post("/orders", {
       preHandler: [validationMiddleware(CreateOrderSchema)]
     }, (req, reply) => controller.createStaffOrder(req as any, reply));
 
-    // GET /api/orders - List orders
-    server.get("/", {
+    // GET /api/staff/orders - List orders
+    server.get("/orders", {
       preHandler: [validateQuery(OrderQuerySchema)]
     }, (req, reply) => controller.listOrders(req as any, reply));
 
-    // GET /api/orders/kitchen - Kitchen display
+    // GET /api/staff/kitchen - Kitchen display
     server.get("/kitchen", {
       preHandler: [requireRole(['CHEF', 'MANAGER', 'ADMIN'])]
     }, (req, reply) => controller.getKitchenOrders(req as any, reply));
 
-    // GET /api/orders/statistics - Statistics
+    // GET /api/staff/statistics - Statistics
     server.get("/statistics", {
       preHandler: [requireRole(['MANAGER', 'ADMIN'])]
     }, (req, reply) => controller.getOrderStatistics(req as any, reply));
 
-    // GET /api/orders/:id - Get order details
+    // GET /api/staff/:id - Get order details
     server.get("/:id", {
       preHandler: [validateParams(OrderParamsSchema)]
     }, (req, reply) => controller.getOrderById(req as any, reply));
 
-    // PATCH /api/orders/:id/status - Update status
+    // PATCH /api/staff/:id/status - Update status
     server.patch("/:id/status", {
       preHandler: [
         validateParams(OrderParamsSchema),
@@ -57,14 +57,16 @@ export default async function orderRoutes(server: FastifyInstance) {
       ]
     }, (req, reply) => controller.updateOrderStatus(req as any, reply));
 
-    // DELETE /api/orders/:id - Cancel order
+    // DELETE /api/staff/:id - Cancel order
     server.delete("/:id", {
       preHandler: [
         validateParams(OrderParamsSchema),
         requireRole(['MANAGER', 'ADMIN'])
       ]
     }, (req, reply) => controller.cancelOrder(req as any, reply));
-  });
+
+
+  }, { prefix: '/staff' });
 
   // =================== CUSTOMER ROUTES ===================
   server.register(async function customerOrderRoutes(server) {

@@ -1,4 +1,4 @@
-import { Order, Prisma, OrderStatus, TableStatus } from '@prisma/client';
+import { Order, Prisma, OrderStatus, TableStatus, MenuItem, Modifier } from '@prisma/client';
 import { BaseService } from './base.service.js';
 import { ApiError } from '../types/errors.js';
 import { 
@@ -17,10 +17,18 @@ import {
   canModifyOrder
 } from '../utils/logic-validation/order.validation.js';
 
+// Types for the processed data
+type MenuItemWithModifiers = MenuItem & {
+  modifierGroups: Array<{
+    id: string;
+    modifiers: Modifier[];
+  }>;
+};
+
 export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
   protected model = 'order' as const;
 
-  /**
+    /**
    * Create staff order
    */
   async createStaffOrder(data: CreateOrderDTO, staffId: string): Promise<Order> {
@@ -29,52 +37,69 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
     validateOrderItems(data.items);
 
     return await this.prisma.$transaction(async (tx) => {
-      // Validate restaurant and table
+      // ── 1. Check restaurant & table ───────────────────────────────
       const table = await tx.table.findFirst({
-        where: { 
+        where: {
           id: data.tableId,
-          restaurantId: data.restaurantId
-        }
+          restaurantId: data.restaurantId,
+        },
       });
 
       if (!table) {
-        throw new ApiError(404, 'TABLE_NOT_FOUND', 'Table not found');
+        throw new ApiError(404, "TABLE_NOT_FOUND", "Table not found");
       }
 
-      // Validate table status (allow multiple orders per table)
       validateTableAvailability(table.status, false);
 
-      // Process items and calculate total
+      // ── 2. Process items & totals ─────────────────────────────────
       const { orderItems, totalAmount } = await this.processOrderItems(
-        tx, 
-        data.items, 
+        tx,
+        data.items,
         data.restaurantId
       );
 
       validateOrderAmount(totalAmount);
 
-      // Create order
-      const orderNumber = await this.generateOrderNumber(tx, data.restaurantId);
-      
-      const order = await tx.order.create({
-        data: {
-          orderNumber,
-          totalAmount,
-          notes: data.notes,
-          status: 'PENDING',
-          paymentStatus: 'PENDING',
-          table: { connect: { id: data.tableId } },
-          restaurant: { connect: { id: data.restaurantId } },
-          orderItems: { create: orderItems }
-        },
-        include: this.getOrderIncludes()
-      });
+      // ── 3. Create order with duplicate-number retry ───────────────
+      let order: Order | null = null;
 
-      // Update table status
-      if (table.status === 'AVAILABLE') {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const orderNumber = await this.generateOrderNumber(tx, data.restaurantId);
+
+        try {
+          order = await tx.order.create({
+            data: {
+              orderNumber,
+              totalAmount,
+              notes: data.notes,
+              status: "PENDING",
+              paymentStatus: "PENDING",
+              table:       { connect: { id: data.tableId } },
+              restaurant:  { connect: { id: data.restaurantId } },
+              orderItems:  { create: orderItems },
+            },
+            include: this.getOrderIncludes(),
+          });
+          break; // ✅ success → exit loop
+        } catch (err: any) {
+          // Prisma duplicate key → try again, anything else → rethrow
+          if (err.code !== "P2002") throw err;
+        }
+      }
+
+      if (!order) {
+        throw new ApiError(
+          500,
+          "ORDER_NUMBER_RACE",
+          "Could not generate a unique order number"
+        );
+      }
+
+      // ── 4. Update table status ────────────────────────────────────
+      if (table.status === "AVAILABLE") {
         await tx.table.update({
           where: { id: data.tableId },
-          data: { status: 'OCCUPIED' }
+          data:  { status: "OCCUPIED" },
         });
       }
 
@@ -82,58 +107,75 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
     });
   }
 
+
   /**
    * Create customer order (via QR)
-   */
+  */
   async createCustomerOrder(data: CreateCustomerOrderDTO): Promise<Order> {
     validateCustomerOrder(data);
 
     return await this.prisma.$transaction(async (tx) => {
-      // Find table by code
+      // ── 1. Look up table & restaurant ───────────────────────────
       const table = await tx.table.findUnique({
-        where: { code: data.tableCode },
-        include: { restaurant: true }
+        where:   { code: data.tableCode },
+        include: { restaurant: true },
       });
 
       if (!table) {
-        throw new ApiError(404, 'INVALID_TABLE_CODE', 'Invalid table code');
+        throw new ApiError(404, "INVALID_TABLE_CODE", "Invalid table code");
       }
 
-      // Validate table status (allow multiple orders per table)
       validateTableAvailability(table.status, false);
 
-      // Process items
+      // ── 2. Process items & totals ───────────────────────────────
       const { orderItems, totalAmount } = await this.processOrderItems(
-        tx, 
-        data.items, 
+        tx,
+        data.items,
         table.restaurantId
       );
 
       validateOrderAmount(totalAmount);
 
-      // Create order
-      const orderNumber = await this.generateOrderNumber(tx, table.restaurantId);
-      
-      const order = await tx.order.create({
-        data: {
-          orderNumber,
-          totalAmount,
-          notes: data.notes,
-          status: 'PENDING',
-          paymentStatus: 'PENDING',
-          table: { connect: { id: table.id } },
-          restaurant: { connect: { id: table.restaurantId } },
-          orderItems: { create: orderItems },
+      // ── 3. Create order with duplicate-key retry ────────────────
+      let order: Order | null = null;
 
-        },
-        include: this.getOrderIncludes()
-      });
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const orderNumber = await this.generateOrderNumber(tx, table.restaurantId);
 
-      // Update table
-      if (table.status === 'AVAILABLE') {
+        try {
+          order = await tx.order.create({
+            data: {
+              orderNumber,
+              totalAmount,
+              notes: data.notes,
+              status: "PENDING",
+              paymentStatus: "PENDING",
+              table:       { connect: { id: table.id } },
+              restaurant:  { connect: { id: table.restaurantId } },
+              orderItems:  { create: orderItems },
+            },
+            include: this.getOrderIncludes(),
+          });
+          break; // ✅ success – exit loop
+        } catch (err: any) {
+          if (err.code !== "P2002") throw err; // other DB error
+          // else duplicate orderNumber – loop to try again
+        }
+      }
+
+      if (!order) {
+        throw new ApiError(
+          500,
+          "ORDER_NUMBER_RACE",
+          "Could not generate a unique order number"
+        );
+      }
+
+      // ── 4. Update table status if it was AVAILABLE ──────────────
+      if (table.status === "AVAILABLE") {
         await tx.table.update({
           where: { id: table.id },
-          data: { status: 'OCCUPIED' }
+          data:  { status: "OCCUPIED" },
         });
       }
 
@@ -142,6 +184,7 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
       return order;
     });
   }
+
 
   /**
    * Update order status
@@ -262,53 +305,77 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
   }
 
   /**
-   * Process order items and calculate total
+   * Process order items and calculate total (optimized - batched queries)
    */
   private async processOrderItems(
     tx: any,
     items: CreateOrderDTO['items'],
     restaurantId: string
   ) {
+    // ── 1. Batch fetch all menu items ─────────────────────────────────────
+    const menuItemIds = items.map(item => item.menuId);
+    const menuItems = await tx.menuItem.findMany({
+      where: {
+        id: { in: menuItemIds },
+        restaurantId,
+        isAvailable: true
+      },
+      include: {
+        modifierGroups: {
+          include: { modifiers: true }
+        }
+      }
+    });
+
+    // Create lookup map for O(1) access
+    const menuItemMap = new Map<string, MenuItemWithModifiers>(
+      menuItems.map((item: MenuItemWithModifiers) => [item.id, item])
+    );
+
+    // ── 2. Batch fetch all modifiers if needed ───────────────────────────
+    const allModifierIds = items
+      .filter(item => item.modifiers?.length)
+      .flatMap(item => item.modifiers || []);
+    
+    let modifierMap = new Map<string, Modifier>();
+    if (allModifierIds.length > 0) {
+      const modifiers = await tx.modifier.findMany({
+        where: {
+          id: { in: allModifierIds },
+          modifierGroup: {
+            menuItem: {
+              restaurantId,
+              id: { in: menuItemIds }
+            }
+          }
+        }
+      });
+      modifierMap = new Map<string, Modifier>(
+        modifiers.map((mod: Modifier) => [mod.id, mod])
+      );
+    }
+
+    // ── 3. Process items using cached data ───────────────────────────────
     let totalAmount = 0;
     const orderItems = [];
 
     for (const item of items) {
-      const menuItem = await tx.menuItem.findFirst({
-        where: {
-          id: item.menuId,
-          restaurantId,
-          isAvailable: true
-        },
-        include: {
-          modifierGroups: {
-            include: { modifiers: true }
-          }
-        }
-      });
-
+      const menuItem = menuItemMap.get(item.menuId);
       if (!menuItem) {
-        throw new ApiError(404, 'MENU_ITEM_UNAVAILABLE', 'Menu item not available');
+        throw new ApiError(404, 'MENU_ITEM_UNAVAILABLE', `Menu item ${item.menuId} not available`);
       }
 
       let itemPrice = Number(menuItem.price);
       const modifiers = [];
 
-      // Process modifiers
+      // Process modifiers using cached data
       if (item.modifiers?.length) {
-        const validModifiers = await tx.modifier.findMany({
-          where: {
-            id: { in: item.modifiers },
-            modifierGroup: {
-              menuItemId: menuItem.id
-            }
+        for (const modifierId of item.modifiers) {
+          const modifier = modifierMap.get(modifierId);
+          if (!modifier) {
+            throw new ApiError(404, 'INVALID_MODIFIERS', `Invalid modifier: ${modifierId}`);
           }
-        });
-
-        if (validModifiers.length !== item.modifiers.length) {
-          throw new ApiError(404, 'INVALID_MODIFIERS', 'Invalid modifiers selected');
-        }
-
-        for (const modifier of validModifiers) {
+          
           itemPrice += Number(modifier.price);
           modifiers.push({
             modifier: { connect: { id: modifier.id } },
