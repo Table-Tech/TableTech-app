@@ -141,4 +141,23 @@ export class StaffService extends BaseService<Prisma.StaffCreateInput, Staff> {
       }
     });
   }
+
+  /**
+   * Delete staff member (soft delete by setting isActive to false)
+   */
+  async delete(id: string): Promise<void> {
+    const staff = await this.prisma.staff.findUnique({
+      where: { id }
+    });
+
+    if (!staff) {
+      throw new ApiError(404, 'STAFF_NOT_FOUND', 'Staff member not found');
+    }
+
+    // Soft delete by setting isActive to false
+    await this.prisma.staff.update({
+      where: { id },
+      data: { isActive: false }
+    });
+  }
 }

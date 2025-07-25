@@ -1,7 +1,12 @@
 import { PrismaClient } from "@prisma/client";
-import { formatPrice } from "../utils/price";
 
 const prisma = new PrismaClient();
+
+// Price formatting utility (replacing deleted price.ts)
+const formatPrice = (price: number): number => {
+  // Ensure price has max 2 decimal places
+  return Math.round(price * 100) / 100;
+};
 
 type CreateModifierInput = {
   name: string;
