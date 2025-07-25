@@ -134,7 +134,16 @@ export class OrderController {
       throw new ApiError(404, 'ORDER_NOT_FOUND', 'Order not found');
     }
 
-    ;
+    return reply.send({
+      success: true,
+      data: {
+        orderNumber: order.orderNumber,
+        status: order.status,
+        totalAmount: order.totalAmount,
+        estimatedTime: this.calculateEstimatedTime(order),
+        history: this.getStatusHistory(order)
+      }
+    });
   }
 
   /** POST /customer/validate-table - Validate table code */
