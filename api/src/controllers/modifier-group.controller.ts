@@ -1,86 +1,235 @@
-import { FastifyRequest, FastifyReply } from "fastify";
+import { FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
+import { AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import { ApiError } from '../types/errors.js';
+import { ModifierGroupService } from '../services/modifier-group.service.js';
 import {
   CreateModifierGroupSchema,
   UpdateModifierGroupSchema,
+  ModifierGroupQuerySchema,
+  ModifierGroupParamsSchema,
+  ReorderModifierGroupsSchema,
+  BulkUpdateModifierGroupsSchema,
   GetModifierGroupsQuerySchema,
-  ModifierGroupIdParamSchema,
-} from "../schemas/modifier-group.schema";
-import {
-  createModifierGroup,
-  getModifierGroupsByMenuItem,
-  getModifierGroupById,
-  updateModifierGroup,
-  deleteModifierGroup,
-} from "../services/modifier-group.service";
+  ModifierGroupIdParamSchema
+} from '../schemas/modifier-group.schema.js';
 
-export const createModifierGroupHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const result = CreateModifierGroupSchema.safeParse(req.body);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Invalid input", details: result.error });
+export class ModifierGroupController {
+  private svc = new ModifierGroupService();
+
+  // =================== MODIFIER GROUP ENDPOINTS ===================
+
+  /** POST /modifier-groups - Create modifier group */
+  async createModifierGroup(
+    req: AuthenticatedRequest<z.infer<typeof CreateModifierGroupSchema>>,
+    reply: FastifyReply
+  ) {
+    const modifierGroup = await this.svc.createModifierGroup(req.body, req.user.staffId);
+    return reply.status(201).send({ 
+      success: true, 
+      message: 'Modifier group created successfully',
+      data: modifierGroup 
+    });
   }
 
-  try {
-    const modifierGroup = await createModifierGroup(result.data);
-    return reply.code(201).send(modifierGroup);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return reply.status(500).send({ error: "Failed to create modifier group", details: errorMessage });
-  }
-};
-
-export const getModifierGroupsHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const result = GetModifierGroupsQuerySchema.safeParse(req.query);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Missing or invalid menuItemId" });
+  /** GET /modifier-groups - List modifier groups with filters */
+  async listModifierGroups(
+    req: AuthenticatedRequest<unknown, unknown, z.infer<typeof ModifierGroupQuerySchema>>,
+    reply: FastifyReply
+  ) {
+    const result = await this.svc.getModifierGroups(req.query);
+    return reply.send({ 
+      success: true, 
+      data: result.modifierGroups,
+      pagination: result.pagination
+    });
   }
 
-  const modifierGroups = await getModifierGroupsByMenuItem(result.data.menuItemId);
-  return reply.send(modifierGroups);
-};
-
-export const getModifierGroupHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const result = ModifierGroupIdParamSchema.safeParse(req.params);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Invalid modifier group ID" });
+  /** GET /modifier-groups/:id - Get modifier group details */
+  async getModifierGroupById(
+    req: AuthenticatedRequest<unknown, z.infer<typeof ModifierGroupParamsSchema>>,
+    reply: FastifyReply
+  ) {
+    const modifierGroup = await this.svc.findById(req.params.id);
+    
+    if (!modifierGroup) {
+      throw new ApiError(404, 'MODIFIER_GROUP_NOT_FOUND', 'Modifier group not found');
+    }
+    
+    return reply.send({ success: true, data: modifierGroup });
   }
 
-  const modifierGroup = await getModifierGroupById(result.data.id);
-  if (!modifierGroup) {
-    return reply.status(404).send({ error: "Modifier group not found" });
+  /** PATCH /modifier-groups/:id - Update modifier group */
+  async updateModifierGroup(
+    req: AuthenticatedRequest<
+      z.infer<typeof UpdateModifierGroupSchema>,
+      z.infer<typeof ModifierGroupParamsSchema>
+    >,
+    reply: FastifyReply
+  ) {
+    const modifierGroup = await this.svc.updateModifierGroup(
+      req.params.id,
+      req.body,
+      req.user.staffId
+    );
+    return reply.send({ 
+      success: true, 
+      message: 'Modifier group updated successfully',
+      data: modifierGroup 
+    });
   }
 
-  return reply.send(modifierGroup);
-};
-
-export const updateModifierGroupHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const paramResult = ModifierGroupIdParamSchema.safeParse(req.params);
-  if (!paramResult.success) {
-    return reply.status(400).send({ error: "Invalid modifier group ID" });
+  /** DELETE /modifier-groups/:id - Delete modifier group */
+  async deleteModifierGroup(
+    req: AuthenticatedRequest<unknown, z.infer<typeof ModifierGroupParamsSchema>>,
+    reply: FastifyReply
+  ) {
+    await this.svc.deleteModifierGroup(req.params.id, req.user.staffId);
+    return reply.send({ 
+      success: true, 
+      message: 'Modifier group deleted successfully' 
+    });
   }
 
-  const bodyResult = UpdateModifierGroupSchema.safeParse(req.body);
-  if (!bodyResult.success) {
-    return reply.status(400).send({ error: "Invalid input", details: bodyResult.error });
+  /** POST /modifier-groups/reorder - Reorder modifier groups */
+  async reorderModifierGroups(
+    req: AuthenticatedRequest<z.infer<typeof ReorderModifierGroupsSchema>>,
+    reply: FastifyReply
+  ) {
+    const result = await this.svc.reorderModifierGroups(req.body, req.user.staffId);
+    return reply.send({ 
+      success: true, 
+      data: result,
+      message: `Reordered ${result.updated} modifier groups`
+    });
   }
 
-  try {
-    const modifierGroup = await updateModifierGroup(paramResult.data.id, bodyResult.data);
+  /** PATCH /modifier-groups/bulk - Bulk update modifier groups */
+  async bulkUpdateModifierGroups(
+    req: AuthenticatedRequest<z.infer<typeof BulkUpdateModifierGroupsSchema>>,
+    reply: FastifyReply
+  ) {
+    const result = await this.svc.bulkUpdateModifierGroups(req.body, req.user.staffId);
+    return reply.send({ 
+      success: true, 
+      data: result,
+      message: `Updated ${result.updated} modifier groups`
+    });
+  }
+
+  /** GET /modifier-groups/statistics - Get modifier group statistics */
+  async getModifierGroupStatistics(
+    req: AuthenticatedRequest<unknown, unknown, { menuItemId: string }>,
+    reply: FastifyReply
+  ) {
+    if (!req.query.menuItemId) {
+      throw new ApiError(400, 'MISSING_MENU_ITEM_ID', 'Menu item ID is required');
+    }
+    
+    const stats = await this.svc.getModifierGroupStatistics(req.query.menuItemId);
+    return reply.send({ success: true, data: stats });
+  }
+
+  // =================== LEGACY ENDPOINTS (for backward compatibility) ===================
+
+  /** GET /modifier-groups - Legacy endpoint */
+  async getLegacyModifierGroups(
+    req: FastifyRequest<{ Querystring: z.infer<typeof GetModifierGroupsQuerySchema> }>,
+    reply: FastifyReply
+  ) {
+    const modifierGroups = await this.svc.findByMenuItem(req.query.menuItemId);
+    return reply.send(modifierGroups);
+  }
+
+  /** GET /modifier-groups/:id - Legacy get modifier group endpoint */
+  async getLegacyModifierGroupById(
+    req: FastifyRequest<{ Params: z.infer<typeof ModifierGroupIdParamSchema> }>,
+    reply: FastifyReply
+  ) {
+    const modifierGroup = await this.svc.findById(req.params.id);
+    
+    if (!modifierGroup) {
+      throw new ApiError(404, 'MODIFIER_GROUP_NOT_FOUND', 'Modifier group not found');
+    }
+    
     return reply.send(modifierGroup);
-  } catch (error) {
-    return reply.status(404).send({ error: "Modifier group not found" });
   }
+
+  /** POST /modifier-groups - Legacy create endpoint */
+  async createLegacyModifierGroup(
+    req: FastifyRequest<{ Body: z.infer<typeof CreateModifierGroupSchema> }>,
+    reply: FastifyReply
+  ) {
+    const modifierGroup = await this.svc.createModifierGroup(req.body, 'legacy-staff');
+    return reply.status(201).send(modifierGroup);
+  }
+
+  /** PUT /modifier-groups/:id - Legacy update endpoint */
+  async updateLegacyModifierGroup(
+    req: FastifyRequest<{ 
+      Body: z.infer<typeof UpdateModifierGroupSchema>;
+      Params: z.infer<typeof ModifierGroupIdParamSchema>;
+    }>,
+    reply: FastifyReply
+  ) {
+    const modifierGroup = await this.svc.updateModifierGroup(
+      req.params.id, 
+      req.body, 
+      'legacy-staff'
+    );
+    return reply.send(modifierGroup);
+  }
+
+  /** DELETE /modifier-groups/:id - Legacy delete endpoint */
+  async deleteLegacyModifierGroup(
+    req: FastifyRequest<{ Params: z.infer<typeof ModifierGroupIdParamSchema> }>,
+    reply: FastifyReply
+  ) {
+    await this.svc.deleteModifierGroup(req.params.id, 'legacy-staff');
+    return reply.status(204).send();
+  }
+}
+
+// Legacy function exports (for backward compatibility - to be removed later)
+export const createModifierGroupHandler = async (
+  req: FastifyRequest<{ Body: z.infer<typeof CreateModifierGroupSchema> }>, 
+  reply: FastifyReply
+) => {
+  const controller = new ModifierGroupController();
+  return await controller.createLegacyModifierGroup(req, reply);
 };
 
-export const deleteModifierGroupHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const result = ModifierGroupIdParamSchema.safeParse(req.params);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Invalid modifier group ID" });
-  }
+export const getModifierGroupsHandler = async (
+  req: FastifyRequest<{ Querystring: z.infer<typeof GetModifierGroupsQuerySchema> }>, 
+  reply: FastifyReply
+) => {
+  const controller = new ModifierGroupController();
+  return await controller.getLegacyModifierGroups(req, reply);
+};
 
-  try {
-    await deleteModifierGroup(result.data.id);
-    return reply.status(204).send(); // 204 No Content for successful deletion
-  } catch (error) {
-    return reply.status(404).send({ error: "Modifier group not found" });
-  }
+export const getModifierGroupHandler = async (
+  req: FastifyRequest<{ Params: z.infer<typeof ModifierGroupIdParamSchema> }>,
+  reply: FastifyReply
+) => {
+  const controller = new ModifierGroupController();
+  return await controller.getLegacyModifierGroupById(req, reply);
+};
+
+export const updateModifierGroupHandler = async (
+  req: FastifyRequest<{ 
+    Body: z.infer<typeof UpdateModifierGroupSchema>;
+    Params: z.infer<typeof ModifierGroupIdParamSchema>;
+  }>,
+  reply: FastifyReply
+) => {
+  const controller = new ModifierGroupController();
+  return await controller.updateLegacyModifierGroup(req, reply);
+};
+
+export const deleteModifierGroupHandler = async (
+  req: FastifyRequest<{ Params: z.infer<typeof ModifierGroupIdParamSchema> }>,
+  reply: FastifyReply
+) => {
+  const controller = new ModifierGroupController();
+  return await controller.deleteLegacyModifierGroup(req, reply);
 };
