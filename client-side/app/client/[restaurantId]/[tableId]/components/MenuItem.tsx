@@ -1,5 +1,7 @@
 "use client";
 
+// client-side/app/client/[restaurantId]/[tableId]/components/MenuItem.tsx
+
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 

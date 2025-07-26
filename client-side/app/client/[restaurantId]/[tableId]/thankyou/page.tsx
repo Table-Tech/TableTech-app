@@ -3,6 +3,8 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
+//client-side/app/client/[restaurantId]/[tableId]/thankyou/page.tsx
+
 export default function ThankYouPage() {
     const router = useRouter();
     const { tableId, restaurantId } = useParams() as {

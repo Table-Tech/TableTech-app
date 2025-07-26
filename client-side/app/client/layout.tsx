@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../globals.css";
 
+//client-side/app/client/layout.tsx
+
 // Fonts configureren met CSS-variabelen
 const geistSans = Geist({
     variable: "--font-geist-sans",

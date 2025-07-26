@@ -1,5 +1,7 @@
 "use client";
 
+// client-side/app/client/[restaurantId]/[tableId]/cart/page.tsx
+
 import { useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -64,20 +66,26 @@ export default function CartPage() {
 
         try {
             const orderRes = await fetch(
-                `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/orders`,
+                "http://localhost:3001/api/orders",
                 {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
                     body: JSON.stringify({
-                        restaurantId,
                         tableId,
+                        restaurantId,
                         items: cartItems.map((item) => ({
-                            productId: item.id,
-                            quantity: item.quantity,
+                            menuId: item.id,
+                            quantity: parseInt(item.quantity),
+                            modifiers: item.modifiers || [],
                         })),
                     }),
                 }
             );
+
+            console.log("📡 orderRes status:", orderRes.status);
+            console.log("📦 orderRes raw:", await orderRes.text());
 
             if (!orderRes.ok) throw new Error("Bestelling opslaan mislukt");
 

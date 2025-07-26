@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+/* client-side/app/globals.css */
+
 /* ======== Basisstijl body en typografie ======== */
 body {
     @apply bg-white text-black antialiased;
