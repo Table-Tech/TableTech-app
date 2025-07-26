@@ -45,7 +45,7 @@ export class WebSocketService {
     // Initialize Socket.io with Redis adapter for scaling
     this.io = new SocketServer(server, {
       cors: {
-        origin: process.env.FRONTEND_URL!.split(','), // Support multiple frontends
+        origin: process.env.FRONTEND_URL?.split(',') || ['http://localhost:3000', 'http://localhost:3002'], // Support multiple frontends
         credentials: true
       },
       // Important: these settings prevent memory leaks and improve reliability
