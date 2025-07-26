@@ -8,8 +8,7 @@ import {
   MenuItemParamsSchema,
   CustomerMenuParamsSchema,
   BulkUpdateMenuItemsSchema,
-  ReorderMenuItemsSchema,
-  GetMenuQuerySchema
+  ReorderMenuItemsSchema
 } from '../../schemas/menu.schema.js';
 import { 
   validationMiddleware, 
@@ -17,15 +16,16 @@ import {
   validateQuery,
   rateLimit
 } from '../../middleware/validation.middleware.js';
-import { requireUser, requireRole } from '../../middleware/auth.middleware.js';
+import { requireUser, requireRole, requireRestaurantAccess } from '../../middleware/auth.middleware.js';
 
 export default async function menuRoutes(server: FastifyInstance) {
   const controller = new MenuController();
 
   // =================== STAFF ROUTES ===================
   server.register(async function staffMenuRoutes(server) {
-    // All routes here require authentication
+    // All routes here require authentication and restaurant access
     server.addHook('preHandler', requireUser);
+    server.addHook('preHandler', requireRestaurantAccess);
 
     // POST /api/staff/menu/items - Create menu item
     server.post('/items', {
@@ -112,21 +112,4 @@ export default async function menuRoutes(server: FastifyInstance) {
     }, (req, reply) => controller.getCustomerMenu(req as any, reply));
 
   }, { prefix: '/customer' });
-
-  // =================== LEGACY ROUTES (for backward compatibility) ===================
-  
-  // POST /api/menu - Legacy create endpoint
-  server.post('/', {
-    preHandler: [validationMiddleware(CreateMenuItemSchema)]
-  }, (req, reply) => controller.createMenuItem(req as any, reply));
-  
-  // GET /api/menu?restaurantId=xxx - Legacy get menu endpoint
-  server.get('/', {
-    preHandler: [validateQuery(GetMenuQuerySchema)]
-  }, (req, reply) => controller.getLegacyMenu(req as any, reply));
-  
-  // GET /api/menu/:tableCode/:restaurantId - Legacy customer menu endpoint
-  server.get('/:tableCode/:restaurantId', 
-    (req, reply) => controller.getCustomerMenu(req as any, reply)
-  );
 }

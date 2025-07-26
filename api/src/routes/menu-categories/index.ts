@@ -6,9 +6,7 @@ import {
   CategoryQuerySchema,
   CategoryParamsSchema,
   ReorderCategoriesSchema,
-  BulkUpdateCategoriesSchema,
-  GetCategoriesQuerySchema,
-  CategoryIdParamSchema
+  BulkUpdateCategoriesSchema
 } from '../../schemas/category.schema.js';
 import { 
   validationMiddleware, 
@@ -16,15 +14,16 @@ import {
   validateQuery,
   rateLimit
 } from '../../middleware/validation.middleware.js';
-import { requireUser, requireRole } from '../../middleware/auth.middleware.js';
+import { requireUser, requireRole, requireRestaurantAccess } from '../../middleware/auth.middleware.js';
 
 export default async function categoryRoutes(server: FastifyInstance) {
   const controller = new CategoryController();
 
   // =================== STAFF ROUTES ===================
   server.register(async function staffCategoryRoutes(server) {
-    // All routes here require authentication
+    // All routes here require authentication and restaurant access
     server.addHook('preHandler', requireUser);
+    server.addHook('preHandler', requireRestaurantAccess);
 
     // POST /api/staff/categories - Create category
     server.post('/categories', {
@@ -88,34 +87,4 @@ export default async function categoryRoutes(server: FastifyInstance) {
     }, (req, reply) => controller.bulkUpdateCategories(req as any, reply));
 
   }, { prefix: '/staff' });
-
-  // =================== LEGACY ROUTES (for backward compatibility) ===================
-  
-  // GET /api/menu-categories?restaurantId=xxx - Legacy get categories endpoint
-  server.get('/', {
-    preHandler: [validateQuery(GetCategoriesQuerySchema)]
-  }, (req, reply) => controller.getLegacyCategories(req as any, reply));
-  
-  // POST /api/menu-categories - Legacy create endpoint
-  server.post('/', {
-    preHandler: [validationMiddleware(CreateCategorySchema)]
-  }, (req, reply) => controller.createLegacyCategory(req as any, reply));
-  
-  // GET /api/menu-categories/:id - Legacy get category endpoint
-  server.get('/:id', {
-    preHandler: [validateParams(CategoryIdParamSchema)]
-  }, (req, reply) => controller.getLegacyCategory(req as any, reply));
-  
-  // PUT /api/menu-categories/:id - Legacy update endpoint
-  server.put('/:id', {
-    preHandler: [
-      validateParams(CategoryIdParamSchema),
-      validationMiddleware(UpdateCategorySchema)
-    ]
-  }, (req, reply) => controller.updateLegacyCategory(req as any, reply));
-  
-  // DELETE /api/menu-categories/:id - Legacy delete endpoint
-  server.delete('/:id', {
-    preHandler: [validateParams(CategoryIdParamSchema)]
-  }, (req, reply) => controller.deleteLegacyCategory(req as any, reply));
 }

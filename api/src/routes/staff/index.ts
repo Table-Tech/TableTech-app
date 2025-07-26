@@ -6,9 +6,7 @@ import {
   ChangePasswordSchema,
   StaffQuerySchema,
   StaffParamsSchema,
-  BulkUpdateStaffSchema,
-  StaffIdParamSchema,
-  GetStaffQuerySchema
+  BulkUpdateStaffSchema
 } from '../../schemas/staff.schema.js';
 import {
   validationMiddleware,
@@ -16,15 +14,16 @@ import {
   validateQuery,
   rateLimit
 } from '../../middleware/validation.middleware.js';
-import { requireUser, requireRole } from '../../middleware/auth.middleware.js';
+import { requireUser, requireRole, requireRestaurantAccess } from '../../middleware/auth.middleware.js';
 
 export default async function staffRoutes(server: FastifyInstance) {
   const controller = new StaffController();
 
   // =================== STAFF ROUTES ===================
   server.register(async function staffManagementRoutes(server) {
-    // All routes here require authentication
+    // All routes here require authentication and restaurant access
     server.addHook('preHandler', requireUser);
+    server.addHook('preHandler', requireRestaurantAccess);
 
     // POST /api/staff/members - Create staff member
     server.post('/members', {
@@ -88,34 +87,4 @@ export default async function staffRoutes(server: FastifyInstance) {
     }, (req, reply) => controller.changePassword(req as any, reply));
 
   }, { prefix: '/staff' });
-
-  // =================== LEGACY ROUTES (for backward compatibility) ===================
-
-  // GET /api/staff?restaurantId=xxx - Legacy get staff endpoint
-  server.get('/', {
-    preHandler: [validateQuery(GetStaffQuerySchema)]
-  }, (req, reply) => controller.getLegacyStaff(req as any, reply));
-
-  // POST /api/staff - Legacy create endpoint
-  server.post('/', {
-    preHandler: [validationMiddleware(CreateStaffSchema)]
-  }, (req, reply) => controller.createLegacyStaff(req as any, reply));
-
-  // GET /api/staff/:id - Legacy get staff endpoint
-  server.get('/:id', {
-    preHandler: [validateParams(StaffIdParamSchema)]
-  }, (req, reply) => controller.getLegacyStaffById(req as any, reply));
-
-  // PUT /api/staff/:id - Legacy update endpoint
-  server.put('/:id', {
-    preHandler: [
-      validateParams(StaffIdParamSchema),
-      validationMiddleware(UpdateStaffSchema)
-    ]
-  }, (req, reply) => controller.updateLegacyStaff(req as any, reply));
-
-  // DELETE /api/staff/:id - Legacy delete endpoint
-  server.delete('/:id', {
-    preHandler: [validateParams(StaffIdParamSchema)]
-  }, (req, reply) => controller.deleteLegacyStaff(req as any, reply));
 }

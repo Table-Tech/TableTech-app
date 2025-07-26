@@ -6,9 +6,7 @@ import {
   ModifierQuerySchema,
   ModifierParamsSchema,
   ReorderModifiersSchema,
-  BulkUpdateModifiersSchema,
-  GetModifiersQuerySchema,
-  ModifierIdParamSchema
+  BulkUpdateModifiersSchema
 } from '../../schemas/modifier.schema.js';
 import {
   validationMiddleware,
@@ -16,15 +14,16 @@ import {
   validateQuery,
   rateLimit
 } from '../../middleware/validation.middleware.js';
-import { requireUser, requireRole } from '../../middleware/auth.middleware.js';
+import { requireUser, requireRole, requireRestaurantAccess } from '../../middleware/auth.middleware.js';
 
 export default async function modifierRoutes(server: FastifyInstance) {
   const controller = new ModifierController();
 
   // =================== STAFF ROUTES ===================
   server.register(async function staffModifierRoutes(server) {
-    // All routes here require authentication
+    // All routes here require authentication and restaurant access
     server.addHook('preHandler', requireUser);
+    server.addHook('preHandler', requireRestaurantAccess);
 
     // POST /api/staff/modifiers - Create modifier
     server.post('/modifiers', {
@@ -83,34 +82,4 @@ export default async function modifierRoutes(server: FastifyInstance) {
     }, (req, reply) => controller.bulkUpdateModifiers(req as any, reply));
 
   }, { prefix: '/staff' });
-
-  // =================== LEGACY ROUTES (for backward compatibility) ===================
-
-  // GET /api/modifiers?modifierGroupId=xxx - Legacy get modifiers endpoint
-  server.get('/', {
-    preHandler: [validateQuery(GetModifiersQuerySchema)]
-  }, (req, reply) => controller.getLegacyModifiers(req as any, reply));
-
-  // POST /api/modifiers - Legacy create endpoint
-  server.post('/', {
-    preHandler: [validationMiddleware(CreateModifierSchema)]
-  }, (req, reply) => controller.createLegacyModifier(req as any, reply));
-
-  // GET /api/modifiers/:id - Legacy get modifier endpoint
-  server.get('/:id', {
-    preHandler: [validateParams(ModifierIdParamSchema)]
-  }, (req, reply) => controller.getLegacyModifierById(req as any, reply));
-
-  // PUT /api/modifiers/:id - Legacy update endpoint
-  server.put('/:id', {
-    preHandler: [
-      validateParams(ModifierIdParamSchema),
-      validationMiddleware(UpdateModifierSchema)
-    ]
-  }, (req, reply) => controller.updateLegacyModifier(req as any, reply));
-
-  // DELETE /api/modifiers/:id - Legacy delete endpoint
-  server.delete('/:id', {
-    preHandler: [validateParams(ModifierIdParamSchema)]
-  }, (req, reply) => controller.deleteLegacyModifier(req as any, reply));
 }

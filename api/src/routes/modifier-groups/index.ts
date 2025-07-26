@@ -6,9 +6,7 @@ import {
   ModifierGroupQuerySchema,
   ModifierGroupParamsSchema,
   ReorderModifierGroupsSchema,
-  BulkUpdateModifierGroupsSchema,
-  GetModifierGroupsQuerySchema,
-  ModifierGroupIdParamSchema
+  BulkUpdateModifierGroupsSchema
 } from '../../schemas/modifier-group.schema.js';
 import {
   validationMiddleware,
@@ -16,15 +14,16 @@ import {
   validateQuery,
   rateLimit
 } from '../../middleware/validation.middleware.js';
-import { requireUser, requireRole } from '../../middleware/auth.middleware.js';
+import { requireUser, requireRole, requireRestaurantAccess } from '../../middleware/auth.middleware.js';
 
 export default async function modifierGroupRoutes(server: FastifyInstance) {
   const controller = new ModifierGroupController();
 
   // =================== STAFF ROUTES ===================
   server.register(async function staffModifierGroupRoutes(server) {
-    // All routes here require authentication
+    // All routes here require authentication and restaurant access
     server.addHook('preHandler', requireUser);
+    server.addHook('preHandler', requireRestaurantAccess);
 
     // POST /api/staff/modifier-groups - Create modifier group
     server.post('/modifier-groups', {
@@ -83,34 +82,4 @@ export default async function modifierGroupRoutes(server: FastifyInstance) {
     }, (req, reply) => controller.bulkUpdateModifierGroups(req as any, reply));
 
   }, { prefix: '/staff' });
-
-  // =================== LEGACY ROUTES (for backward compatibility) ===================
-
-  // GET /api/modifier-groups?menuItemId=xxx - Legacy get modifier groups endpoint
-  server.get('/', {
-    preHandler: [validateQuery(GetModifierGroupsQuerySchema)]
-  }, (req, reply) => controller.getLegacyModifierGroups(req as any, reply));
-
-  // POST /api/modifier-groups - Legacy create endpoint
-  server.post('/', {
-    preHandler: [validationMiddleware(CreateModifierGroupSchema)]
-  }, (req, reply) => controller.createLegacyModifierGroup(req as any, reply));
-
-  // GET /api/modifier-groups/:id - Legacy get modifier group endpoint
-  server.get('/:id', {
-    preHandler: [validateParams(ModifierGroupIdParamSchema)]
-  }, (req, reply) => controller.getLegacyModifierGroupById(req as any, reply));
-
-  // PUT /api/modifier-groups/:id - Legacy update endpoint
-  server.put('/:id', {
-    preHandler: [
-      validateParams(ModifierGroupIdParamSchema),
-      validationMiddleware(UpdateModifierGroupSchema)
-    ]
-  }, (req, reply) => controller.updateLegacyModifierGroup(req as any, reply));
-
-  // DELETE /api/modifier-groups/:id - Legacy delete endpoint
-  server.delete('/:id', {
-    preHandler: [validateParams(ModifierGroupIdParamSchema)]
-  }, (req, reply) => controller.deleteLegacyModifierGroup(req as any, reply));
 }

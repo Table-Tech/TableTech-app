@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+// XSS protection helper
+const sanitizeText = (val: string) => val.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '').replace(/[<>]/g, '');
+
 // Price validation - must be positive with max 2 decimal places
 const PriceSchema = z.number()
   .positive('Price must be positive')
@@ -11,10 +14,12 @@ export const CreateMenuItemSchema = z.object({
   name: z.string()
     .min(1, 'Name is required')
     .max(100, 'Name must be less than 100 characters')
-    .trim(),
+    .trim()
+    .transform(sanitizeText),
   description: z.string()
     .max(500, 'Description must be less than 500 characters')
     .trim()
+    .transform(sanitizeText)
     .optional(),
   price: PriceSchema,
   imageUrl: z.string()
@@ -41,10 +46,12 @@ export const UpdateMenuItemSchema = z.object({
     .min(1, 'Name is required')
     .max(100, 'Name must be less than 100 characters')
     .trim()
+    .transform(sanitizeText)
     .optional(),
   description: z.string()
     .max(500, 'Description must be less than 500 characters')
     .trim()
+    .transform(sanitizeText)
     .optional(),
   price: PriceSchema.optional(),
   imageUrl: z.string()
@@ -78,6 +85,7 @@ export const MenuQuerySchema = z.object({
   search: z.string()
     .max(100, 'Search term too long')
     .trim()
+    .transform(sanitizeText)
     .optional(),
   minPrice: z.number().positive().optional(),
   maxPrice: z.number().positive().optional(),

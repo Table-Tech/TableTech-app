@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+// XSS protection helper
+const sanitizeText = (val: string) => val.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '').replace(/[<>]/g, '');
+
 // Reusable schemas
 const OrderItemSchema = z.object({
   menuId: z.string().uuid("Invalid menu item ID"),
@@ -8,7 +11,7 @@ const OrderItemSchema = z.object({
     .min(1, "Minimum quantity is 1")
     .max(10, "Maximum quantity is 10 per item"),
   modifiers: z.array(z.string().uuid()).optional(),
-  notes: z.string().max(200, "Notes too long").optional()
+  notes: z.string().max(200, "Notes too long").transform(sanitizeText).optional()
 });
 
 // Staff order creation
@@ -18,7 +21,7 @@ export const CreateOrderSchema = z.object({
   items: z.array(OrderItemSchema)
     .min(1, "Order must have at least one item")
     .max(50, "Maximum 50 items per order"),
-  notes: z.string().max(500, "Notes too long").optional()
+  notes: z.string().max(500, "Notes too long").transform(sanitizeText).optional()
 });
 
 // Customer order creation (via QR code)
@@ -27,9 +30,9 @@ export const CreateCustomerOrderSchema = z.object({
   items: z.array(OrderItemSchema)
     .min(1, "Order must have at least one item")
     .max(20, "Maximum 20 items per order"), // Lower limit for customers
-  customerName: z.string().min(1).max(100).optional(),
-  customerPhone: z.string().regex(/^\+?[\d\s-()]+$/).optional(),
-  notes: z.string().max(200).optional()
+  customerName: z.string().min(1).max(100).transform(sanitizeText).optional(),
+  customerPhone: z.string().regex(/^\+?[1-9]\d{6,14}$/).optional(),
+  notes: z.string().max(200).transform(sanitizeText).optional()
 });
 
 // Order status update
@@ -38,7 +41,7 @@ export const UpdateOrderStatusSchema = z.object({
     "PENDING", "CONFIRMED", "PREPARING", 
     "READY", "DELIVERED", "COMPLETED", "CANCELLED"
   ]),
-  notes: z.string().max(500).optional()
+  notes: z.string().max(500).transform(sanitizeText).optional()
 });
 
 // Order item status update (for kitchen)

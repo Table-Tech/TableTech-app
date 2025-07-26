@@ -186,27 +186,3 @@ export class MenuController {
   }
 }
 
-// Legacy function exports (for backward compatibility - to be removed later)
-export const createMenuItemHandler = async (
-  req: FastifyRequest<{ Body: z.infer<typeof CreateMenuItemSchema> }>, 
-  reply: FastifyReply
-) => {
-  const controller = new MenuController();
-  return await controller.createMenuItem(req as any, reply);
-};
-
-export const getMenuHandler = async (
-  req: FastifyRequest<{ Querystring: z.infer<typeof GetMenuQuerySchema> }>, 
-  reply: FastifyReply
-) => {
-  const controller = new MenuController();
-  return await controller.getLegacyMenu(req, reply);
-};
-
-export const getCustomerMenuHandler = async (
-  req: FastifyRequest<{ Params: { tableCode: string; restaurantId: string } }>,
-  reply: FastifyReply
-) => {
-  const controller = new MenuController();
-  return await controller.getCustomerMenu(req as any, reply);
-};

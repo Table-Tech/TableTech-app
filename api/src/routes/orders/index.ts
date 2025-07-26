@@ -14,15 +14,16 @@ import {
   validateQuery,
   rateLimit
 } from "../../middleware/validation.middleware.js";
-import { requireUser, requireRole } from "../../middleware/auth.middleware.js";
+import { requireUser, requireRole, requireRestaurantAccess } from "../../middleware/auth.middleware.js";
 
 export default async function orderRoutes(server: FastifyInstance) {
   const controller = new OrderController();
 
   // =================== STAFF ROUTES ===================
   server.register(async function staffOrderRoutes(server) {
-    // All routes here require authentication
+    // All routes here require authentication and restaurant access
     server.addHook('preHandler', requireUser);
+    server.addHook('preHandler', requireRestaurantAccess);
 
     // POST /api/staff/orders - Create staff order
     server.post("/orders", {

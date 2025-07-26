@@ -1,11 +1,15 @@
 import { z } from 'zod';
 
+// XSS protection helper
+const sanitizeText = (val: string) => val.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '').replace(/[<>]/g, '');
+
 // Create restaurant schema
 export const CreateRestaurantSchema = z.object({
   name: z.string()
     .min(2, 'Restaurant name must be at least 2 characters')
     .max(120, 'Restaurant name must be less than 120 characters')
     .trim()
+    .transform(sanitizeText)
     .refine(val => val.length > 0, 'Restaurant name cannot be empty'),
   email: z.string()
     .email('Invalid email format')
@@ -14,12 +18,13 @@ export const CreateRestaurantSchema = z.object({
     .max(255, 'Email must be less than 255 characters')
     .optional(),
   phone: z.string()
-    .regex(/^\+?[\d\s\-()]{8,20}$/, 'Invalid phone number format')
+    .regex(/^\+?[1-9]\d{6,14}$/, 'Invalid phone number format')
     .trim()
     .optional(),
   address: z.string()
     .max(500, 'Address must be less than 500 characters')
     .trim()
+    .transform(sanitizeText)
     .optional(),
   logoUrl: z.string()
     .url('Invalid logo URL')
@@ -36,6 +41,7 @@ export const UpdateRestaurantSchema = z.object({
     .min(2, 'Restaurant name must be at least 2 characters')
     .max(120, 'Restaurant name must be less than 120 characters')
     .trim()
+    .transform(sanitizeText)
     .optional(),
   email: z.string()
     .email('Invalid email format')
@@ -44,12 +50,13 @@ export const UpdateRestaurantSchema = z.object({
     .max(255, 'Email must be less than 255 characters')
     .optional(),
   phone: z.string()
-    .regex(/^\+?[\d\s\-()]{8,20}$/, 'Invalid phone number format')
+    .regex(/^\+?[1-9]\d{6,14}$/, 'Invalid phone number format')
     .trim()
     .optional(),
   address: z.string()
     .max(500, 'Address must be less than 500 characters')
     .trim()
+    .transform(sanitizeText)
     .optional(),
   logoUrl: z.string()
     .url('Invalid logo URL')
@@ -64,6 +71,7 @@ export const RestaurantQuerySchema = z.object({
   search: z.string()
     .max(120, 'Search term too long')
     .trim()
+    .transform(sanitizeText)
     .optional(),
   limit: z.number()
     .int('Limit must be an integer')
