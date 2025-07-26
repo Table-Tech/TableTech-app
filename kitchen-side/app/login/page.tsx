@@ -2,23 +2,41 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { mockUsers } from "../../lib/mockdata";
+
+const API_URL = "http://localhost:3001";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const router = useRouter();
 
-  const handleLogin = () => {
-    const user = mockUsers.find((u) => u.email === email);
-    if (user) {
-      localStorage.setItem("mockUser", JSON.stringify(user));
-      if (user.role === "SUPER") {
+  const handleLogin = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert("Login mislukt: " + data.message);
+        return;
+      }
+
+      const { token, staff } = data.data;
+      localStorage.setItem("token", token);
+      localStorage.setItem("currentUser", JSON.stringify(staff));
+
+      if (staff.role === "SUPER") {
         router.push("/select");
       } else {
-        router.push(`/dashboard/${user.restaurantId}`);
+        router.push(`/dashboard/${staff.restaurant.id}`);
       }
-    } else {
-      alert("User not found");
+    } catch (err) {
+      console.error("Login fout:", err);
+      alert("Er ging iets mis tijdens het inloggen.");
     }
   };
 
@@ -30,9 +48,17 @@ export default function LoginPage() {
         <input
           type="email"
           placeholder="Email"
-          className="w-full mb-4 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-600 text-gray-800"
+          className="w-full mb-4 px-4 py-2 border border-gray-300 rounded-md"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+        />
+
+        <input
+          type="password"
+          placeholder="Wachtwoord"
+          className="w-full mb-4 px-4 py-2 border border-gray-300 rounded-md"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
         />
 
         <button
@@ -41,12 +67,6 @@ export default function LoginPage() {
         >
           Login
         </button>
-
-        <div className="text-right mt-3">
-          <a href="#" className="text-sm text-blue-500 hover:underline">
-            Wachtwoord vergeten?
-          </a>
-        </div>
       </div>
     </div>
   );
