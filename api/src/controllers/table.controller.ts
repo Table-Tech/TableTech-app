@@ -1,57 +1,177 @@
-import { FastifyRequest, FastifyReply } from "fastify";
-import {
-  createTable,
-  getTablesByRestaurantId,
-  updateTableStatus,
-  generateQRUrl,
-} from "../services/table.service";
+import { FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
+import { AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import { ApiError } from '../types/errors.js';
+import { TableService } from '../services/table.service.js';
 import {
   CreateTableSchema,
-  GetTablesQuerySchema,
+  BulkCreateTablesSchema,
+  UpdateTableSchema,
   UpdateTableStatusSchema,
-} from "../schemas/table.schema";
+  TableQuerySchema,
+  TableParamsSchema,
+  ValidateTableSchema
+} from '../schemas/table.schema.js';
 
-export const createTableHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const result = CreateTableSchema.safeParse(req.body);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Invalid input", details: result.error });
+export class TableController {
+  private svc = new TableService();
+
+  /** POST /tables - Create single table */
+  async createTable(
+    req: AuthenticatedRequest<z.infer<typeof CreateTableSchema>>,
+    reply: FastifyReply
+  ) {
+    // Ensure user can only create tables for their restaurant
+    if (req.body.restaurantId !== req.user.restaurantId) {
+      throw new ApiError(403, 'FORBIDDEN', 'Cannot create tables for other restaurants');
+    }
+
+    const table = await this.svc.createTable(req.body, req.user.staffId);
+    return reply.status(201).send({ success: true, data: table });
   }
 
-  const table = await createTable(result.data);
-  return reply.code(201).send(table);
-};
+  /** POST /tables/bulk - Create multiple tables */
+  async bulkCreateTables(
+    req: AuthenticatedRequest<z.infer<typeof BulkCreateTablesSchema>>,
+    reply: FastifyReply
+  ) {
+    if (req.body.restaurantId !== req.user.restaurantId) {
+      throw new ApiError(403, 'FORBIDDEN', 'Cannot create tables for other restaurants');
+    }
 
-export const getTablesHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const result = GetTablesQuerySchema.safeParse(req.query);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Missing or invalid restaurantId" });
+    const tables = await this.svc.bulkCreateTables(req.body, req.user.staffId);
+    return reply.status(201).send({ 
+      success: true, 
+      data: tables,
+      message: `Created ${tables.length} tables successfully`
+    });
   }
 
-  const tables = await getTablesByRestaurantId(result.data.restaurantId);
-  return reply.send(tables);
-};
-
-export const updateTableStatusHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const { id } = req.params as { id: string };
-
-  const result = UpdateTableStatusSchema.safeParse(req.body);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Invalid status" });
+  /** GET /tables - List tables */
+  async listTables(
+    req: AuthenticatedRequest<unknown, unknown, z.infer<typeof TableQuerySchema>>,
+    reply: FastifyReply
+  ) {
+    const result = await this.svc.getTables(req.user.restaurantId, req.query);
+    return reply.send({ 
+      success: true, 
+      data: result.tables,
+      pagination: result.pagination
+    });
   }
 
-  const updated = await updateTableStatus(id, result.data.status);
-  return reply.send(updated);
-};
-
-// NEW: Generate QR URL for table
-export const generateQRUrlHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const { id } = req.params as { id: string };
-
-  try {
-    const qrData = await generateQRUrl(id);
-    return reply.send(qrData);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return reply.status(404).send({ error: errorMessage });
+  /** GET /tables/:id - Get table details */
+  async getTableById(
+    req: AuthenticatedRequest<unknown, z.infer<typeof TableParamsSchema>>,
+    reply: FastifyReply
+  ) {
+    const table = await this.svc.findById(req.params.id);
+    
+    if (!table) {
+      throw new ApiError(404, 'TABLE_NOT_FOUND', 'Table not found');
+    }
+    
+    // Verify table belongs to user's restaurant
+    if (table.restaurantId !== req.user.restaurantId) {
+      throw new ApiError(403, 'FORBIDDEN', 'Access denied');
+    }
+    
+    return reply.send({ success: true, data: table });
   }
-};
+
+  /** PATCH /tables/:id - Update table */
+  async updateTable(
+    req: AuthenticatedRequest<
+      z.infer<typeof UpdateTableSchema>,
+      z.infer<typeof TableParamsSchema>
+    >,
+    reply: FastifyReply
+  ) {
+    const table = await this.svc.updateTable(
+      req.params.id,
+      req.body,
+      req.user.staffId
+    );
+    return reply.send({ success: true, data: table });
+  }
+
+  /** PATCH /tables/:id/status - Update table status */
+  async updateTableStatus(
+    req: AuthenticatedRequest<
+      z.infer<typeof UpdateTableStatusSchema>,
+      z.infer<typeof TableParamsSchema>
+    >,
+    reply: FastifyReply
+  ) {
+    const table = await this.svc.updateTableStatus(
+      req.params.id,
+      req.body,
+      req.user.staffId
+    );
+    return reply.send({ success: true, data: table });
+  }
+
+  /** DELETE /tables/:id - Delete table */
+  async deleteTable(
+    req: AuthenticatedRequest<unknown, z.infer<typeof TableParamsSchema>>,
+    reply: FastifyReply
+  ) {
+    await this.svc.deleteTable(req.params.id, req.user.staffId);
+    return reply.send({ success: true, message: 'Table deleted successfully' });
+  }
+
+  /** POST /tables/:id/regenerate-qr - Regenerate QR code */
+  async regenerateQRCode(
+    req: AuthenticatedRequest<unknown, z.infer<typeof TableParamsSchema>>,
+    reply: FastifyReply
+  ) {
+    const table = await this.svc.regenerateQRCode(req.params.id, req.user.staffId);
+    return reply.send({ 
+      success: true, 
+      data: {
+        tableId: table.id,
+        code: table.code,
+        qrCodeUrl: table.qrCodeUrl,
+        message: 'QR code regenerated successfully'
+      }
+    });
+  }
+
+  /** GET /tables/statistics - Get table statistics */
+  async getTableStatistics(
+    req: AuthenticatedRequest,
+    reply: FastifyReply
+  ) {
+    const stats = await this.svc.getTableStatistics(req.user.restaurantId);
+    return reply.send({ success: true, data: stats });
+  }
+
+  // =================== CUSTOMER ENDPOINTS ===================
+
+  /** POST /customer/validate-table - Validate table code */
+  async validateTable(
+    req: FastifyRequest<{ Body: z.infer<typeof ValidateTableSchema> }>,
+    reply: FastifyReply
+  ) {
+    const table = await this.svc.getTableByCode(req.body.code);
+
+    if (!table) {
+      throw new ApiError(404, 'INVALID_TABLE_CODE', 'Invalid table code');
+    }
+
+    return reply.send({
+      success: true,
+      data: {
+        tableId: table.id,
+        tableNumber: table.number,
+        restaurant: {
+          id: table.restaurant.id,
+          name: table.restaurant.name,
+          logoUrl: table.restaurant.logoUrl
+        },
+        canOrder: table.status !== 'MAINTENANCE',
+        status: table.status
+      }
+    });
+  }
+}
