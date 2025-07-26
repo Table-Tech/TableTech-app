@@ -15,6 +15,7 @@ import modifierRoutes from "./src/routes/modifiers/index.js";
 import authRoutes from "./src/routes/auth/index.js";
 import staffRoutes from "./src/routes/staff/index.js";
 import paymentRoutes from "./src/routes/payments/index.js";
+import sessionRoutes from "./src/routes/sessions/index.js";
 
 const fastify = Fastify({ 
   logger: true,
@@ -90,6 +91,7 @@ const start = async () => {
     await fastify.register(authRoutes, { prefix: "/api/auth" });
     await fastify.register(staffRoutes, { prefix: "/api/staff" });
     await fastify.register(paymentRoutes, { prefix: "/api/payments" });
+    await fastify.register(sessionRoutes, { prefix: "/api/sessions" });
 
     // Start server
     const port = process.env.PORT ? parseInt(process.env.PORT) : 3001;

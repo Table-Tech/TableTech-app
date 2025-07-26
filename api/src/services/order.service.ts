@@ -52,13 +52,13 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
       validateTableAvailability(table.status, false);
 
       // ── 2. Process items & totals ─────────────────────────────────
-      const { orderItems, totalAmount } = await this.processOrderItems(
+      const { orderItems, financials } = await this.processOrderItems(
         tx,
         data.items,
         data.restaurantId
       );
 
-      validateOrderAmount(totalAmount);
+      validateOrderAmount(financials.totalAmount);
 
       // ── 3. Create order with duplicate-number retry ───────────────
       let order: Order | null = null;
@@ -70,13 +70,15 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
           order = await tx.order.create({
             data: {
               orderNumber,
-              totalAmount,
+              subtotal: financials.subtotal,
+              taxAmount: financials.taxAmount,
+              totalAmount: financials.totalAmount,
               notes: data.notes,
               status: "PENDING",
               paymentStatus: "PENDING",
-              table:       { connect: { id: data.tableId } },
-              restaurant:  { connect: { id: data.restaurantId } },
-              orderItems:  { create: orderItems },
+              tableId: data.tableId,
+              restaurantId: data.restaurantId,
+              orderItems: { create: orderItems },
             },
             include: this.getOrderIncludes(),
           });
@@ -116,7 +118,7 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
   /**
    * Create customer order (via QR)
   */
-  async createCustomerOrder(data: CreateCustomerOrderDTO): Promise<Order> {
+  async createCustomerOrder(data: CreateCustomerOrderDTO, sessionToken?: string): Promise<Order> {
     validateCustomerOrder(data);
 
     return await this.prisma.$transaction(async (tx) => {
@@ -133,13 +135,13 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
       validateTableAvailability(table.status, false);
 
       // ── 2. Process items & totals ───────────────────────────────
-      const { orderItems, totalAmount } = await this.processOrderItems(
+      const { orderItems, financials } = await this.processOrderItems(
         tx,
         data.items,
         table.restaurantId
       );
 
-      validateOrderAmount(totalAmount);
+      validateOrderAmount(financials.totalAmount);
 
       // ── 3. Create order with duplicate-key retry ────────────────
       let order: Order | null = null;
@@ -151,13 +153,16 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
           order = await tx.order.create({
             data: {
               orderNumber,
-              totalAmount,
+              subtotal: financials.subtotal,
+              taxAmount: financials.taxAmount,
+              totalAmount: financials.totalAmount,
+              sessionId: sessionToken?.replace('sess_', '') || null, // Link to customer session
               notes: data.notes,
               status: "PENDING",
               paymentStatus: "PENDING",
-              table:       { connect: { id: table.id } },
-              restaurant:  { connect: { id: table.restaurantId } },
-              orderItems:  { create: orderItems },
+              tableId: table.id,
+              restaurantId: table.restaurantId,
+              orderItems: { create: orderItems },
             },
             include: this.getOrderIncludes(),
           });
@@ -367,7 +372,7 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
     }
 
     // ── 3. Process items using cached data ───────────────────────────────
-    let totalAmount = 0;
+    let subtotalAmount = 0;
     const orderItems = [];
 
     for (const item of items) {
@@ -396,7 +401,7 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
       }
 
       const itemTotal = itemPrice * item.quantity;
-      totalAmount += itemTotal;
+      subtotalAmount += itemTotal;
 
       orderItems.push({
         quantity: item.quantity,
@@ -407,7 +412,30 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
       });
     }
 
-    return { orderItems, totalAmount };
+    // ── 4. Calculate Dutch BTW tax compliance (dynamic rate) ──────────────
+    const taxRate = await this.getRestaurantTaxRate(tx, restaurantId);
+    const subtotal = Math.round(subtotalAmount * 100) / 100; // Round to 2 decimals
+    const taxAmount = Math.round(subtotal * (taxRate / 100) * 100) / 100; // BTW percentage
+    const totalAmount = Math.round((subtotal + taxAmount) * 100) / 100;
+
+    const financials = {
+      subtotal,
+      taxAmount,
+      totalAmount
+    };
+
+    return { orderItems, financials };
+  }
+
+  /**
+   * Get restaurant tax rate (9% for Dutch restaurants)
+   */
+  private async getRestaurantTaxRate(tx: any, restaurantId: string): Promise<number> {
+    const restaurant = await tx.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { taxRate: true }
+    });
+    return restaurant?.taxRate ? Number(restaurant.taxRate) : 9.0; // Default to 9% Dutch BTW
   }
 
   /**

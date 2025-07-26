@@ -23,6 +23,10 @@ model Restaurant {
   phone           String?
   email           String?          @unique
   logoUrl         String?          // For restaurant branding
+  currency        String           @default("EUR")  // ISO currency code
+  taxRate         Decimal          @default(9.0) @db.Decimal(5,2)  // Dutch BTW 9%
+  timezone        String           @default("Europe/Amsterdam")
+  isActive        Boolean          @default(true)   // Soft delete for restaurants
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -31,6 +35,11 @@ model Restaurant {
   menuItems       MenuItem[]
   orders          Order[]
   staff           Staff[]
+
+  // Performance indexes
+  @@index([email])               // Email lookups
+  @@index([isActive])            // Filter active restaurants
+  @@index([createdAt])           // Restaurant registration tracking
 
   // For future: add restaurant-level settings
   // settings        Json?         // e.g., opening hours, currency, locale
@@ -50,6 +59,13 @@ model Table {
   restaurantId String
 
   orders       Order[]
+  customerSessions CustomerSession[]
+  assistance   TableAssistance[]
+
+  // Performance indexes
+  @@index([restaurantId])        // Tables by restaurant
+  @@index([status])              // Filter by status
+  @@index([restaurantId, status]) // Available tables per restaurant
 }
 
 enum TableStatus {
@@ -73,6 +89,12 @@ model MenuCategory {
   restaurantId String
 
   menuItems    MenuItem[]
+
+  // Performance indexes
+  @@index([restaurantId])                    // Categories by restaurant
+  @@index([isActive])                        // Filter active categories
+  @@index([displayOrder])                    // Category ordering
+  @@index([restaurantId, isActive, displayOrder]) // Menu display queries
 }
 
 model MenuItem {
@@ -84,8 +106,14 @@ model MenuItem {
   isAvailable     Boolean          @default(true)
   preparationTime Int?             // Minutes estimate
   displayOrder    Int              @default(0)
+  stockCount      Int?             // Track inventory
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  
+  // WebSocket availability features
+  availabilityNote String?         // Reason for unavailability
+  lastUnavailableAt DateTime?      // When marked unavailable
+  unavailableBy   String?          // Staff member who changed availability
 
   category        MenuCategory     @relation(fields: [categoryId], references: [id])
   categoryId      String
@@ -94,6 +122,12 @@ model MenuItem {
 
   orderItems      OrderItem[]
   modifierGroups  ModifierGroup[]
+
+  // Performance indexes
+  @@index([restaurantId])           // Menu items by restaurant
+  @@index([categoryId])             // Items in category
+  @@index([isAvailable])            // Filter available items
+  @@index([restaurantId, isAvailable]) // Available items per restaurant
 }
 
 model ModifierGroup {
@@ -104,11 +138,19 @@ model ModifierGroup {
   minSelect      Int          @default(0)
   maxSelect      Int?
   displayOrder   Int          @default(0)
+  isActive       Boolean      @default(true)   // Soft delete for modifier groups
 
   menuItem       MenuItem     @relation(fields: [menuItemId], references: [id])
   menuItemId     String
 
   modifiers      Modifier[]
+
+  // Performance indexes
+  @@index([menuItemId])      // Modifier groups for a menu item
+  @@index([displayOrder])    // Ordering modifier groups
+  @@index([isActive])        // Filter active modifier groups
+  @@index([menuItemId, displayOrder]) // Menu item modifier display
+  @@index([menuItemId, isActive]) // Active modifier groups for item
 }
 
 model Modifier {
@@ -116,24 +158,49 @@ model Modifier {
   name            String
   price           Decimal       @default(0) @db.Decimal(10, 2)
   displayOrder    Int           @default(0)
+  isActive        Boolean       @default(true)   // Soft delete for modifiers
 
   modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id])
   modifierGroupId String
 
   orderItemModifiers OrderItemModifier[]
+
+  // Performance indexes
+  @@index([modifierGroupId])         // Modifiers in a group
+  @@index([displayOrder])            // Ordering modifiers
+  @@index([isActive])                // Filter active modifiers
+  @@index([modifierGroupId, displayOrder]) // Group modifier display
+  @@index([modifierGroupId, isActive]) // Active modifiers in group
 }
 
 model Order {
   id              String        @id @default(uuid())
   orderNumber     String        @unique
   status          OrderStatus   @default(PENDING)
-  totalAmount     Decimal       @db.Decimal(10, 2)
+  
+  // CRITICAL: Financial breakdown (Dutch tax compliance)
+  subtotal        Decimal       @default(0) @db.Decimal(10, 2)  // Before tax
+  taxAmount       Decimal       @default(0) @db.Decimal(10, 2)  // BTW (9%)
+  serviceFee      Decimal?      @db.Decimal(10, 2)  // Optional service charge
+  totalAmount     Decimal       @db.Decimal(10, 2)  // Final amount
+  
   notes           String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   paymentStatus   PaymentStatus @default(PENDING)
   molliePaymentId String?       // Track payment with Mollie
   webhookReceived Boolean       @default(false)
+  
+  // WebSocket/Real-time tracking fields
+  confirmedAt     DateTime?     // When kitchen confirmed order
+  confirmedBy     String?       // Staff member who confirmed
+  readyAt         DateTime?     // When marked ready for pickup
+  deliveredAt     DateTime?     // When delivered to customer
+  completedAt     DateTime?     // When fully completed
+  
+  // Customer session tracking
+  sessionId       String?       // Link to customer session
+  customerSession CustomerSession? @relation(fields: [sessionId], references: [sessionId])
 
   table           Table         @relation(fields: [tableId], references: [id])
   tableId         String
@@ -143,6 +210,20 @@ model Order {
 
   orderItems      OrderItem[]
   payments        Payment[]
+
+  // Performance indexes
+  @@index([restaurantId])        // Filter by restaurant
+  @@index([tableId])             // Orders for specific table
+  @@index([status])              // Kitchen queries by status
+  @@index([createdAt])           // Order by time
+  @@index([sessionId])           // Orders by customer session
+  @@index([paymentStatus])       // Payment tracking
+  @@index([molliePaymentId])     // Mollie webhook lookups
+  @@index([orderNumber])         // Quick order lookups
+  @@index([restaurantId, status]) // Combined restaurant + status queries
+  @@index([restaurantId, createdAt]) // Restaurant order history
+  @@index([tableId, createdAt])  // Table order history
+  @@index([status, createdAt])   // Kitchen workflow by time
 }
 
 enum OrderStatus {
@@ -171,13 +252,20 @@ model OrderItem {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
-  order        Order          @relation(fields: [orderId], references: [id])
+  order        Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderId      String
 
   menuItem     MenuItem       @relation(fields: [menuItemId], references: [id])
   menuItemId   String
 
   modifiers    OrderItemModifier[]
+
+  // Performance indexes
+  @@index([orderId])             // Items in an order
+  @@index([menuItemId])          // Track popular menu items
+  @@index([status])              // Kitchen workflow queries
+  @@index([orderId, status])     // Order preparation tracking
+  @@index([menuItemId, createdAt]) // Menu item popularity over time
 }
 
 enum OrderItemStatus {
@@ -192,13 +280,16 @@ model OrderItemModifier {
   id              String     @id @default(uuid())
   price           Decimal    @db.Decimal(10, 2)
 
-  orderItem       OrderItem  @relation(fields: [orderItemId], references: [id])
+  orderItem       OrderItem  @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
   orderItemId     String
 
   modifier        Modifier   @relation(fields: [modifierId], references: [id])
   modifierId      String
 
   @@unique([orderItemId, modifierId])
+  // Performance indexes
+  @@index([orderItemId])     // Modifiers for an order item
+  @@index([modifierId])      // Modifier usage tracking
 }
 
 model Staff {
@@ -210,9 +301,24 @@ model Staff {
   isActive     Boolean    @default(true)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+  
+  // Security & session tracking
+  lastLoginAt  DateTime?  // Track login activity
+  lastActiveAt DateTime?  // Track when last active
+  loginAttempts Int       @default(0)  // Failed login tracking
+  lockedUntil  DateTime?  // Account lockout
 
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
   restaurantId String
+
+  // Performance indexes
+  @@index([email])              // Login queries
+  @@index([restaurantId])       // Staff by restaurant
+  @@index([isActive])           // Filter active staff
+  @@index([role])               // Staff by role
+  @@index([restaurantId, role]) // Role-based queries per restaurant
+  @@index([lastLoginAt])        // Recent activity tracking
+  @@index([lockedUntil])        // Account lockout queries
 }
 
 enum StaffRole {
@@ -234,6 +340,12 @@ model Payment {
 
   order          Order         @relation(fields: [orderId], references: [id])
   orderId        String
+
+  // Performance indexes
+  @@index([orderId])         // Payments for order
+  @@index([status])          // Filter by status
+  @@index([transactionId])   // Mollie webhook lookups
+  @@index([createdAt])       // Payment history
 }
 
 enum PaymentMethod {
@@ -242,4 +354,50 @@ enum PaymentMethod {
   DEBIT_CARD
   MOBILE_PAYMENT
   MOLLIE
+}
+
+model CustomerSession {
+  id            String    @id @default(uuid())
+  sessionId     String    @unique         // UUID for the session
+  tableId       String                    // Which table they're at
+  ipAddress     String?                   // For security tracking
+  userAgent     String?                   // Browser/app info
+  customerName  String?                   // Optional customer name
+  customerEmail String?                   // Optional for receipts
+  createdAt     DateTime  @default(now())
+  expiresAt     DateTime                  // Auto-expire sessions
+  lastActiveAt  DateTime  @default(now()) // Track activity
+  isActive      Boolean   @default(true)  // Soft delete flag
+  
+  // Relations
+  table         Table     @relation(fields: [tableId], references: [id])
+  orders        Order[]   // Track all orders from this session
+  
+  // Indexes for performance
+  @@index([sessionId])           // Session token lookups
+  @@index([tableId])             // Sessions by table
+  @@index([expiresAt])           // Session cleanup
+  @@index([isActive])            // Active session filtering
+  @@index([lastActiveAt])        // Activity-based cleanup
+  @@index([tableId, isActive])   // Active sessions per table
+  @@index([isActive, expiresAt]) // Expired session cleanup
+}
+
+model TableAssistance {
+  id          String    @id @default(uuid())
+  tableId     String
+  type        String    // "waiter", "bill", "help"
+  message     String?
+  requestedAt DateTime  @default(now())
+  resolvedAt  DateTime?
+  resolvedBy  String?   // Staff member who resolved it
+  
+  table       Table     @relation(fields: [tableId], references: [id])
+  
+  @@index([tableId])             // Assistance requests by table
+  @@index([resolvedAt])          // To find active requests (NULL = active)
+  @@index([type])                // Filter by assistance type
+  @@index([requestedAt])         // Order by request time
+  @@index([tableId, resolvedAt]) // Active requests per table
+  @@index([type, resolvedAt])    // Active requests by type
 }
