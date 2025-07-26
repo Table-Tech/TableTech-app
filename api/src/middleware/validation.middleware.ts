@@ -135,52 +135,39 @@ export function limitRequestSize(maxSizeBytes: number) {
 }
 
 /**
- * Rate limiting middleware (simple in-memory implementation)
- * For production, use Redis-based rate limiting
+ * Redis-based rate limiting middleware
  */
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+import { redisService } from '../services/infrastructure/redis/redis.service.js';
 
-export function rateLimit(maxRequests: number, windowMs: number) {
+export function rateLimit(maxRequests: number, windowMs: number, keyPrefix: string = 'general') {
   return async (req: FastifyRequest, reply: FastifyReply) => {
     const clientIP = req.ip || 'unknown';
-    const now = Date.now();
     const key = `${clientIP}:${req.url}`;
     
-    const current = rateLimitStore.get(key);
-    
-    if (!current || now > current.resetTime) {
-      // Reset or initialize counter
-      rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
-      return;
-    }
-    
-    if (current.count >= maxRequests) {
-      const retryAfter = Math.ceil((current.resetTime - now) / 1000);
+    try {
+      const rateLimiter = redisService.getRateLimiter(`${keyPrefix}_rate_limit`, {
+        points: maxRequests,
+        duration: Math.ceil(windowMs / 1000), // Convert to seconds
+      });
+
+      await rateLimiter.consume(key);
+    } catch (rejRes: any) {
+      const retryAfter = Math.round(rejRes.msBeforeNext / 1000) || 1;
       
       req.log.warn({
         ip: clientIP,
         url: req.url,
-        count: current.count,
         maxRequests,
-        retryAfter
+        retryAfter,
+        keyPrefix
       }, 'Rate limit exceeded');
       
       reply.header('Retry-After', retryAfter.toString());
+      reply.header('X-RateLimit-Limit', maxRequests.toString());
+      reply.header('X-RateLimit-Remaining', '0');
+      reply.header('X-RateLimit-Reset', new Date(Date.now() + rejRes.msBeforeNext).toISOString());
+      
       throw new ApiError(429, 'RATE_LIMIT_EXCEEDED', `Too many requests. Try again in ${retryAfter} seconds.`);
     }
-    
-    // Increment counter
-    current.count++;
-    rateLimitStore.set(key, current);
   };
 }
-
-// Cleanup rate limit store periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of rateLimitStore.entries()) {
-    if (now > value.resetTime) {
-      rateLimitStore.delete(key);
-    }
-  }
-}, 60000); // Cleanup every minute

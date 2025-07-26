@@ -1,13 +1,10 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { ApiError } from '../types/errors.js';
 import { AuthenticatedRequest } from './auth.middleware.js';
-
-// In-memory stores (use Redis in production)
-const recentOrders: Map<string, number> = new Map();
-const orderRateLimits: Map<string, { count: number; resetTime: number }> = new Map();
+import { redisService } from '../services/infrastructure/redis/redis.service.js';
 
 /**
- * Prevent duplicate orders (double-click protection)
+ * Prevent duplicate orders (double-click protection) using Redis
  */
 export function preventDuplicateOrders(windowMs: number = 5000) {
   return async (req: FastifyRequest, reply: FastifyReply) => {
@@ -23,8 +20,8 @@ export function preventDuplicateOrders(windowMs: number = 5000) {
       key = `customer:${req.ip}:${body.tableCode || 'unknown'}`;
     }
 
-    const lastOrderTime = recentOrders.get(key);
     const now = Date.now();
+    const lastOrderTime = await redisService.getRecentOrder(key);
     
     if (lastOrderTime && now - lastOrderTime < windowMs) {
       const waitSeconds = Math.ceil((windowMs - (now - lastOrderTime)) / 1000);
@@ -35,12 +32,12 @@ export function preventDuplicateOrders(windowMs: number = 5000) {
       );
     }
     
-    recentOrders.set(key, now);
+    await redisService.setRecentOrder(key, now, windowMs);
   };
 }
 
 /**
- * Enhanced rate limiting for order creation
+ * Enhanced rate limiting for order creation using Redis
  */
 export function orderRateLimit(
   maxOrders: number, 
@@ -52,21 +49,20 @@ export function orderRateLimit(
     
     if ((req as any).user) {
       const user = (req as AuthenticatedRequest).user;
-      key = `${keyPrefix}:staff:${user.staffId}`;
+      key = `staff:${user.staffId}`;
     } else {
-      key = `${keyPrefix}:customer:${req.ip}`;
+      key = `customer:${req.ip}`;
     }
 
-    const now = Date.now();
-    const limit = orderRateLimits.get(key);
-    
-    if (!limit || now > limit.resetTime) {
-      orderRateLimits.set(key, { count: 1, resetTime: now + windowMs });
-      return;
-    }
-    
-    if (limit.count >= maxOrders) {
-      const retryAfter = Math.ceil((limit.resetTime - now) / 1000);
+    try {
+      const rateLimiter = redisService.getRateLimiter(`${keyPrefix}_rate_limit`, {
+        points: maxOrders,
+        duration: Math.ceil(windowMs / 1000), // Convert to seconds
+      });
+
+      await rateLimiter.consume(key);
+    } catch (rejRes: any) {
+      const retryAfter = Math.round(rejRes.msBeforeNext / 1000) || 1;
       reply.header('Retry-After', retryAfter.toString());
       
       throw new ApiError(
@@ -75,8 +71,6 @@ export function orderRateLimit(
         `Too many orders. Try again in ${retryAfter} seconds`
       );
     }
-    
-    limit.count++;
   };
 }
 
@@ -128,21 +122,4 @@ export function validateCustomerSession(maxIdleMs: number = 30 * 60 * 1000) {
   };
 }
 
-// Cleanup old entries periodically
-setInterval(() => {
-  const now = Date.now();
-  const oneHour = 60 * 60 * 1000;
-  
-  // Clean old entries
-  for (const [key, time] of recentOrders.entries()) {
-    if (now - time > oneHour) {
-      recentOrders.delete(key);
-    }
-  }
-  
-  for (const [key, limit] of orderRateLimits.entries()) {
-    if (now > limit.resetTime + oneHour) {
-      orderRateLimits.delete(key);
-    }
-  }
-}, 5 * 60 * 1000); // Every 5 minutes
+// Redis automatically handles TTL and cleanup

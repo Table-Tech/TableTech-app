@@ -103,6 +103,11 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
         });
       }
 
+      // Emit WebSocket event for new order
+      if (global.wsService && order) {
+        await global.wsService.emitNewOrder(order);
+      }
+
       return order;
     });
   }
@@ -179,7 +184,10 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
         });
       }
 
-      // TODO: Emit WebSocket event for new order
+      // Emit WebSocket event for new order
+      if (global.wsService && order) {
+        await global.wsService.emitNewOrder(order);
+      }
 
       return order;
     });
@@ -235,7 +243,10 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
         }
       }
 
-      // TODO: Emit WebSocket event for status change
+      // Emit WebSocket event for status change
+      if (global.wsService && updated && order.status !== updated.status) {
+        await global.wsService.emitOrderStatusUpdate(updated, order.status);
+      }
 
       return updated;
     });
