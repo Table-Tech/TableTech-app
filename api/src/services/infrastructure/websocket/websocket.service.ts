@@ -785,12 +785,15 @@ export class WebSocketService {
           (stats.byRestaurant[conn.restaurantId] || 0) + 1;
       });
 
-      logger.base.debug({
-        category: 'PERFORMANCE',
-        event: 'WEBSOCKET_STATS',
-        ...stats
-      }, 'WebSocket connection statistics');
-    }, 30000); // Every 30 seconds
+      // Only log if there are active connections
+      if (stats.totalConnections > 0) {
+        logger.base.debug({
+          category: 'PERFORMANCE',
+          event: 'WEBSOCKET_STATS',
+          ...stats
+        }, 'WebSocket connection statistics');
+      }
+    }, 2 * 60 * 1000); // Every 2 minutes instead of 30 seconds
   }
 
   /**
