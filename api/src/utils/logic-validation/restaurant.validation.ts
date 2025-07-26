@@ -16,9 +16,4 @@ export function validateRestaurantPayload(
   if (!data.email && !data.phone) {
     throw new ApiError(400, 'MISSING_CONTACT', 'Either e‑mail or phone must be provided');
   }
-
-  // Reject personal email providers to strengthen B2B nature
-  if (data.email && /@(gmail|yahoo|outlook)\./i.test(data.email)) {
-    throw new ApiError(400, 'PERSONAL_EMAIL', 'Please use a business e‑mail address');
-  }
 }
