@@ -62,7 +62,7 @@ export class WebSocketService {
     this.setupEventHandlers();
     this.setupCleanupHandlers();
     
-    logger.system.start();
+    logger.system.start('WebSocket');
   }
 
   /**

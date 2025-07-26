@@ -129,10 +129,9 @@ export class MolliePaymentService {
       });
 
       logger.payment.initiated(
-        null as any, // No request context in service
-        options.orderId,
+        molliePayment.id,
         options.amount,
-        'MOLLIE'
+        options.orderId
       );
 
       return {
@@ -212,17 +211,15 @@ export class MolliePaymentService {
       // Log the webhook processing
       if (paymentStatus === 'COMPLETED') {
         logger.payment.completed(
-          null as any,
-          orderId,
           paymentId,
-          amount
+          amount,
+          orderId
         );
       } else if (paymentStatus === 'FAILED') {
         logger.payment.failed(
-          null as any,
-          orderId,
+          paymentId,
           molliePayment.details?.failureReason || 'Unknown failure',
-          molliePayment.details?.failureCode
+          orderId
         );
       }
 

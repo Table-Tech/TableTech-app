@@ -401,3 +401,34 @@ model TableAssistance {
   @@index([tableId, resolvedAt]) // Active requests per table
   @@index([type, resolvedAt])    // Active requests by type
 }
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  action       String   // ORDER_CREATED, PAYMENT_PROCESSED, STAFF_LOGIN, etc
+  entityType   String   // Order, Payment, Staff, Menu, etc
+  entityId     String?  // ID of the affected record
+  userId       String?  // Who performed the action (staff member)
+  restaurantId String?  // Which restaurant context
+  changes      Json?    // { old: {...}, new: {...} } for data changes
+  metadata     Json?    // Additional context data
+  ip           String?  // IP address of action
+  userAgent    String?  // Browser/client information
+  severity     String   @default("info") // info, warning, critical
+  success      Boolean  @default(true)   // Whether action succeeded
+  timestamp    DateTime @default(now())
+  
+  // Performance indexes for audit queries
+  @@index([action])                     // Query by action type
+  @@index([entityType, entityId])       // Find all changes to specific entity
+  @@index([userId])                     // User activity tracking
+  @@index([restaurantId])               // Restaurant-specific audits
+  @@index([timestamp])                  // Time-based queries
+  @@index([severity])                   // Filter by importance
+  
+  // Composite indexes for common audit queries
+  @@index([restaurantId, timestamp])    // Restaurant activity over time
+  @@index([userId, timestamp])          // User activity timeline
+  @@index([entityType, action, timestamp]) // Specific action types over time
+  @@index([action, success, timestamp]) // Failed actions analysis
+  @@index([restaurantId, action])       // Restaurant-specific action types
+}

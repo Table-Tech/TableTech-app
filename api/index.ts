@@ -5,6 +5,7 @@ import helmet from '@fastify/helmet';
 import prismaPlugin from './src/plugins/prisma.js';
 import { WebSocketService } from './src/services/infrastructure/websocket/websocket.service.js';
 import { registerErrorHandlers } from './src/middleware/error.middleware.js';
+import { logger } from './src/utils/logger.js';
 import menuRoutes from './src/routes/menu/index.js';
 import restaurantRoutes from "./src/routes/restaurants/index.js";
 import tableRoutes from "./src/routes/tables/index.js";
@@ -105,20 +106,26 @@ const start = async () => {
     
     console.log(`🔌 WebSocket: ws://localhost:${port}`);
     
-    // Improved startup logs
-    console.log('\n🚀 TableTech API Server Started');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`📡 Server: http://localhost:${port}`);
-    console.log(`🏥 Health: http://localhost:${port}/health`);
-    console.log('\n📚 API Endpoints:');
-    console.log(`   🔐 Auth:       /api/auth`);
-    console.log(`   👥 Staff:      /api/staff`);
-    console.log(`   🏪 Restaurants: /api/restaurants`);
-    console.log(`   🍽️  Menu:       /api/menu`);
-    console.log(`   📂 Categories: /api/menu-categories`);
-    console.log(`   🛎️  Orders:     /api/orders`);
-    console.log(`   🪑 Tables:     /api/tables`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    // Professional startup logging
+    const services = ['Database', 'Redis', 'WebSocket', 'Mollie'];
+    logger.system.startup(port, services);
+    
+    // Pretty console output for development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('\n🚀 TableTech API Server Started');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(`📡 Server: http://localhost:${port}`);
+      console.log(`🏥 Health: http://localhost:${port}/health`);
+      console.log('\n📚 API Endpoints:');
+      console.log(`   🔐 Auth:       /api/auth`);
+      console.log(`   👥 Staff:      /api/staff`);
+      console.log(`   🏪 Restaurants: /api/restaurants`);
+      console.log(`   🍽️  Menu:       /api/menu`);
+      console.log(`   📂 Categories: /api/menu-categories`);
+      console.log(`   🛎️  Orders:     /api/orders`);
+      console.log(`   🪑 Tables:     /api/tables`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    }
     
   } catch (err) {
     fastify.log.error(err);
@@ -126,8 +133,9 @@ const start = async () => {
   }
 };
 
-// Graceful shutdown
+// Graceful shutdown with proper logging
 process.on('SIGTERM', async () => {
+  logger.system.shutdown('SIGTERM received');
   console.log('🛑 Shutting down gracefully...');
   if (global.wsService) {
     await global.wsService.shutdown();
@@ -137,6 +145,7 @@ process.on('SIGTERM', async () => {
 });
 
 process.on('SIGINT', async () => {
+  logger.system.shutdown('SIGINT received (Ctrl+C)');
   console.log('🛑 Shutting down gracefully...');
   if (global.wsService) {
     await global.wsService.shutdown();
