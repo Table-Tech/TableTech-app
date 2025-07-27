@@ -308,8 +308,8 @@ model Staff {
   loginAttempts Int       @default(0)  // Failed login tracking
   lockedUntil  DateTime?  // Account lockout
 
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
-  restaurantId String
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
+  restaurantId String?     // Optional for SUPER_ADMIN
 
   // Performance indexes
   @@index([email])              // Login queries
@@ -322,11 +322,12 @@ model Staff {
 }
 
 enum StaffRole {
-  ADMIN
-  MANAGER
-  CHEF
-  WAITER
-  CASHIER
+  SUPER_ADMIN // System-wide admin, can access all restaurants
+  ADMIN       // Restaurant admin
+  MANAGER     // Restaurant manager
+  CHEF        // Kitchen staff
+  WAITER      // Service staff
+  CASHIER     // Payment handling
 }
 
 model Payment {

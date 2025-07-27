@@ -74,12 +74,13 @@ export const requireRole = (allowedRoles: string[]) => {
 /**
  * Shortcuts for common role checks
  */
-export const requireAdmin = requireRole(['ADMIN']);
-export const requireManager = requireRole(['ADMIN', 'MANAGER']);
-export const requireStaff = requireRole(['ADMIN', 'MANAGER', 'CHEF', 'WAITER', 'CASHIER']);
+export const requireSuperAdmin = requireRole(['SUPER_ADMIN']);
+export const requireAdmin = requireRole(['SUPER_ADMIN', 'ADMIN']);
+export const requireManager = requireRole(['SUPER_ADMIN', 'ADMIN', 'MANAGER']);
+export const requireStaff = requireRole(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CHEF', 'WAITER', 'CASHIER']);
 
 /**
- * Ensure user can only access their own restaurant's data
+ * Ensure user can only access their own restaurant's data (unless SUPER_ADMIN)
  */
 export const requireRestaurantAccess = async (
   req: FastifyRequest,
@@ -89,6 +90,11 @@ export const requireRestaurantAccess = async (
   
   if (!user) {
     throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required');
+  }
+
+  // SUPER_ADMIN can access any restaurant
+  if (user.role === 'SUPER_ADMIN') {
+    return;
   }
 
   // Extract restaurantId from request

@@ -9,9 +9,11 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
+  selectedRestaurantId: string | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  selectRestaurant: (restaurantId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,6 +21,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -26,10 +29,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Check for stored auth on mount
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
+    const storedRestaurantId = localStorage.getItem('selectedRestaurantId');
 
     if (storedToken && storedUser) {
+      const userData = JSON.parse(storedUser);
       setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      setUser(userData);
+      
+      // For regular users, use their restaurant ID
+      // For SUPER_ADMIN, use stored selection or null
+      if (userData.role === 'SUPER_ADMIN') {
+        setSelectedRestaurantId(storedRestaurantId);
+      } else if (userData.restaurant) {
+        setSelectedRestaurantId(userData.restaurant.id);
+      }
     }
     
     setIsLoading(false);
@@ -50,8 +63,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('token', newToken);
         localStorage.setItem('user', JSON.stringify(staff));
         
+        // Handle restaurant selection based on role
+        if (staff.role === 'SUPER_ADMIN') {
+          // SUPER_ADMIN needs to select a restaurant
+          setSelectedRestaurantId(null);
+          localStorage.removeItem('selectedRestaurantId');
+        } else if (staff.restaurant) {
+          // Regular users auto-select their restaurant
+          setSelectedRestaurantId(staff.restaurant.id);
+          localStorage.setItem('selectedRestaurantId', staff.restaurant.id);
+        }
+        
         // Clear any mock data
         localStorage.removeItem('mockUser');
+        
+        // Handle post-login redirect
+        if (staff.role === 'SUPER_ADMIN') {
+          // SUPER_ADMIN goes to restaurant selection
+          router.push('/restaurant-select');
+        } else if (staff.restaurant) {
+          // Regular users go to their restaurant dashboard
+          router.push(`/dashboard/${staff.restaurant.id}`);
+        }
         
         return { success: true };
       } else {
@@ -71,10 +104,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setUser(null);
     setToken(null);
+    setSelectedRestaurantId(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('selectedRestaurantId');
     localStorage.removeItem('mockUser'); // Clean up mock data too
     router.push('/login');
+  };
+
+  const selectRestaurant = (restaurantId: string) => {
+    setSelectedRestaurantId(restaurantId);
+    localStorage.setItem('selectedRestaurantId', restaurantId);
   };
 
   const refreshUser = async () => {
@@ -99,9 +139,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     token,
     isLoading,
+    selectedRestaurantId,
     login,
     logout,
     refreshUser,
+    selectRestaurant,
   };
 
   return (

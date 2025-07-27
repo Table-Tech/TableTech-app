@@ -112,6 +112,18 @@ class ApiClient {
     }>>('/restaurants');
   }
 
+  // Get all restaurants (SUPER_ADMIN only)
+  async getAllRestaurants() {
+    return this.request<Array<{
+      id: string;
+      name: string;
+      logoUrl?: string;
+      address: string;
+      phone: string;
+      taxRate: number;
+    }>>('/restaurants');
+  }
+
   async getRestaurant(id: string) {
     return this.request<{
       id: string;

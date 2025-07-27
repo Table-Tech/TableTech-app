@@ -17,6 +17,15 @@ import { requireUser, requireRole, requireRestaurantAccess } from '../../middlew
 export default async function restaurantRoutes(server: FastifyInstance) {
   const controller = new RestaurantController();
 
+  // =================== PUBLIC RESTAURANT ROUTES ===================
+  // GET /api/restaurants - Get all restaurants (for SUPER_ADMIN)
+  server.get('/', {
+    preHandler: [
+      requireUser,
+      requireRole(['SUPER_ADMIN'])
+    ]
+  }, (req, reply) => controller.getAllRestaurants(req as any, reply));
+
   // =================== RESTAURANT ROUTES ===================
   server.register(async function restaurantManagementRoutes(server) {
     // All routes here require authentication
@@ -35,7 +44,7 @@ export default async function restaurantRoutes(server: FastifyInstance) {
     server.get('/restaurants', {
       preHandler: [
         validateQuery(RestaurantQuerySchema),
-        requireRole(['ADMIN', 'MANAGER'])
+        requireRole(['SUPER_ADMIN', 'ADMIN', 'MANAGER'])
       ]
     }, (req, reply) => controller.listRestaurants(req as any, reply));
 

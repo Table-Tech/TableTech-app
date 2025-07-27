@@ -25,8 +25,8 @@ export default function LoginPage() {
       const result = await login(email, password);
       
       if (result.success) {
-        // AuthContext will handle the redirect
-        router.push("/select");
+        // Let the auth context handle the redirect based on user type
+        // This will be handled in a useEffect in the auth context or route guards
       } else {
         setError(result.error || "Login failed");
       }

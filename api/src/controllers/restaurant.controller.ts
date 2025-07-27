@@ -16,6 +16,18 @@ export class RestaurantController {
 
   // =================== RESTAURANT ENDPOINTS ===================
 
+  /** GET /restaurants - Get all restaurants (SUPER_ADMIN only) */
+  async getAllRestaurants(
+    req: AuthenticatedRequest,
+    reply: FastifyReply
+  ) {
+    const restaurants = await this.svc.getAllRestaurants();
+    return reply.send({ 
+      success: true, 
+      data: restaurants 
+    });
+  }
+
   /** POST /restaurants - Create restaurant */
   async createRestaurant(
     req: AuthenticatedRequest<z.infer<typeof CreateRestaurantSchema>>,
