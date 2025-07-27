@@ -35,3 +35,26 @@ export interface MenuItem {
   imageUrl?: string;
   modifierGroups?: ModifierGroup[];
 }
+
+export interface CreateMenuItemPayload {
+  name: string;
+  description: string;
+  price: number;
+  categoryId: string;
+  restaurantId: string;
+  isAvailable?: boolean;
+  preparationTime?: number;
+  imageUrl?: string;
+  modifierGroupIds?: string[];
+}
+
+export interface UpdateMenuItemPayload {
+  name?: string;
+  description?: string;
+  price?: number;
+  categoryId?: string;
+  isAvailable?: boolean;
+  preparationTime?: number;
+  imageUrl?: string;
+  modifierGroupIds?: string[];
+}

@@ -3,7 +3,7 @@
  * Reusable form input with validation states
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -12,7 +12,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   required?: boolean;
 }
 
-export function Input({ 
+export const Input = React.memo<InputProps>(({ 
   label, 
   error, 
   helpText, 
@@ -20,10 +20,13 @@ export function Input({
   className = "",
   id,
   ...props 
-}: InputProps) {
-  const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+}) => {
+  const inputId = useMemo(() => 
+    id || `input-${Math.random().toString(36).substr(2, 9)}`, 
+    [id]
+  );
   
-  const inputClasses = `
+  const inputClasses = useMemo(() => `
     block w-full px-3 py-2 border rounded-md shadow-sm 
     focus:outline-none focus:ring-2 focus:ring-offset-0
     disabled:bg-gray-50 disabled:cursor-not-allowed
@@ -32,7 +35,7 @@ export function Input({
       : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
     }
     ${className}
-  `;
+  `, [error, className]);
 
   return (
     <div className="space-y-1">
@@ -59,4 +62,6 @@ export function Input({
       )}
     </div>
   );
-}
+});
+
+Input.displayName = 'Input';

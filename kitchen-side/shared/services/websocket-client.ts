@@ -2,22 +2,33 @@
 
 import { io, Socket } from 'socket.io-client';
 
+interface WebSocketEvents {
+  newOrder: (order: any) => void;
+  orderStatusUpdate: (data: { orderId: string; status: string }) => void;
+  orderCancelled: (data: { orderId: string }) => void;
+  tableStatusUpdate: (data: { tableId: string; status: string }) => void;
+  staffMessage: (data: { message: string; type: string }) => void;
+}
+
 class WebSocketClient {
   private socket: Socket | null = null;
   private listeners: Map<string, Function[]> = new Map();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
+  private reconnectTimeouts: NodeJS.Timeout[] = [];
 
   connect(restaurantId: string, token?: string) {
     if (this.socket?.connected) {
-      return; // Already connected
+      return;
     }
+
+    this.cleanup();
 
     const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
     
     this.socket = io(WS_URL, {
       auth: {
-        token: token || localStorage.getItem('token'),
+        token: token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null),
       },
       query: {
         type: 'staff',
@@ -25,7 +36,15 @@ class WebSocketClient {
       },
       transports: ['websocket'],
       upgrade: true,
+      timeout: 20000,
+      reconnection: false, // We handle reconnection manually
     });
+
+    this.setupEventHandlers(restaurantId, token);
+  }
+
+  private setupEventHandlers(restaurantId: string, token?: string) {
+    if (!this.socket) return;
 
     this.socket.on('connect', () => {
       console.log('WebSocket connected');
@@ -37,9 +56,7 @@ class WebSocketClient {
       console.log('WebSocket disconnected:', reason);
       this.emit('internal:disconnected', reason);
       
-      // Auto-reconnect logic
       if (reason === 'io server disconnect') {
-        // Server initiated disconnect, don't reconnect
         return;
       }
       
@@ -49,33 +66,29 @@ class WebSocketClient {
     this.socket.on('connect_error', (error) => {
       console.error('WebSocket connection error:', error);
       this.emit('internal:error', error);
+      this.attemptReconnect(restaurantId, token);
     });
 
-    // Handle business events
-    this.socket.on('newOrder', (order) => {
-      this.emit('newOrder', order);
-    });
+    // Business events
+    const events: (keyof WebSocketEvents)[] = [
+      'newOrder',
+      'orderStatusUpdate', 
+      'orderCancelled',
+      'tableStatusUpdate',
+      'staffMessage'
+    ];
 
-    this.socket.on('orderStatusUpdate', (data) => {
-      this.emit('orderStatusUpdate', data);
-    });
-
-    this.socket.on('orderCancelled', (data) => {
-      this.emit('orderCancelled', data);
-    });
-
-    this.socket.on('tableStatusUpdate', (data) => {
-      this.emit('tableStatusUpdate', data);
-    });
-
-    this.socket.on('staffMessage', (data) => {
-      this.emit('staffMessage', data);
+    events.forEach(event => {
+      this.socket!.on(event, (data) => {
+        this.emit(event, data);
+      });
     });
   }
 
   private attemptReconnect(restaurantId: string, token?: string) {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('Max reconnection attempts reached');
+      this.emit('internal:max_reconnect_reached');
       return;
     }
 
@@ -84,20 +97,33 @@ class WebSocketClient {
     
     console.log(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
     
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
       this.connect(restaurantId, token);
     }, delay);
+
+    this.reconnectTimeouts.push(timeout);
   }
 
-  disconnect() {
+  private cleanup() {
+    // Clear any pending reconnection timeouts
+    this.reconnectTimeouts.forEach(timeout => clearTimeout(timeout));
+    this.reconnectTimeouts = [];
+
     if (this.socket) {
+      this.socket.removeAllListeners();
       this.socket.disconnect();
       this.socket = null;
     }
+  }
+
+  disconnect() {
+    this.cleanup();
     this.listeners.clear();
     this.reconnectAttempts = 0;
   }
 
+  on<K extends keyof WebSocketEvents>(event: K, callback: WebSocketEvents[K]): void;
+  on(event: string, callback: Function): void;
   on(event: string, callback: Function) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
@@ -132,7 +158,6 @@ class WebSocketClient {
     }
   }
 
-  // Send events to server
   updateOrderStatus(orderId: string, status: string) {
     if (this.socket?.connected) {
       this.socket.emit('updateOrderStatus', { orderId, status });
@@ -158,25 +183,24 @@ class WebSocketClient {
   getConnectionStatus(): 'connected' | 'disconnected' | 'connecting' | 'error' {
     if (!this.socket) return 'disconnected';
     if (this.socket.connected) return 'connected';
-    // Socket.io doesn't have a direct 'connecting' property, use disconnected as fallback
     if (this.socket.disconnected) return 'disconnected';
     return 'error';
   }
 }
 
-// Create singleton instance
 export const wsClient = new WebSocketClient();
 
 // React hook for using WebSocket in components
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 export function useWebSocket(restaurantId?: string) {
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting' | 'error'>('disconnected');
+  const subscribersRef = useRef<Array<() => void>>([]);
 
   useEffect(() => {
     if (!restaurantId) return;
 
-    const token = localStorage.getItem('token');
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     wsClient.connect(restaurantId, token || undefined);
 
     const handleConnected = () => setConnectionStatus('connected');
@@ -191,12 +215,21 @@ export function useWebSocket(restaurantId?: string) {
       wsClient.off('internal:connected', handleConnected);
       wsClient.off('internal:disconnected', handleDisconnected);
       wsClient.off('internal:error', handleError);
+      
+      // Clean up all subscribers
+      subscribersRef.current.forEach(unsub => unsub());
+      subscribersRef.current = [];
     };
   }, [restaurantId]);
 
-  const subscribe = useCallback((event: string, callback: Function) => {
+  const subscribe = useCallback(<K extends keyof WebSocketEvents>(
+    event: K,
+    callback: WebSocketEvents[K]
+  ) => {
     wsClient.on(event, callback);
-    return () => wsClient.off(event, callback);
+    const unsubscribe = () => wsClient.off(event, callback);
+    subscribersRef.current.push(unsubscribe);
+    return unsubscribe;
   }, []);
 
   return {

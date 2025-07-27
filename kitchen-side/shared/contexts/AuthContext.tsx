@@ -12,6 +12,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   selectedRestaurantId: string | null;
+  restaurant: { id: string; name: string } | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -154,6 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading,
     isAuthenticated: !!user && !!token,
     selectedRestaurantId,
+    restaurant: selectedRestaurantId && user?.restaurant ? user.restaurant : null,
     login,
     logout,
     refreshUser,

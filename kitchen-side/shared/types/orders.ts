@@ -67,3 +67,33 @@ export interface OrderStatistics {
   activeOrders: number;
   todayRevenue: number;
 }
+
+export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED';
+
+export interface CreateOrderPayload {
+  tableId: string;
+  restaurantId: string;
+  orderItems: Array<{
+    menuItemId: string;
+    quantity: number;
+    notes?: string;
+    modifiers?: Array<{
+      modifierId: string;
+    }>;
+  }>;
+  notes?: string;
+}
+
+export interface UpdateOrderPayload {
+  status?: OrderStatus;
+  notes?: string;
+  orderItems?: Array<{
+    id?: string;
+    menuItemId: string;
+    quantity: number;
+    notes?: string;
+    modifiers?: Array<{
+      modifierId: string;
+    }>;
+  }>;
+}

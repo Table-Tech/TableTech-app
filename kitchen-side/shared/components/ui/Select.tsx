@@ -5,11 +5,17 @@
 
 import { useState } from "react";
 
+interface SelectOption {
+  label: string;
+  value: string;
+}
+
 interface SelectProps {
   defaultValue?: string;
   value?: string;
   onChange?: (value: string) => void;
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  options?: SelectOption[];
   className?: string;
   disabled?: boolean;
   placeholder?: string;
@@ -20,6 +26,7 @@ export function Select({
   value,
   onChange,
   children,
+  options,
   className = "",
   disabled = false,
   placeholder
@@ -46,7 +53,15 @@ export function Select({
       className={`border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed ${className}`}
     >
       {placeholder && <option value="" disabled>{placeholder}</option>}
-      {children}
+      {options ? (
+        options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))
+      ) : (
+        children
+      )}
     </select>
   );
 }

@@ -67,6 +67,58 @@ class ApiClient {
     }
   }
 
+  // Generic HTTP methods for service classes
+  async get<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    const response = await this.request<T>(endpoint, { ...options, method: 'GET' });
+    if (!response.success) {
+      throw new Error(response.error || 'Request failed');
+    }
+    return response.data as T;
+  }
+
+  async post<T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> {
+    const response = await this.request<T>(endpoint, {
+      ...options,
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+    if (!response.success) {
+      throw new Error(response.error || 'Request failed');
+    }
+    return response.data as T;
+  }
+
+  async patch<T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> {
+    const response = await this.request<T>(endpoint, {
+      ...options,
+      method: 'PATCH',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+    if (!response.success) {
+      throw new Error(response.error || 'Request failed');
+    }
+    return response.data as T;
+  }
+
+  async put<T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> {
+    const response = await this.request<T>(endpoint, {
+      ...options,
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+    if (!response.success) {
+      throw new Error(response.error || 'Request failed');
+    }
+    return response.data as T;
+  }
+
+  async delete(endpoint: string, options?: RequestInit): Promise<void> {
+    const response = await this.request(endpoint, { ...options, method: 'DELETE' });
+    if (!response.success) {
+      throw new Error(response.error || 'Request failed');
+    }
+  }
+
   // Auth endpoints
   async login(email: string, password: string) {
     return this.request<{
