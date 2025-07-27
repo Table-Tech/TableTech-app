@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Handle post-login redirect
         if (staff.role === 'SUPER_ADMIN') {
           // SUPER_ADMIN goes to restaurant selection
-          router.push('/restaurant-select');
+          router.push('/select');
         } else if (staff.restaurant) {
           // Regular users go to their restaurant dashboard
           router.push(`/dashboard/${staff.restaurant.id}`);

@@ -2,18 +2,19 @@
 
 import { useParams } from 'next/navigation'
 // import { mockOrganizationSettings } from '@/lib/mockdata' // Removed mock data
-import { Label } from "../../../../components/label"
-import { Switch } from "../../../../components/switch"
+import { Label } from "@/shared/components/ui/Label"
+import { Switch } from "@/shared/components/ui/Switch"
+import { RoleGuard } from '@/shared/components/protection'
 import {
   Select,
   SelectTrigger,
   SelectValue,
   SelectContent,
   SelectItem,
-} from "../../../../components/select"
+} from "@/shared/components/ui/Select"
 import React, { useState } from 'react'
-import { MenuList } from "../../../../components/MenuList";
-import { MenuItem } from "@/lib/types";
+import { MenuList } from "@/features/menu";
+import { MenuItem } from "@/shared/types";
 
 export default function BeheerPage() {
     const params = useParams()
@@ -35,6 +36,7 @@ export default function BeheerPage() {
     const currentUser = { email: "admin@restaurant1.com", role: "ADMIN" };
 
     return (
+      <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
         <div className="p-8 bg-[#f6fcff] min-h-screen">
           {/* Top bar with tabs and Save Changes button */}
           <h1 className="text-2xl font-bold text-[#12395B] mb-6">Beheer</h1>
@@ -184,5 +186,6 @@ export default function BeheerPage() {
             </section>
           )}
         </div>
+      </RoleGuard>
       )
     }

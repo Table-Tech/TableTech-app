@@ -2,8 +2,9 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { apiClient } from "@/lib/api-client";
-import { OrderStatistics } from "@/lib/types";
+import { apiClient } from "@/shared/services/api-client";
+import { OrderStatistics } from "@/shared/types";
+import { RoleGuard } from '@/shared/components/protection';
 import {
   TrendingUp,
   TrendingDown,
@@ -98,7 +99,8 @@ export default function StatisticsPage() {
   }
 
    return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'MANAGER']}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {/* New layout integration starts here - Adjusted grid for main content */}
       <div className="p-6 rounded-md mt-4 col-span-1 md:col-span-2 lg:col-span-3 xl:col-span-4">
         <div className="flex justify-between items-center mb-6"> {/* Flex container for title and buttons */}
@@ -183,6 +185,7 @@ export default function StatisticsPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </RoleGuard>
   );
 }

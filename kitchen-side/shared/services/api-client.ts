@@ -169,6 +169,46 @@ class ApiClient {
     }>>(`/menu-categories/staff/categories?restaurantId=${restaurantId}`);
   }
 
+  async createMenuItem(restaurantId: string, data: any) {
+    return this.request(`/menu/staff/items?restaurantId=${restaurantId}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateMenuItem(restaurantId: string, id: string, data: any) {
+    return this.request(`/menu/staff/items/${id}?restaurantId=${restaurantId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteMenuItem(restaurantId: string, id: string) {
+    return this.request(`/menu/staff/items/${id}?restaurantId=${restaurantId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async createMenuCategory(restaurantId: string, data: any) {
+    return this.request(`/menu-categories/staff/categories?restaurantId=${restaurantId}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateMenuCategory(restaurantId: string, id: string, data: any) {
+    return this.request(`/menu-categories/staff/categories/${id}?restaurantId=${restaurantId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteMenuCategory(restaurantId: string, id: string) {
+    return this.request(`/menu-categories/staff/categories/${id}?restaurantId=${restaurantId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Order endpoints
   async getOrders(restaurantId: string, status?: string) {
     const params = new URLSearchParams();

@@ -2,8 +2,9 @@
 
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
-import { apiClient } from "@/lib/api-client";
-import { Table } from "@/lib/types";
+import { apiClient } from "@/shared/services/api-client";
+import { Table } from "@/shared/types";
+import { RoleGuard } from '@/shared/components/protection';
 
 export default function TablesPage() {
   const { restaurantId } = useParams() as { restaurantId: string };
@@ -77,7 +78,8 @@ export default function TablesPage() {
   }
 
   return (
-    <div className="p-8 bg-[#f6fcff] min-h-screen">
+    <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CHEF']}>
+      <div className="p-8 bg-[#f6fcff] min-h-screen">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-[#0a3c6e]">Tafels</h1>
         <button
@@ -161,6 +163,7 @@ export default function TablesPage() {
           })}
         </div>
       )}
-    </div>
+      </div>
+    </RoleGuard>
   );
 }

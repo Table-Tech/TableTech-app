@@ -2,9 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { useAuth } from "@/lib/auth-context";
-import { apiClient } from "@/lib/api-client";
-import { Restaurant } from "@/lib/types";
+import { useAuth } from "@/shared/hooks/useAuth";
+import { apiClient } from "@/shared/services/api-client";
+import { Restaurant } from "@/shared/types/restaurant";
 import { Plus, Building2 } from "lucide-react";
 
 export default function SelectPage() {

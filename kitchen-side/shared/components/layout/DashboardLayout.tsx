@@ -1,3 +1,8 @@
+/**
+ * DashboardLayout Component
+ * Main layout wrapper for dashboard pages with sidebar navigation
+ */
+
 'use client'
 
 import { useParams, usePathname } from 'next/navigation'
@@ -19,7 +24,11 @@ const navItems = [
   { label: 'Beheer', icon: Settings, path: '/beheer' },
 ]
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+interface DashboardLayoutProps {
+  children: React.ReactNode;
+}
+
+export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { restaurantId } = useParams()
   const pathname = usePathname()
 

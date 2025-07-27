@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../lib/auth-context';
-import { apiClient } from '../../lib/api-client';
-import { Restaurant } from '../../lib/types';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { apiClient } from '@/shared/services/api-client';
+import { Restaurant } from '@/shared/types/restaurant';
 
 export default function RestaurantSelectPage() {
   const { user, selectRestaurant, selectedRestaurantId } = useAuth();
