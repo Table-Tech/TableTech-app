@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { apiClient } from '@/shared/services/api-client';
-import { Clock, Users, ShoppingCart, RefreshCw } from 'lucide-react';
+import { useWebSocket } from '@/shared/services/websocket-client';
+import { Clock, Users, ShoppingCart, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
 
 interface Order {
@@ -39,6 +40,7 @@ interface Order {
 
 export default function OrdersPage() {
   const { currentRestaurantId } = useAuth();
+  const { connectionStatus, subscribe, updateOrderStatus: wsUpdateOrderStatus } = useWebSocket(currentRestaurantId || undefined);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +79,8 @@ export default function OrdersPage() {
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
       await apiClient.updateOrderStatus(orderId, newStatus);
+      // Also emit via WebSocket for real-time update to other clients
+      wsUpdateOrderStatus(orderId, newStatus);
       // Refresh orders after status update
       await fetchOrders();
     } catch (err) {
@@ -118,6 +122,53 @@ export default function OrdersPage() {
     fetchOrders();
   }, [currentRestaurantId, fetchOrders]);
 
+  // Subscribe to WebSocket events for real-time updates
+  useEffect(() => {
+    if (!currentRestaurantId) return;
+
+    // Subscribe to new orders
+    const unsubscribeNewOrder = subscribe('newOrder', (order) => {
+      console.log('New order received:', order);
+      // Add new order to the list if it's in an active status
+      if (['CONFIRMED', 'PREPARING', 'READY'].includes(order.status)) {
+        setOrders(prev => {
+          // Check if order already exists to avoid duplicates
+          const exists = prev.some(o => o.id === order.id);
+          if (exists) return prev;
+          return [order, ...prev];
+        });
+      }
+    });
+
+    // Subscribe to order status updates
+    const unsubscribeStatusUpdate = subscribe('orderStatusUpdate', ({ orderId, status }) => {
+      console.log('Order status update:', orderId, status);
+      setOrders(prev => prev.map(order => {
+        if (order.id === orderId) {
+          // If status is COMPLETED or CANCELLED, remove from active orders
+          if (status === 'COMPLETED' || status === 'CANCELLED') {
+            return null;
+          }
+          return { ...order, status };
+        }
+        return order;
+      }).filter(Boolean) as Order[]);
+    });
+
+    // Subscribe to order cancellations
+    const unsubscribeOrderCancelled = subscribe('orderCancelled', ({ orderId }) => {
+      console.log('Order cancelled:', orderId);
+      setOrders(prev => prev.filter(order => order.id !== orderId));
+    });
+
+    // Cleanup subscriptions
+    return () => {
+      unsubscribeNewOrder();
+      unsubscribeStatusUpdate();
+      unsubscribeOrderCancelled();
+    };
+  }, [currentRestaurantId, subscribe]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -152,13 +203,33 @@ export default function OrdersPage() {
           <h1 className="text-2xl font-bold text-gray-900">Live Orders</h1>
           <p className="text-gray-600 mt-1">Manage active restaurant orders</p>
         </div>
-        <button
-          onClick={fetchOrders}
-          className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <RefreshCw className="w-4 h-4" />
-          <span>Refresh</span>
-        </button>
+        <div className="flex items-center space-x-4">
+          {/* Connection Status Indicator */}
+          <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${
+            connectionStatus === 'connected' 
+              ? 'bg-green-100 text-green-700' 
+              : 'bg-red-100 text-red-700'
+          }`}>
+            {connectionStatus === 'connected' ? (
+              <>
+                <Wifi className="w-4 h-4" />
+                <span className="text-sm font-medium">Live</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-4 h-4" />
+                <span className="text-sm font-medium">Offline</span>
+              </>
+            )}
+          </div>
+          <button
+            onClick={fetchOrders}
+            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Orders Grid */}

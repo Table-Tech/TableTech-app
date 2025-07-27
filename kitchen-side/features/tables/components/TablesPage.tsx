@@ -3,11 +3,12 @@
 import React, { useState, useMemo } from 'react';
 import { useTables } from '../hooks/useTables';
 import { Button, Input, Select, LoadingSpinner, EmptyState } from '@/shared/components/ui';
+import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import type { TableFilters } from '../types';
 
 const TablesPage = React.memo(() => {
   const [filters, setFilters] = useState<TableFilters>({});
-  const { tables, loading, error, createTable, updateTable, deleteTable } = useTables(filters);
+  const { tables, loading, error, connectionStatus, refetch, createTable, updateTable, deleteTable } = useTables(filters);
 
   const tableStats = useMemo(() => ({
     total: tables.length,
@@ -32,10 +33,41 @@ const TablesPage = React.memo(() => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Tables</h1>
-        <Button onClick={() => {/* TODO: Open create modal */}}>
-          Add Table
-        </Button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Tables</h1>
+          <p className="text-gray-600 mt-1">Manage restaurant tables and real-time status</p>
+        </div>
+        <div className="flex items-center space-x-4">
+          {/* Connection Status */}
+          <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${
+            connectionStatus === 'connected' 
+              ? 'bg-green-100 text-green-700' 
+              : 'bg-red-100 text-red-700'
+          }`}>
+            {connectionStatus === 'connected' ? (
+              <>
+                <Wifi className="w-4 h-4" />
+                <span className="text-sm font-medium">Live</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-4 h-4" />
+                <span className="text-sm font-medium">Offline</span>
+              </>
+            )}
+          </div>
+          <Button 
+            onClick={refetch}
+            variant="outline"
+            size="sm"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+          <Button onClick={() => {/* TODO: Open create modal */}}>
+            Add Table
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}

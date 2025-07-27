@@ -9,7 +9,7 @@ export function useTables(filters?: TableFilters) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { currentRestaurantId } = useAuth();
-  const { subscribe } = useWebSocket(currentRestaurantId || undefined);
+  const { subscribe, connectionStatus } = useWebSocket(currentRestaurantId || undefined);
 
   const fetchTables = useCallback(async () => {
     if (!currentRestaurantId) {
@@ -38,11 +38,27 @@ export function useTables(filters?: TableFilters) {
     if (!currentRestaurantId) return;
 
     const unsubscribe = subscribe('tableStatusUpdate', (data: { tableId: string; status: string }) => {
-      setTables(prev => prev.map(table => 
-        table.id === data.tableId 
-          ? { ...table, status: data.status as Table['status'] }
-          : table
-      ));
+      console.log('Table status update received:', data);
+      setTables(prev => prev.map(table => {
+        if (table.id === data.tableId) {
+          // Add a visual indicator that this table was updated
+          return { 
+            ...table, 
+            status: data.status as Table['status'],
+            _justUpdated: true 
+          };
+        }
+        return table;
+      }));
+      
+      // Remove the update indicator after a short delay
+      setTimeout(() => {
+        setTables(prev => prev.map(table => 
+          table.id === data.tableId 
+            ? { ...table, _justUpdated: false }
+            : table
+        ));
+      }, 2000);
     });
 
     return unsubscribe;
@@ -89,6 +105,7 @@ export function useTables(filters?: TableFilters) {
     tables: filteredTables,
     loading,
     error,
+    connectionStatus,
     refetch: fetchTables,
     createTable,
     updateTable,
