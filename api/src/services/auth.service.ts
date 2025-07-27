@@ -19,7 +19,7 @@ type LoginResponse = {
     name: string;
     email: string;
     role: string;
-    restaurant: {
+    restaurant?: {
       id: string;
       name: string;
     };
@@ -77,7 +77,7 @@ export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
         name: staff.name,
         email: staff.email,
         role: staff.role,
-        restaurant: staff.restaurant
+        restaurant: staff.restaurant || undefined
       }
     };
   }
@@ -129,7 +129,7 @@ export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
         name: staff.name,
         email: staff.email,
         role: staff.role,
-        restaurant: staff.restaurant
+        restaurant: staff.restaurant || undefined
       }
     };
   }

@@ -113,6 +113,50 @@ export const requireRestaurantAccess = async (
 };
 
 /**
+ * Ensure user has a restaurantId (not SUPER_ADMIN with null restaurantId)
+ * Use this for routes that require a specific restaurant context
+ */
+export const requireRestaurantId = async (
+  req: FastifyRequest,
+  reply: FastifyReply
+) => {
+  const user = (req as AuthenticatedRequest).user;
+  
+  if (!user) {
+    throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required');
+  }
+
+  if (!user.restaurantId) {
+    throw new ApiError(400, 'RESTAURANT_REQUIRED', 'Restaurant context required for this operation');
+  }
+};
+
+/**
+ * Get restaurantId from user context or route params (for SUPER_ADMIN)
+ * Helper function for controllers to handle both cases
+ */
+export const getRestaurantId = (req: AuthenticatedRequest): string => {
+  const user = req.user;
+  
+  // For regular users, use their restaurantId
+  if (user.restaurantId) {
+    return user.restaurantId;
+  }
+  
+  // For SUPER_ADMIN, try to get from route params or query
+  const params = req.params as any;
+  const query = req.query as any;
+  
+  const restaurantId = params?.restaurantId || query?.restaurantId;
+  
+  if (!restaurantId) {
+    throw new ApiError(400, 'RESTAURANT_ID_REQUIRED', 'Restaurant ID must be provided in URL for SUPER_ADMIN');
+  }
+  
+  return restaurantId;
+};
+
+/**
  * Optional authentication - attaches user if token present, but doesn't require it
  */
 export const optionalUser = async (

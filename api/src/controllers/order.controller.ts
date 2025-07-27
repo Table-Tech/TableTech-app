@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import { AuthenticatedRequest, getRestaurantId } from '../middleware/auth.middleware.js';
 import { ApiError } from '../types/errors.js';
 import { OrderService } from '../services/order.service.js';
 import {
@@ -31,7 +31,7 @@ export class OrderController {
     req: AuthenticatedRequest<unknown, unknown, z.infer<typeof OrderQuerySchema>>,
     reply: FastifyReply
   ) {
-    const result = await this.svc.getOrders(req.user.restaurantId, req.query);
+    const result = await this.svc.getOrders(getRestaurantId(req), req.query);
     return reply.send({ 
       success: true, 
       data: result.orders,
@@ -50,7 +50,7 @@ export class OrderController {
     }
     
     // Verify order belongs to user's restaurant
-    if (order.restaurantId !== req.user.restaurantId) {
+    if (order.restaurantId !== getRestaurantId(req)) {
       throw new ApiError(403, 'FORBIDDEN', 'Access denied');
     }
     
@@ -78,7 +78,7 @@ export class OrderController {
     req: AuthenticatedRequest,
     reply: FastifyReply
   ) {
-    const orders = await this.svc.getKitchenOrders(req.user.restaurantId);
+    const orders = await this.svc.getKitchenOrders(getRestaurantId(req));
     return reply.send({ success: true, data: orders });
   }
 
@@ -87,7 +87,7 @@ export class OrderController {
     req: AuthenticatedRequest,
     reply: FastifyReply
   ) {
-    const stats = await this.svc.getStatistics(req.user.restaurantId);
+    const stats = await this.svc.getStatistics(getRestaurantId(req));
     return reply.send({ success: true, data: stats });
   }
 

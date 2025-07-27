@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import { AuthenticatedRequest, getRestaurantId } from '../middleware/auth.middleware.js';
 import { ApiError } from '../types/errors.js';
 import { CategoryService } from '../services/category.service.js';
 import {
@@ -24,8 +24,10 @@ export class CategoryController {
     req: AuthenticatedRequest<z.infer<typeof CreateCategorySchema>>,
     reply: FastifyReply
   ) {
+    const restaurantId = getRestaurantId(req);
+    
     // Ensure user can only create categories for their restaurant
-    if (req.body.restaurantId !== req.user.restaurantId) {
+    if (req.body.restaurantId !== restaurantId) {
       throw new ApiError(403, 'FORBIDDEN', 'Cannot create categories for other restaurants');
     }
 
@@ -38,7 +40,8 @@ export class CategoryController {
     req: AuthenticatedRequest<unknown, unknown, z.infer<typeof CategoryQuerySchema>>,
     reply: FastifyReply
   ) {
-    const result = await this.svc.getCategories(req.user.restaurantId, req.query);
+    const restaurantId = getRestaurantId(req);
+    const result = await this.svc.getCategories(restaurantId, req.query);
     return reply.send({ 
       success: true, 
       data: result.categories,
@@ -51,7 +54,8 @@ export class CategoryController {
     req: AuthenticatedRequest,
     reply: FastifyReply
   ) {
-    const categories = await this.svc.getCategoriesByRestaurant(req.user.restaurantId);
+    const restaurantId = getRestaurantId(req);
+    const categories = await this.svc.getCategoriesByRestaurant(restaurantId);
     return reply.send({ success: true, data: categories });
   }
 
@@ -67,7 +71,8 @@ export class CategoryController {
     }
     
     // Verify category belongs to user's restaurant
-    if (category.restaurantId !== req.user.restaurantId) {
+    const restaurantId = getRestaurantId(req);
+    if (category.restaurantId !== restaurantId) {
       throw new ApiError(403, 'FORBIDDEN', 'Access denied');
     }
     
@@ -130,7 +135,8 @@ export class CategoryController {
     req: AuthenticatedRequest,
     reply: FastifyReply
   ) {
-    const stats = await this.svc.getCategoryStatistics(req.user.restaurantId);
+    const restaurantId = getRestaurantId(req);
+    const stats = await this.svc.getCategoryStatistics(restaurantId);
     return reply.send({ success: true, data: stats });
   }
 
