@@ -43,44 +43,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedUser = localStorage.getItem('user');
       const storedSelectedRestaurant = localStorage.getItem('selectedRestaurant');
 
-      if (storedToken && storedUser) {
+      // If no token or user data, stop loading immediately
+      if (!storedToken || !storedUser) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        // Parse stored user data first
+        const userData = JSON.parse(storedUser);
+        
+        // Set the user data from localStorage immediately (optimistic)
+        setToken(storedToken);
+        setUser(userData as User);
+        
+        // Handle restaurant selection based on user role
+        if (userData.role === 'SUPER_ADMIN') {
+          // Restore selected restaurant if stored
+          if (storedSelectedRestaurant) {
+            try {
+              const selectedRestaurantData = JSON.parse(storedSelectedRestaurant);
+              setSelectedRestaurant(selectedRestaurantData);
+            } catch (e) {
+              localStorage.removeItem('selectedRestaurant');
+            }
+          }
+        }
+        
+        // Stop loading immediately so user can interact with the app
+        setIsLoading(false);
+        
+        // Validate token in the background (don't block UI)
         try {
-          // Parse stored user data
-          const userData = JSON.parse(storedUser);
-          
-          // Validate token by calling the API
           const response = await apiClient.getCurrentUser();
           
           if (response.success && response.data) {
-            // Token is valid, set auth state
-            setToken(storedToken);
+            // Update with fresh user data from server
             setUser(response.data as User);
             
-            // Handle restaurant selection based on user role
+            // Load available restaurants for Super Admin in background
             if (userData.role === 'SUPER_ADMIN') {
-              // Load available restaurants for Super Admin
               await loadAvailableRestaurants();
-              
-              // Restore selected restaurant if stored
-              if (storedSelectedRestaurant) {
-                try {
-                  const selectedRestaurantData = JSON.parse(storedSelectedRestaurant);
-                  setSelectedRestaurant(selectedRestaurantData);
-                } catch (e) {
-                  localStorage.removeItem('selectedRestaurant');
-                }
-              }
             }
           } else {
+            // Token is invalid, clear auth data
             clearAuthData();
           }
         } catch (error) {
-          console.error('Token validation failed:', error);
-          clearAuthData();
+          console.error('Background token validation failed:', error);
+          // Only clear auth data if it's a 401 or other auth-related error
+          if (error instanceof Error && error.message.includes('401')) {
+            clearAuthData();
+          }
         }
+        
+      } catch (error) {
+        console.error('Failed to parse stored user data:', error);
+        clearAuthData();
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     };
 
     // Helper function to clear all auth data

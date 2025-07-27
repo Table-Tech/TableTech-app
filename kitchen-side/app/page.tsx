@@ -15,15 +15,15 @@ export default function Home() {
       router.push("/login");
     } else {
       // Check user role and redirect appropriately
-      if (user.role === 'ADMIN' && !user.restaurant?.id) {
+      if (user.role === 'SUPER_ADMIN') {
         // Super admin - can select restaurants
         router.push("/select");
       } else if (user.restaurant?.id) {
         // Staff with restaurant - go directly to dashboard
-        router.push(`/dashboard/${user.restaurant.id}`);
+        router.push("/dashboard");
       } else {
-        // Fallback to select page
-        router.push("/select");
+        // Fallback to login if no restaurant
+        router.push("/login");
       }
     }
   }, [user, isLoading, router]);
