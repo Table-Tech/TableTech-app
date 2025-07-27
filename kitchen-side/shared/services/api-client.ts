@@ -21,10 +21,20 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
     
-    // Get token from localStorage (if available)
+    // Get token and restaurant context from localStorage (if available)
     let token: string | null = null;
+    let selectedRestaurant: any = null;
+    
     if (typeof window !== 'undefined') {
       token = localStorage.getItem('token');
+      const selectedRestaurantStr = localStorage.getItem('selectedRestaurant');
+      if (selectedRestaurantStr) {
+        try {
+          selectedRestaurant = JSON.parse(selectedRestaurantStr);
+        } catch (e) {
+          // Ignore invalid JSON
+        }
+      }
     }
 
     const defaultHeaders: HeadersInit = {
@@ -33,6 +43,11 @@ class ApiClient {
 
     if (token) {
       defaultHeaders.Authorization = `Bearer ${token}`;
+    }
+
+    // Add restaurant context header for Super Admins
+    if (selectedRestaurant?.id) {
+      defaultHeaders['X-Restaurant-Context'] = selectedRestaurant.id;
     }
 
     try {

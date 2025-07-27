@@ -143,14 +143,15 @@ export const getRestaurantId = (req: AuthenticatedRequest): string => {
     return user.restaurantId;
   }
   
-  // For SUPER_ADMIN, try to get from route params or query
+  // For SUPER_ADMIN, try to get from restaurant context header first, then route params/query
+  const restaurantContext = req.headers['x-restaurant-context'] as string;
   const params = req.params as any;
   const query = req.query as any;
   
-  const restaurantId = params?.restaurantId || query?.restaurantId;
+  const restaurantId = restaurantContext || params?.restaurantId || query?.restaurantId;
   
   if (!restaurantId) {
-    throw new ApiError(400, 'RESTAURANT_ID_REQUIRED', 'Restaurant ID must be provided in URL for SUPER_ADMIN');
+    throw new ApiError(400, 'RESTAURANT_ID_REQUIRED', 'Restaurant context must be provided for SUPER_ADMIN');
   }
   
   return restaurantId;

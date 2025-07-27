@@ -453,6 +453,16 @@ export class WebSocketService {
    */
   private async syncRestaurantState(socket: Socket) {
     try {
+      // Skip sync if no restaurant ID (Super Admin without restaurant context)
+      if (!socket.data.restaurantId) {
+        socket.emit('restaurant:state', {
+          orders: [],
+          tables: [],
+          stats: { pendingOrders: 0, activeOrders: 0, availableTables: 0, occupiedTables: 0 }
+        });
+        return;
+      }
+
       // Get active orders
       const activeOrders = await this.prisma.order.findMany({
         where: {

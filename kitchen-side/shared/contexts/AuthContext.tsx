@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/shared/services/api-client';
-import { User } from '@/shared/types';
+import { User, Restaurant } from '@/shared/types';
 import { UserRole, hasRequiredRole, canAccessRestaurant } from '@/shared/components/protection';
 
 interface AuthContextType {
@@ -11,12 +11,14 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  selectedRestaurantId: string | null;
-  restaurant: { id: string; name: string } | null;
+  selectedRestaurant: Restaurant | null;
+  currentRestaurantId: string | null; // Either user's restaurant or selected restaurant
+  availableRestaurants: Restaurant[];
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
-  selectRestaurant: (restaurantId: string) => void;
+  selectRestaurant: (restaurant: Restaurant) => void;
+  clearRestaurantSelection: () => void;
   hasRole: (roles: UserRole[]) => boolean;
   canAccessRestaurant: (restaurantId: string) => boolean;
 }
@@ -26,16 +28,20 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
+  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  const [availableRestaurants, setAvailableRestaurants] = useState<Restaurant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+
+  // Computed value for current restaurant ID
+  const currentRestaurantId = user?.restaurant?.id || selectedRestaurant?.id || null;
 
   useEffect(() => {
     const initializeAuth = async () => {
       // Check for stored auth on mount
       const storedToken = localStorage.getItem('token');
       const storedUser = localStorage.getItem('user');
-      const storedRestaurantId = localStorage.getItem('selectedRestaurantId');
+      const storedSelectedRestaurant = localStorage.getItem('selectedRestaurant');
 
       if (storedToken && storedUser) {
         try {
@@ -50,37 +56,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setToken(storedToken);
             setUser(response.data as User);
             
-            // For regular users, use their restaurant ID
-            // For SUPER_ADMIN, use stored selection or null
+            // Handle restaurant selection based on user role
             if (userData.role === 'SUPER_ADMIN') {
-              setSelectedRestaurantId(storedRestaurantId);
-            } else if (response.data.restaurant) {
-              setSelectedRestaurantId(response.data.restaurant.id);
+              // Load available restaurants for Super Admin
+              await loadAvailableRestaurants();
+              
+              // Restore selected restaurant if stored
+              if (storedSelectedRestaurant) {
+                try {
+                  const selectedRestaurantData = JSON.parse(storedSelectedRestaurant);
+                  setSelectedRestaurant(selectedRestaurantData);
+                } catch (e) {
+                  localStorage.removeItem('selectedRestaurant');
+                }
+              }
             }
           } else {
-            // Token is invalid, clear everything
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('user');
-            localStorage.removeItem('selectedRestaurantId');
-            setToken(null);
-            setUser(null);
-            setSelectedRestaurantId(null);
+            clearAuthData();
           }
         } catch (error) {
-          // Network error or invalid token, clear everything
           console.error('Token validation failed:', error);
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
-          localStorage.removeItem('selectedRestaurantId');
-          setToken(null);
-          setUser(null);
-          setSelectedRestaurantId(null);
+          clearAuthData();
         }
       }
       
       setIsLoading(false);
+    };
+
+    // Helper function to clear all auth data
+    const clearAuthData = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('selectedRestaurant');
+      setToken(null);
+      setUser(null);
+      setSelectedRestaurant(null);
+      setAvailableRestaurants([]);
     };
 
     initializeAuth();
@@ -89,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const handleAutoLogout = () => {
       setUser(null);
       setToken(null);
-      setSelectedRestaurantId(null);
+      setSelectedRestaurant(null);
       router.push('/login');
     };
 
@@ -100,6 +112,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('auth:logout', handleAutoLogout);
     };
   }, [router]);
+
+  // Load available restaurants for Super Admin
+  const loadAvailableRestaurants = async () => {
+    try {
+      const response = await apiClient.get<Restaurant[]>('/restaurants');
+      if (response) {
+        setAvailableRestaurants(response);
+      }
+    } catch (error) {
+      console.error('Failed to load restaurants:', error);
+    }
+  };
 
   const login = async (email: string, password: string) => {
     try {
@@ -120,24 +144,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Handle restaurant selection based on role
         if (staff.role === 'SUPER_ADMIN') {
           // SUPER_ADMIN needs to select a restaurant
-          setSelectedRestaurantId(null);
-          localStorage.removeItem('selectedRestaurantId');
-        } else if (staff.restaurant) {
-          // Regular users auto-select their restaurant
-          setSelectedRestaurantId(staff.restaurant.id);
-          localStorage.setItem('selectedRestaurantId', staff.restaurant.id);
+          setSelectedRestaurant(null);
+          localStorage.removeItem('selectedRestaurant');
         }
+        // Regular users don't need restaurant selection - it's in their user data
         
         // Clear any cached data
         localStorage.removeItem('mockUser');
         
         // Handle post-login redirect
         if (staff.role === 'SUPER_ADMIN') {
-          // SUPER_ADMIN goes to restaurant selection
+          // Load available restaurants for Super Admin and go to selection
+          await loadAvailableRestaurants();
           router.push('/select');
         } else if (staff.restaurant) {
-          // Regular users go to their restaurant dashboard
-          router.push(`/dashboard/${staff.restaurant.id}`);
+          // Regular users go to main dashboard
+          router.push('/dashboard');
         }
         
         return { success: true };
@@ -158,18 +180,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setUser(null);
     setToken(null);
-    setSelectedRestaurantId(null);
+    setSelectedRestaurant(null);
+    setAvailableRestaurants([]);
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
-    localStorage.removeItem('selectedRestaurantId');
+    localStorage.removeItem('selectedRestaurant');
     localStorage.removeItem('mockUser'); // Clean up cached data
     router.push('/login');
   };
 
-  const selectRestaurant = (restaurantId: string) => {
-    setSelectedRestaurantId(restaurantId);
-    localStorage.setItem('selectedRestaurantId', restaurantId);
+  const selectRestaurant = (restaurant: Restaurant) => {
+    setSelectedRestaurant(restaurant);
+    localStorage.setItem('selectedRestaurant', JSON.stringify(restaurant));
+    
+    // For Super Admins, redirect to main dashboard after selection
+    if (user?.role === 'SUPER_ADMIN') {
+      router.push('/dashboard');
+    }
+  };
+
+  const clearRestaurantSelection = () => {
+    setSelectedRestaurant(null);
+    localStorage.removeItem('selectedRestaurant');
+    
+    // For Super Admins, redirect back to selection page
+    if (user?.role === 'SUPER_ADMIN') {
+      router.push('/select');
+    }
   };
 
   const refreshUser = async () => {
@@ -204,12 +242,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     token,
     isLoading,
     isAuthenticated: !!user && !!token,
-    selectedRestaurantId,
-    restaurant: selectedRestaurantId && user?.restaurant ? user.restaurant : null,
+    selectedRestaurant,
+    currentRestaurantId,
+    availableRestaurants,
     login,
     logout,
     refreshUser,
     selectRestaurant,
+    clearRestaurantSelection,
     hasRole,
     canAccessRestaurant: canUserAccessRestaurant,
   };

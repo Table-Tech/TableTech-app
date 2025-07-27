@@ -2,16 +2,16 @@ import { apiClient } from '@/shared/services/api-client';
 import type { Table, CreateTablePayload, UpdateTablePayload, TableFilters } from '../types';
 
 class TableService {
-  private baseUrl = '/tables';
+  private baseUrl = '/staff/tables';
 
-  async getTables(restaurantId: string, filters?: TableFilters) {
+  async getTables(filters?: TableFilters) {
     const params = new URLSearchParams();
     if (filters?.status) params.set('status', filters.status);
     if (filters?.capacity) params.set('capacity', filters.capacity.toString());
     if (filters?.search) params.set('search', filters.search);
     
     const query = params.toString();
-    const url = `${this.baseUrl}?restaurantId=${restaurantId}${query ? `&${query}` : ''}`;
+    const url = `${this.baseUrl}${query ? `?${query}` : ''}`;
     
     return apiClient.get<Table[]>(url);
   }

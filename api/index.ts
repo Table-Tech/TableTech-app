@@ -84,7 +84,7 @@ const start = async () => {
     // Register API routes with correct prefixes
     await fastify.register(menuRoutes, { prefix: "/api/menu" });
     await fastify.register(restaurantRoutes, { prefix: "/api/restaurants" });
-    await fastify.register(tableRoutes, { prefix: "/api/tables" });
+    await fastify.register(tableRoutes, { prefix: "/api" });
     await fastify.register(orderRoutes, { prefix: "/api/orders" });
     await fastify.register(categoryRoutes, { prefix: "/api/menu-categories" });
     await fastify.register(modifierGroupRoutes, { prefix: "/api/modifier-groups" });

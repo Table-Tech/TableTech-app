@@ -8,7 +8,7 @@ import { Restaurant } from '@/shared/types/restaurant';
 import { RequireAuth } from '@/shared/components/protection';
 
 function RestaurantSelectPageContent() {
-  const { user, selectRestaurant, selectedRestaurantId } = useAuth();
+  const { user, selectRestaurant, selectedRestaurant } = useAuth();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,13 +22,13 @@ function RestaurantSelectPageContent() {
     }
 
     // Redirect if already selected a restaurant
-    if (selectedRestaurantId) {
-      router.push(`/dashboard/${selectedRestaurantId}`);
+    if (selectedRestaurant) {
+      router.push('/dashboard');
       return;
     }
 
     fetchRestaurants();
-  }, [user, selectedRestaurantId, router]);
+  }, [user, selectedRestaurant, router]);
 
   const fetchRestaurants = async () => {
     try {
@@ -47,9 +47,9 @@ function RestaurantSelectPageContent() {
     }
   };
 
-  const handleRestaurantSelect = (restaurantId: string) => {
-    selectRestaurant(restaurantId);
-    router.push(`/dashboard/${restaurantId}`);
+  const handleRestaurantSelect = (restaurant: Restaurant) => {
+    selectRestaurant(restaurant);
+    router.push('/dashboard');
   };
 
   if (!user || user.role !== 'SUPER_ADMIN') {
@@ -116,7 +116,7 @@ function RestaurantSelectPageContent() {
                 <div
                   key={restaurant.id}
                   className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer border border-gray-200"
-                  onClick={() => handleRestaurantSelect(restaurant.id)}
+                  onClick={() => handleRestaurantSelect(restaurant)}
                 >
                   <div className="p-6">
                     {restaurant.logoUrl && (

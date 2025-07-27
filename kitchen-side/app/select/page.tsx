@@ -10,7 +10,7 @@ import { Plus, Building2 } from "lucide-react";
 
 function SelectPageContent() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, selectRestaurant } = useAuth();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -22,7 +22,7 @@ function SelectPageContent() {
     } else if (user && user.role !== 'SUPER_ADMIN') {
       // Regular users shouldn't be on this page
       if (user.restaurant) {
-        router.push(`/dashboard/${user.restaurant.id}`);
+        router.push('/dashboard');
       } else {
         logout(); // Something is wrong, logout
       }
@@ -92,7 +92,7 @@ function SelectPageContent() {
           {restaurants.map((restaurant) => (
             <button
               key={restaurant.id}
-              onClick={() => router.push(`/dashboard/${restaurant.id}`)}
+              onClick={() => selectRestaurant(restaurant)}
               className="bg-white hover:bg-slate-50 p-6 rounded-2xl shadow-lg border border-slate-200 transition-all hover:shadow-xl hover:scale-105"
             >
               <div className="flex flex-col items-center">

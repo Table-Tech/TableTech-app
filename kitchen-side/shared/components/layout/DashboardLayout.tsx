@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useParams, usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Home,
@@ -13,16 +13,18 @@ import {
   Building2,
   Menu,
   X,
-  ChevronRight
+  ChevronRight,
+  ShoppingCart
 } from 'lucide-react'
 import { useAuth } from '@/shared/hooks/useAuth'
 
 const navItems = [
-  { label: 'Dashboard', icon: Home, path: '' },
-  { label: 'Tables', icon: Table2, path: '/tables' },
-  { label: 'Menu', icon: Utensils, path: '/menu' },
-  { label: 'Analytics', icon: BarChart, path: '/analytics' },
-  { label: 'Settings', icon: Settings, path: '/settings' },
+  { label: 'Dashboard', icon: Home, path: '/dashboard' },
+  { label: 'Orders', icon: ShoppingCart, path: '/dashboard/orders' },
+  { label: 'Tables', icon: Table2, path: '/dashboard/tables' },
+  { label: 'Menu', icon: Utensils, path: '/dashboard/menu' },
+  { label: 'Analytics', icon: BarChart, path: '/dashboard/statistics' },
+  { label: 'Settings', icon: Settings, path: '/dashboard/beheer' },
 ]
 
 interface DashboardLayoutProps {
@@ -31,18 +33,16 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout = React.memo(({ children }: DashboardLayoutProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const { restaurantId } = useParams()
   const pathname = usePathname()
   const router = useRouter()
-  const { user, logout, isLoading } = useAuth()
+  const { user, logout, isLoading, selectedRestaurant, clearRestaurantSelection } = useAuth()
 
-  const handleLogout = async () => {
-    await logout()
-    router.push('/login')
+  const handleLogout = () => {
+    logout()
   }
 
   const handleBackToSelect = () => {
-    router.push('/select')
+    clearRestaurantSelection()
     setIsMobileMenuOpen(false)
   }
 
@@ -66,8 +66,8 @@ export const DashboardLayout = React.memo(({ children }: DashboardLayoutProps) =
           </div>
           <div>
             <h1 className="font-semibold text-gray-900">TableTech</h1>
-            {user?.restaurant && (
-              <p className="text-xs text-gray-500">{user.restaurant.name}</p>
+            {(user?.restaurant?.name || selectedRestaurant?.name) && (
+              <p className="text-xs text-gray-500">{user?.restaurant?.name || selectedRestaurant?.name}</p>
             )}
           </div>
         </div>
@@ -86,7 +86,7 @@ export const DashboardLayout = React.memo(({ children }: DashboardLayoutProps) =
             user={user}
             navItems={navItems}
             pathname={pathname}
-            restaurantId={restaurantId as string}
+            selectedRestaurant={selectedRestaurant}
             onLogout={handleLogout}
             onBackToSelect={handleBackToSelect}
           />
@@ -101,7 +101,7 @@ export const DashboardLayout = React.memo(({ children }: DashboardLayoutProps) =
                 user={user}
                 navItems={navItems}
                 pathname={pathname}
-                restaurantId={restaurantId as string}
+                selectedRestaurant={selectedRestaurant}
                 onLogout={handleLogout}
                 onBackToSelect={handleBackToSelect}
                 onNavigate={closeMobileMenu}
@@ -125,7 +125,7 @@ interface SidebarContentProps {
   user: any
   navItems: any[]
   pathname: string
-  restaurantId: string
+  selectedRestaurant: any
   onLogout: () => void
   onBackToSelect: () => void
   onNavigate?: () => void
@@ -135,7 +135,7 @@ const SidebarContent = ({
   user,
   navItems,
   pathname,
-  restaurantId,
+  selectedRestaurant,
   onLogout,
   onBackToSelect,
   onNavigate
@@ -150,12 +150,11 @@ const SidebarContent = ({
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900">TableTech</h1>
-            {user?.restaurant && (
-              <p className="text-sm text-gray-500 mt-1">{user.restaurant.name}</p>
-            )}
-            {!user?.restaurant && user?.role === 'SUPER_ADMIN' && (
+            {(user?.restaurant?.name || selectedRestaurant?.name) ? (
+              <p className="text-sm text-gray-500 mt-1">{user?.restaurant?.name || selectedRestaurant?.name}</p>
+            ) : user?.role === 'SUPER_ADMIN' ? (
               <p className="text-sm text-orange-500 mt-1">Select restaurant</p>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -163,7 +162,7 @@ const SidebarContent = ({
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map(({ label, icon: Icon, path }) => {
-          const href = `/dashboard/${restaurantId}${path}`
+          const href = path
           const isActive = pathname === href
 
           return (

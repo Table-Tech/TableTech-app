@@ -1,35 +1,41 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { tableService } from '../services/tableService';
 import { useWebSocket } from '@/shared/services/websocket-client';
+import { useAuth } from '@/shared/hooks/useAuth';
 import type { Table, TableFilters } from '../types';
 
-export function useTables(restaurantId: string, filters?: TableFilters) {
+export function useTables(filters?: TableFilters) {
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { subscribe } = useWebSocket(restaurantId);
+  const { currentRestaurantId } = useAuth();
+  const { subscribe } = useWebSocket(currentRestaurantId || undefined);
 
   const fetchTables = useCallback(async () => {
-    if (!restaurantId) return;
+    if (!currentRestaurantId) {
+      setTables([]);
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
       setError(null);
-      const data = await tableService.getTables(restaurantId, filters);
+      const data = await tableService.getTables(filters);
       setTables(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch tables');
     } finally {
       setLoading(false);
     }
-  }, [restaurantId, filters]);
+  }, [currentRestaurantId, filters]);
 
   useEffect(() => {
     fetchTables();
   }, [fetchTables]);
 
   useEffect(() => {
-    if (!restaurantId) return;
+    if (!currentRestaurantId) return;
 
     const unsubscribe = subscribe('tableStatusUpdate', (data: { tableId: string; status: string }) => {
       setTables(prev => prev.map(table => 
@@ -40,7 +46,7 @@ export function useTables(restaurantId: string, filters?: TableFilters) {
     });
 
     return unsubscribe;
-  }, [restaurantId, subscribe]);
+  }, [currentRestaurantId, subscribe]);
 
   const filteredTables = useMemo(() => {
     return tables.filter(table => {
@@ -54,17 +60,17 @@ export function useTables(restaurantId: string, filters?: TableFilters) {
     });
   }, [tables, filters]);
 
-  const createTable = useCallback(async (payload: Omit<Table, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => {
-    if (!restaurantId) throw new Error('No restaurant selected');
+  const createTable = useCallback(async (payload: Omit<Table, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'restaurantId'>) => {
+    if (!currentRestaurantId) throw new Error('No restaurant selected');
 
     const newTable = await tableService.createTable({
       ...payload,
-      restaurantId: restaurantId
+      restaurantId: currentRestaurantId
     });
     
     setTables(prev => [...prev, newTable]);
     return newTable;
-  }, [restaurantId]);
+  }, [currentRestaurantId]);
 
   const updateTable = useCallback(async (tableId: string, payload: Partial<Table>) => {
     const updatedTable = await tableService.updateTable(tableId, payload);
