@@ -7,6 +7,8 @@
 export { ProtectedRoute } from './ProtectedRoute';
 export { RoleGuard } from './RoleGuard';
 export { RestaurantGuard } from './RestaurantGuard';
+export { AuthGuard } from './AuthGuard';
+export { RequireAuth } from './RequireAuth';
 
 // Types
 export type {

@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { apiClient } from '@/shared/services/api-client';
 import { Restaurant } from '@/shared/types/restaurant';
+import { RequireAuth } from '@/shared/components/protection';
 
-export default function RestaurantSelectPage() {
+function RestaurantSelectPageContent() {
   const { user, selectRestaurant, selectedRestaurantId } = useAuth();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -163,5 +164,13 @@ export default function RestaurantSelectPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RestaurantSelectPage() {
+  return (
+    <RequireAuth roles={['SUPER_ADMIN']}>
+      <RestaurantSelectPageContent />
+    </RequireAuth>
   );
 }

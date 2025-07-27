@@ -5,9 +5,10 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { apiClient } from "@/shared/services/api-client";
 import { Restaurant } from "@/shared/types/restaurant";
+import { RequireAuth } from "@/shared/components/protection";
 import { Plus, Building2 } from "lucide-react";
 
-export default function SelectPage() {
+function SelectPageContent() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
@@ -15,8 +16,18 @@ export default function SelectPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    loadRestaurants();
-  }, []);
+    // Only load restaurants if user is authenticated as SUPER_ADMIN
+    if (user && user.role === 'SUPER_ADMIN') {
+      loadRestaurants();
+    } else if (user && user.role !== 'SUPER_ADMIN') {
+      // Regular users shouldn't be on this page
+      if (user.restaurant) {
+        router.push(`/dashboard/${user.restaurant.id}`);
+      } else {
+        logout(); // Something is wrong, logout
+      }
+    }
+  }, [user, router, logout]);
 
   const loadRestaurants = async () => {
     try {
@@ -136,5 +147,13 @@ export default function SelectPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SelectPage() {
+  return (
+    <RequireAuth roles={['SUPER_ADMIN']}>
+      <SelectPageContent />
+    </RequireAuth>
   );
 }

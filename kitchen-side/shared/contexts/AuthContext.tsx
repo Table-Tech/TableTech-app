@@ -31,26 +31,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    // Check for stored auth on mount
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    const storedRestaurantId = localStorage.getItem('selectedRestaurantId');
+    const initializeAuth = async () => {
+      // Check for stored auth on mount
+      const storedToken = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+      const storedRestaurantId = localStorage.getItem('selectedRestaurantId');
 
-    if (storedToken && storedUser) {
-      const userData = JSON.parse(storedUser);
-      setToken(storedToken);
-      setUser(userData);
-      
-      // For regular users, use their restaurant ID
-      // For SUPER_ADMIN, use stored selection or null
-      if (userData.role === 'SUPER_ADMIN') {
-        setSelectedRestaurantId(storedRestaurantId);
-      } else if (userData.restaurant) {
-        setSelectedRestaurantId(userData.restaurant.id);
+      if (storedToken && storedUser) {
+        try {
+          // Parse stored user data
+          const userData = JSON.parse(storedUser);
+          
+          // Validate token by calling the API
+          const response = await apiClient.getCurrentUser();
+          
+          if (response.success && response.data) {
+            // Token is valid, set auth state
+            setToken(storedToken);
+            setUser(response.data as User);
+            
+            // For regular users, use their restaurant ID
+            // For SUPER_ADMIN, use stored selection or null
+            if (userData.role === 'SUPER_ADMIN') {
+              setSelectedRestaurantId(storedRestaurantId);
+            } else if (response.data.restaurant) {
+              setSelectedRestaurantId(response.data.restaurant.id);
+            }
+          } else {
+            // Token is invalid, clear everything
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('selectedRestaurantId');
+            setToken(null);
+            setUser(null);
+            setSelectedRestaurantId(null);
+          }
+        } catch (error) {
+          // Network error or invalid token, clear everything
+          console.error('Token validation failed:', error);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('selectedRestaurantId');
+          setToken(null);
+          setUser(null);
+          setSelectedRestaurantId(null);
+        }
       }
-    }
-    
-    setIsLoading(false);
+      
+      setIsLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
