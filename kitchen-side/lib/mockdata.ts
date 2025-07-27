@@ -94,21 +94,31 @@ export type Order = {
 export const mockUsers = [
     {
       id: "1",
-      email: "admin@PizzaPalace.com",
+      email: "super@admin.com",
+      password: "admin123",
+      role: "SUPER",
+      restaurantId: null
+    },
+    {
+      id: "2",
+      email: "manager@pizzapalace.com",
+      password: "manager123",
       role: "ADMIN",
       restaurantId: "r1"
     },
     {
-      id: "2",
-      email: "user@PizzaPalace.com",
+      id: "3",
+      email: "chef@pizzapalace.com", 
+      password: "chef123",
       role: "USER",
       restaurantId: "r1"
     },
     {
-      id: "3",
-      email: "superuser@tabletech.nl",
-      role: "SUPER",
-      restaurantId: null
+      id: "4",
+      email: "manager@burgerbistro.com",
+      password: "manager123", 
+      role: "ADMIN",
+      restaurantId: "r2"
     }
   ];
   

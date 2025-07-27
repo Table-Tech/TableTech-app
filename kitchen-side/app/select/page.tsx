@@ -1,96 +1,140 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { mockRestaurants as initialRestaurants } from "../../lib/mockdata";
-import { Plus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { apiClient } from "@/lib/api-client";
+import { Restaurant } from "@/lib/types";
+import { Plus, Building2 } from "lucide-react";
 
 export default function SelectPage() {
   const router = useRouter();
-  const [restaurants, setRestaurants] = useState(initialRestaurants);
-  const [showForm, setShowForm] = useState(false);
+  const { user, logout } = useAuth();
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const name = (form.elements.namedItem("name") as HTMLInputElement).value;
-    const logo = (form.elements.namedItem("logo") as HTMLInputElement).value;
-    const newId = `r${restaurants.length + 1}`;
+  useEffect(() => {
+    loadRestaurants();
+  }, []);
 
-    setRestaurants([...restaurants, { id: newId, name, logo }]);
-    form.reset();
-    setShowForm(false);
+  const loadRestaurants = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      
+      const response = await apiClient.getRestaurants();
+      
+      if (response.success && response.data) {
+        setRestaurants(response.data);
+      } else {
+        setError(response.error || "Failed to load restaurants");
+      }
+    } catch (err) {
+      setError("Network error - make sure API is running");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  return (
-    <div className="p-8 min-h-screen bg-gray-100 flex flex-col items-center">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">
-        Selecteer een Restaurant
-      </h1>
-
-      <div className="flex gap-6 flex-wrap justify-center">
-        {restaurants.map((r) => (
-          <button
-            key={r.id}
-            onClick={() => router.push(`/dashboard/${r.id}`)}
-            className="bg-white hover:bg-gray-100 p-4 rounded-xl shadow w-60 text-center"
-          >
-            <img
-              src={r.logo}
-              alt={r.name}
-              className="w-20 h-20 mx-auto mb-3 object-contain"
-            />
-            <p className="font-semibold text-[#12395B]">{r.name}</p>
-          </button>
-        ))}
-
-        {/* Plus knop */}
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 hover:bg-gray-200 p-4 rounded-xl w-60 h-40 text-[#12395B]"
-        >
-          <Plus size={32} />
-          <span className="mt-2 font-semibold">Nieuw restaurant</span>
-        </button>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading restaurants...</p>
+        </div>
       </div>
+    );
+  }
 
-      {/* Formulier */}
-      {showForm && (
-        <form
-          onSubmit={handleSubmit}
-          className="mt-6 bg-white p-6 rounded shadow w-full max-w-md space-y-4"
-        >
-          <h2 className="text-lg font-semibold text-[#12395B]">
-            Nieuw restaurant toevoegen
-          </h2>
-          <input
-            name="name"
-            placeholder="Naam restaurant"
-            className="w-full border px-3 py-2 rounded text-gray-800"
-            required
-          />
-          <input
-            name="logo"
-            placeholder="Logo pad (bijv. /logo.png)"
-            className="w-full border px-3 py-2 rounded text-gray-800"
-          />
-          <div className="flex gap-2 justify-end">
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-800">
+              Selecteer Restaurant
+            </h1>
+            <p className="text-slate-600 mt-2">
+              Welkom {user?.name}, kies een restaurant om te beheren
+            </p>
+          </div>
+          <button
+            onClick={logout}
+            className="px-4 py-2 text-slate-600 hover:text-slate-800 transition-colors"
+          >
+            Uitloggen
+          </button>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6">
+            {error}
+          </div>
+        )}
+
+        {/* Restaurant Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {restaurants.map((restaurant) => (
             <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="text-gray-500 hover:text-gray-700"
+              key={restaurant.id}
+              onClick={() => router.push(`/dashboard/${restaurant.id}`)}
+              className="bg-white hover:bg-slate-50 p-6 rounded-2xl shadow-lg border border-slate-200 transition-all hover:shadow-xl hover:scale-105"
             >
-              Annuleer
+              <div className="flex flex-col items-center">
+                {restaurant.logoUrl ? (
+                  <img
+                    src={restaurant.logoUrl}
+                    alt={restaurant.name}
+                    className="w-16 h-16 mx-auto mb-4 object-contain rounded-lg"
+                  />
+                ) : (
+                  <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                    <Building2 className="w-8 h-8 text-blue-600" />
+                  </div>
+                )}
+                <h3 className="font-semibold text-slate-800 text-lg mb-2">
+                  {restaurant.name}
+                </h3>
+                <p className="text-slate-500 text-sm text-center">
+                  {restaurant.address}
+                </p>
+                <p className="text-slate-400 text-xs mt-1">
+                  {restaurant.phone}
+                </p>
+              </div>
             </button>
+          ))}
+
+          {/* No restaurants message */}
+          {restaurants.length === 0 && !error && (
+            <div className="col-span-full text-center py-12">
+              <Building2 className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-slate-600 mb-2">
+                Geen restaurants gevonden
+              </h3>
+              <p className="text-slate-500">
+                Er zijn nog geen restaurants beschikbaar in het systeem.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Retry button for errors */}
+        {error && (
+          <div className="text-center mt-8">
             <button
-              type="submit"
-              className="bg-[#12395B] text-white px-4 py-2 rounded hover:bg-[#0a2e4a]"
+              onClick={loadRestaurants}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
             >
-              Toevoegen
+              Opnieuw proberen
             </button>
           </div>
-        </form>
-      )}
+        )}
+      </div>
     </div>
   );
 }
