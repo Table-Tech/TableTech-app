@@ -157,7 +157,7 @@ class ApiClient {
           price: number;
         }>;
       }>;
-    }>>(`/menu?restaurantId=${restaurantId}`);
+    }>>(`/menu/staff/items?restaurantId=${restaurantId}`);
   }
 
   async getMenuCategories(restaurantId: string) {
@@ -166,12 +166,13 @@ class ApiClient {
       name: string;
       description?: string;
       sortOrder: number;
-    }>>(`/menu-categories?restaurantId=${restaurantId}`);
+    }>>(`/menu-categories/staff/categories?restaurantId=${restaurantId}`);
   }
 
   // Order endpoints
   async getOrders(restaurantId: string, status?: string) {
-    const params = new URLSearchParams({ restaurantId });
+    const params = new URLSearchParams();
+    params.append('restaurantId', restaurantId);
     if (status) params.append('status', status);
     
     return this.request<{
@@ -211,7 +212,7 @@ class ApiClient {
         offset: number;
         pages: number;
       };
-    }>(`/orders?${params.toString()}`);
+    }>(`/orders/staff/orders?${params.toString()}`);
   }
 
   async getKitchenOrders(restaurantId: string) {
@@ -238,11 +239,11 @@ class ApiClient {
           };
         }>;
       }>;
-    }>>(`/orders/kitchen?restaurantId=${restaurantId}`);
+    }>>(`/orders/staff/kitchen?restaurantId=${restaurantId}`);
   }
 
   async updateOrderStatus(orderId: string, status: string, notes?: string) {
-    return this.request(`/orders/${orderId}/status`, {
+    return this.request(`/orders/staff/${orderId}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status, notes }),
     });
@@ -256,7 +257,7 @@ class ApiClient {
       code: string;
       status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'MAINTENANCE';
       capacity: number;
-    }>>(`/tables?restaurantId=${restaurantId}`);
+    }>>(`/tables/staff/tables?restaurantId=${restaurantId}`);
   }
 
   // Staff endpoints
@@ -267,7 +268,7 @@ class ApiClient {
       email: string;
       role: string;
       isActive: boolean;
-    }>>(`/staff?restaurantId=${restaurantId}`);
+    }>>(`/staff/staff/members?restaurantId=${restaurantId}`);
   }
 
   // Statistics endpoints
@@ -277,7 +278,7 @@ class ApiClient {
       todayOrders: number;
       activeOrders: number;
       todayRevenue: number;
-    }>(`/orders/statistics?restaurantId=${restaurantId}`);
+    }>(`/orders/staff/statistics?restaurantId=${restaurantId}`);
   }
 }
 

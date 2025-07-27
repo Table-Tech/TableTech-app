@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Store in state
         setToken(newToken);
-        setUser(staff);
+        setUser(staff as User);
         
         // Store in localStorage
         localStorage.setItem('token', newToken);
@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem('selectedRestaurantId', staff.restaurant.id);
         }
         
-        // Clear any mock data
+        // Clear any cached data
         localStorage.removeItem('mockUser');
         
         // Handle post-login redirect
@@ -108,7 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('selectedRestaurantId');
-    localStorage.removeItem('mockUser'); // Clean up mock data too
+    localStorage.removeItem('mockUser'); // Clean up cached data
     router.push('/login');
   };
 
@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await apiClient.getCurrentUser();
       if (response.success && response.data) {
-        setUser(response.data);
+        setUser(response.data as User);
         localStorage.setItem('user', JSON.stringify(response.data));
       } else {
         // Token might be invalid, logout

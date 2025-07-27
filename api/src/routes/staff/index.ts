@@ -29,7 +29,7 @@ export default async function staffRoutes(server: FastifyInstance) {
     server.post('/members', {
       preHandler: [
         validationMiddleware(CreateStaffSchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.createStaff(req as any, reply));
 
@@ -58,7 +58,7 @@ export default async function staffRoutes(server: FastifyInstance) {
       preHandler: [
         validateParams(StaffParamsSchema),
         validationMiddleware(UpdateStaffSchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.updateStaff(req as any, reply));
 
@@ -66,7 +66,7 @@ export default async function staffRoutes(server: FastifyInstance) {
     server.delete('/members/:id', {
       preHandler: [
         validateParams(StaffParamsSchema),
-        requireRole(['ADMIN'])
+        requireRole(['ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.deleteStaff(req as any, reply));
 
@@ -74,7 +74,7 @@ export default async function staffRoutes(server: FastifyInstance) {
     server.patch('/members/bulk', {
       preHandler: [
         validationMiddleware(BulkUpdateStaffSchema),
-        requireRole(['ADMIN'])
+        requireRole(['ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.bulkUpdateStaff(req as any, reply));
 

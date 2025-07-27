@@ -24,7 +24,7 @@ export interface MenuCategory {
   id: string;
   name: string;
   description?: string;
-  sortOrder: number;
+  sortOrder?: number;
 }
 
 export interface Modifier {

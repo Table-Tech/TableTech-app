@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams } from 'next/navigation'
-import { mockOrganizationSettings } from '@/lib/mockdata'
+// import { mockOrganizationSettings } from '@/lib/mockdata' // Removed mock data
 import { Label } from "../../../../components/label"
 import { Switch } from "../../../../components/switch"
 import {
@@ -13,7 +13,7 @@ import {
 } from "../../../../components/select"
 import React, { useState } from 'react'
 import { MenuList } from "../../../../components/MenuList";
-import { mockMenuItems, MenuItem } from "@/lib/mockdata";
+import { MenuItem } from "@/lib/types";
 
 export default function BeheerPage() {
     const params = useParams()
@@ -29,9 +29,9 @@ export default function BeheerPage() {
       logo: '',
     }
     
-    const settings = mockOrganizationSettings[restaurantId] ?? defaultSettings
+    const settings = defaultSettings // TODO: Fetch from API
     const [activeTab, setActiveTab] = useState('General');
-    const [menu, setMenu] = useState<MenuItem[]>(mockMenuItems[restaurantId] || []);
+    const [menu, setMenu] = useState<MenuItem[]>([]);
     const currentUser = { email: "admin@restaurant1.com", role: "ADMIN" };
 
     return (
@@ -96,7 +96,13 @@ export default function BeheerPage() {
               </section>
               <section className="bg-white p-6 rounded shadow text-gray-600 mb-6">
                 <h2 className="text-lg font-semibold mb-4">Logo</h2>
-                <img src={settings.logo} alt="Logo" className="h-24 mb-4" />
+                {settings.logo ? (
+                  <img src={settings.logo} alt="Logo" className="h-24 mb-4" />
+                ) : (
+                  <div className="h-24 mb-4 bg-gray-100 rounded border-2 border-dashed border-gray-300 flex items-center justify-center">
+                    <span className="text-gray-500">No logo uploaded</span>
+                  </div>
+                )}
                 <input type="file" accept="image/*" />
               </section>
               <section className="bg-white p-6 rounded shadow text-gray-800">

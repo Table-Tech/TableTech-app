@@ -158,7 +158,8 @@ class WebSocketClient {
   getConnectionStatus(): 'connected' | 'disconnected' | 'connecting' | 'error' {
     if (!this.socket) return 'disconnected';
     if (this.socket.connected) return 'connected';
-    if (this.socket.connecting) return 'connecting';
+    // Socket.io doesn't have a direct 'connecting' property, use disconnected as fallback
+    if (this.socket.disconnected) return 'disconnected';
     return 'error';
   }
 }

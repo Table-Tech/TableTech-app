@@ -29,7 +29,7 @@ export default async function categoryRoutes(server: FastifyInstance) {
     server.post('/categories', {
       preHandler: [
         validationMiddleware(CreateCategorySchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.createCategory(req as any, reply));
 
@@ -58,7 +58,7 @@ export default async function categoryRoutes(server: FastifyInstance) {
       preHandler: [
         validateParams(CategoryParamsSchema),
         validationMiddleware(UpdateCategorySchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.updateCategory(req as any, reply));
 
@@ -66,7 +66,7 @@ export default async function categoryRoutes(server: FastifyInstance) {
     server.delete('/categories/:id', {
       preHandler: [
         validateParams(CategoryParamsSchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.deleteCategory(req as any, reply));
 
@@ -74,7 +74,7 @@ export default async function categoryRoutes(server: FastifyInstance) {
     server.post('/categories/reorder', {
       preHandler: [
         validationMiddleware(ReorderCategoriesSchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.reorderCategories(req as any, reply));
 
@@ -82,7 +82,7 @@ export default async function categoryRoutes(server: FastifyInstance) {
     server.patch('/categories/bulk', {
       preHandler: [
         validationMiddleware(BulkUpdateCategoriesSchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.bulkUpdateCategories(req as any, reply));
 

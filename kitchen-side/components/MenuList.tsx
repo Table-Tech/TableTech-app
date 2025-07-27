@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
-import { MenuItem } from 'lib/mockdata';
+import { MenuItem } from '@/lib/types';
 
 interface MenuListProps {
   menu: MenuItem[];
@@ -16,17 +16,18 @@ export const MenuList: React.FC<MenuListProps> = ({ menu, setMenu, canAdd = fals
     e.preventDefault();
     if (!setMenu) return;
     const form = e.currentTarget;
-    const title = (form.elements.namedItem("title") as HTMLInputElement).value;
+    const name = (form.elements.namedItem("name") as HTMLInputElement).value;
     const description = (form.elements.namedItem("description") as HTMLInputElement).value;
     const price = parseFloat((form.elements.namedItem("price") as HTMLInputElement).value);
     const image = (form.elements.namedItem("image") as HTMLInputElement).value;
 
     const newItem: MenuItem = {
       id: `m${menu.length + 1}`,
-      title,
+      name,
       description,
       price,
-      image,
+      isAvailable: true,
+      category: { id: 'default', name: 'Default' },
     };
 
     setMenu([...menu, newItem]);
@@ -35,8 +36,8 @@ export const MenuList: React.FC<MenuListProps> = ({ menu, setMenu, canAdd = fals
   };
 
   const groupedMenu = menu.reduce((acc, item) => {
-    const category = item.category || "Overig";
-    acc[category] = [...(acc[category] || []), item];
+    const categoryName = item.category?.name || "Overig";
+    acc[categoryName] = [...(acc[categoryName] || []), item];
     return acc;
   }, {} as Record<string, MenuItem[]>);
 
@@ -53,38 +54,42 @@ export const MenuList: React.FC<MenuListProps> = ({ menu, setMenu, canAdd = fals
           </button>
         )}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        {Object.entries(groupedMenu).map(([category, items]) => (
-          <div key={category} className="mb-8">
-            <h2 className="text-xl font-bold text-[#12395B] mb-4">{category}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-4 bg-white shadow rounded-lg space-y-2"
-                >
-                  {item.image && (
-                    <div className="w-full h-40 relative rounded overflow-hidden">
-                      <img
-                        src={item.image}
-                        alt={item.title}
-                        className="w-full h-full object-cover"
-                      />
+      {Object.keys(groupedMenu).length === 0 ? (
+        <div className="text-center py-12">
+          <div className="text-gray-400 text-6xl mb-4">🍽️</div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No menu items yet</h3>
+          <p className="text-gray-600">
+            Add your first menu item to get started.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          {Object.entries(groupedMenu).map(([category, items]) => (
+            <div key={category} className="mb-8">
+              <h2 className="text-xl font-bold text-[#12395B] mb-4">{category}</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-4 bg-white shadow rounded-lg space-y-2"
+                  >
+                    <div className="w-full h-40 relative rounded overflow-hidden bg-gray-200 flex items-center justify-center">
+                      <span className="text-gray-500">No Image</span>
                     </div>
-                  )}
-                  <h3 className="font-semibold text-[#12395B]">{item.title}</h3>
-                  {item.description && (
-                    <p className="text-sm text-gray-600">{item.description}</p>
-                  )}
-                  <p className="text-base font-bold text-gray-600">
-                    €{item.price.toFixed(2)}
-                  </p>
-                </div>
-              ))}
+                    <h3 className="font-semibold text-[#12395B]">{item.name}</h3>
+                    {item.description && (
+                      <p className="text-sm text-gray-600">{item.description}</p>
+                    )}
+                    <p className="text-base font-bold text-gray-600">
+                      €{item.price.toFixed(2)}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
       {canAdd && showForm && (
         <div className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-sm bg-white/30">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">

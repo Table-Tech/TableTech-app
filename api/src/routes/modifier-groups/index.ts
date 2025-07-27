@@ -29,7 +29,7 @@ export default async function modifierGroupRoutes(server: FastifyInstance) {
     server.post('/modifier-groups', {
       preHandler: [
         validationMiddleware(CreateModifierGroupSchema),
-        requireRole(['MANAGER', 'ADMIN', 'CHEF'])
+        requireRole(['MANAGER', 'ADMIN', 'CHEF', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.createModifierGroup(req as any, reply));
 
@@ -53,7 +53,7 @@ export default async function modifierGroupRoutes(server: FastifyInstance) {
       preHandler: [
         validateParams(ModifierGroupParamsSchema),
         validationMiddleware(UpdateModifierGroupSchema),
-        requireRole(['MANAGER', 'ADMIN', 'CHEF'])
+        requireRole(['MANAGER', 'ADMIN', 'CHEF', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.updateModifierGroup(req as any, reply));
 
@@ -61,7 +61,7 @@ export default async function modifierGroupRoutes(server: FastifyInstance) {
     server.delete('/modifier-groups/:id', {
       preHandler: [
         validateParams(ModifierGroupParamsSchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.deleteModifierGroup(req as any, reply));
 
@@ -69,7 +69,7 @@ export default async function modifierGroupRoutes(server: FastifyInstance) {
     server.post('/modifier-groups/reorder', {
       preHandler: [
         validationMiddleware(ReorderModifierGroupsSchema),
-        requireRole(['MANAGER', 'ADMIN', 'CHEF'])
+        requireRole(['MANAGER', 'ADMIN', 'CHEF', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.reorderModifierGroups(req as any, reply));
 
@@ -77,7 +77,7 @@ export default async function modifierGroupRoutes(server: FastifyInstance) {
     server.patch('/modifier-groups/bulk', {
       preHandler: [
         validationMiddleware(BulkUpdateModifierGroupsSchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.bulkUpdateModifierGroups(req as any, reply));
 

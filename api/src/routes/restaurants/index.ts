@@ -35,7 +35,7 @@ export default async function restaurantRoutes(server: FastifyInstance) {
     server.post('/restaurants', {
       preHandler: [
         validationMiddleware(CreateRestaurantSchema),
-        requireRole(['ADMIN']),
+        requireRole(['ADMIN', 'SUPER_ADMIN']),
         rateLimit(3, 3600000) // 3 attempts per hour
       ]
     }, (req, reply) => controller.createRestaurant(req as any, reply));
@@ -53,7 +53,7 @@ export default async function restaurantRoutes(server: FastifyInstance) {
       preHandler: [
         validateParams(RestaurantParamsSchema),
         requireRestaurantAccess,
-        requireRole(['ADMIN', 'MANAGER'])
+        requireRole(['ADMIN', 'MANAGER', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.getRestaurantById(req as any, reply));
 
@@ -63,7 +63,7 @@ export default async function restaurantRoutes(server: FastifyInstance) {
         validateParams(RestaurantParamsSchema),
         requireRestaurantAccess,
         validationMiddleware(UpdateRestaurantSchema),
-        requireRole(['ADMIN'])
+        requireRole(['ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.updateRestaurant(req as any, reply));
 
@@ -72,7 +72,7 @@ export default async function restaurantRoutes(server: FastifyInstance) {
       preHandler: [
         validateParams(RestaurantParamsSchema),
         requireRestaurantAccess,
-        requireRole(['ADMIN'])
+        requireRole(['ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.archiveRestaurant(req as any, reply));
 
@@ -81,7 +81,7 @@ export default async function restaurantRoutes(server: FastifyInstance) {
       preHandler: [
         validateParams(RestaurantParamsSchema),
         requireRestaurantAccess,
-        requireRole(['ADMIN', 'MANAGER'])
+        requireRole(['ADMIN', 'MANAGER', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.getRestaurantStatistics(req as any, reply));
 

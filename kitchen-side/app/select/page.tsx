@@ -23,7 +23,7 @@ export default function SelectPage() {
       setLoading(true);
       setError("");
       
-      const response = await apiClient.getRestaurants();
+      const response = await apiClient.getAllRestaurants();
       
       if (response.success && response.data) {
         setRestaurants(response.data);

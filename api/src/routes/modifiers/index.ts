@@ -29,7 +29,7 @@ export default async function modifierRoutes(server: FastifyInstance) {
     server.post('/modifiers', {
       preHandler: [
         validationMiddleware(CreateModifierSchema),
-        requireRole(['MANAGER', 'ADMIN', 'CHEF'])
+        requireRole(['MANAGER', 'ADMIN', 'CHEF', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.createModifier(req as any, reply));
 
@@ -53,7 +53,7 @@ export default async function modifierRoutes(server: FastifyInstance) {
       preHandler: [
         validateParams(ModifierParamsSchema),
         validationMiddleware(UpdateModifierSchema),
-        requireRole(['MANAGER', 'ADMIN', 'CHEF'])
+        requireRole(['MANAGER', 'ADMIN', 'CHEF', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.updateModifier(req as any, reply));
 
@@ -61,7 +61,7 @@ export default async function modifierRoutes(server: FastifyInstance) {
     server.delete('/modifiers/:id', {
       preHandler: [
         validateParams(ModifierParamsSchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.deleteModifier(req as any, reply));
 
@@ -69,7 +69,7 @@ export default async function modifierRoutes(server: FastifyInstance) {
     server.post('/modifiers/reorder', {
       preHandler: [
         validationMiddleware(ReorderModifiersSchema),
-        requireRole(['MANAGER', 'ADMIN', 'CHEF'])
+        requireRole(['MANAGER', 'ADMIN', 'CHEF', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.reorderModifiers(req as any, reply));
 
@@ -77,7 +77,7 @@ export default async function modifierRoutes(server: FastifyInstance) {
     server.patch('/modifiers/bulk', {
       preHandler: [
         validationMiddleware(BulkUpdateModifiersSchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.bulkUpdateModifiers(req as any, reply));
 

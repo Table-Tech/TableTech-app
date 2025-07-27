@@ -37,12 +37,12 @@ export default async function orderRoutes(server: FastifyInstance) {
 
     // GET /api/staff/kitchen - Kitchen display
     server.get("/kitchen", {
-      preHandler: [requireRole(['CHEF', 'MANAGER', 'ADMIN'])]
+      preHandler: [requireRole(['CHEF', 'MANAGER', 'ADMIN', 'SUPER_ADMIN'])]
     }, (req, reply) => controller.getKitchenOrders(req as any, reply));
 
     // GET /api/staff/statistics - Statistics
     server.get("/statistics", {
-      preHandler: [requireRole(['MANAGER', 'ADMIN'])]
+      preHandler: [requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])]
     }, (req, reply) => controller.getOrderStatistics(req as any, reply));
 
     // GET /api/staff/:id - Get order details
@@ -62,7 +62,7 @@ export default async function orderRoutes(server: FastifyInstance) {
     server.delete("/:id", {
       preHandler: [
         validateParams(OrderParamsSchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.cancelOrder(req as any, reply));
 
