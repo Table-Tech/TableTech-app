@@ -40,7 +40,7 @@ export default async function modifierRoutes(server: FastifyInstance) {
 
     // GET /api/staff/modifiers/statistics - Modifier statistics
     server.get('/modifiers/statistics', {
-      preHandler: [requireRole(['MANAGER', 'ADMIN'])]
+      preHandler: [requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])]
     }, (req, reply) => controller.getModifierStatistics(req as any, reply));
 
     // GET /api/staff/modifiers/:id - Get modifier details

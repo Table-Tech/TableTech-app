@@ -47,7 +47,7 @@ export default async function menuRoutes(server: FastifyInstance) {
 
     // GET /api/staff/menu/statistics - Menu statistics
     server.get('/statistics', {
-      preHandler: [requireRole(['MANAGER', 'ADMIN'])]
+      preHandler: [requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])]
     }, (req, reply) => controller.getMenuStatistics(req as any, reply));
 
     // GET /api/staff/menu/items/:id - Get menu item details

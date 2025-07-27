@@ -45,7 +45,7 @@ export default async function categoryRoutes(server: FastifyInstance) {
 
     // GET /api/staff/categories/statistics - Category statistics
     server.get('/categories/statistics', {
-      preHandler: [requireRole(['MANAGER', 'ADMIN'])]
+      preHandler: [requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])]
     }, (req, reply) => controller.getCategoryStatistics(req as any, reply));
 
     // GET /api/staff/categories/:id - Get category details

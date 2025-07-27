@@ -47,6 +47,42 @@ class ApiClient {
       const data = await response.json();
 
       if (!response.ok) {
+        // Handle 401 Unauthorized - token expired or invalid
+        if (response.status === 401 && endpoint !== '/auth/refresh') {
+          // Try to refresh token once before giving up
+          try {
+            const refreshResponse = await this.refreshToken();
+            if (refreshResponse.success && refreshResponse.data) {
+              // Update stored tokens
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('token', refreshResponse.data.token);
+                localStorage.setItem('refreshToken', refreshResponse.data.refreshToken);
+              }
+              
+              // Retry the original request with new token
+              return this.request(endpoint, {
+                ...options,
+                headers: {
+                  ...options.headers,
+                  Authorization: `Bearer ${refreshResponse.data.token}`,
+                },
+              });
+            }
+          } catch (refreshError) {
+            console.error('Token refresh failed:', refreshError);
+          }
+          
+          // If refresh failed, clear auth data and trigger logout
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
+            localStorage.removeItem('selectedRestaurantId');
+            // Dispatch custom event to notify AuthContext
+            window.dispatchEvent(new CustomEvent('auth:logout'));
+          }
+        }
+        
         return {
           success: false,
           error: data.message || `HTTP ${response.status}`,
@@ -137,6 +173,21 @@ class ApiClient {
     }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    });
+  }
+
+  async refreshToken() {
+    const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    return this.request<{
+      token: string;
+      refreshToken: string;
+    }>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
     });
   }
 

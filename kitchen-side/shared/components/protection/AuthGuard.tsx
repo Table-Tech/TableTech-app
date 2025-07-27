@@ -78,7 +78,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#f6fcff] flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading..." />
+        <div className="text-center">
+          <LoadingSpinner size="lg" className="mx-auto mb-4" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -87,7 +90,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
   if (!PUBLIC_ROUTES.includes(pathname) && (!isAuthenticated || !user)) {
     return (
       <div className="min-h-screen bg-[#f6fcff] flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Redirecting..." />
+        <div className="text-center">
+          <LoadingSpinner size="lg" className="mx-auto mb-4" />
+          <p className="text-gray-600">Redirecting...</p>
+        </div>
       </div>
     );
   }

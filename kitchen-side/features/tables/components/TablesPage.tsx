@@ -5,9 +5,13 @@ import { useTables } from '../hooks/useTables';
 import { Button, Input, Select, LoadingSpinner, EmptyState } from '@/shared/components/ui';
 import type { TableFilters } from '../types';
 
-const TablesPage = React.memo(() => {
+interface TablesPageProps {
+  restaurantId: string;
+}
+
+const TablesPage = React.memo(({ restaurantId }: TablesPageProps) => {
   const [filters, setFilters] = useState<TableFilters>({});
-  const { tables, loading, error, createTable, updateTable, deleteTable } = useTables(filters);
+  const { tables, loading, error, createTable, updateTable, deleteTable } = useTables(restaurantId, filters);
 
   const tableStats = useMemo(() => ({
     total: tables.length,

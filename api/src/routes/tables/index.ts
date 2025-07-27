@@ -49,7 +49,7 @@ export default async function tableRoutes(server: FastifyInstance) {
 
     // GET /api/staff/tables/statistics - Table statistics
     server.get('/tables/statistics', {
-      preHandler: [requireRole(['MANAGER', 'ADMIN'])]
+      preHandler: [requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])]
     }, (req, reply) => controller.getTableStatistics(req as any, reply));
 
     // GET /api/staff/tables/:id - Get table details

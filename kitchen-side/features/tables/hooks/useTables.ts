@@ -1,37 +1,35 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { tableService } from '../services/tableService';
-import { useAuth } from '@/shared/hooks/useAuth';
 import { useWebSocket } from '@/shared/services/websocket-client';
 import type { Table, TableFilters } from '../types';
 
-export function useTables(filters?: TableFilters) {
-  const { restaurant } = useAuth();
+export function useTables(restaurantId: string, filters?: TableFilters) {
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { subscribe } = useWebSocket(restaurant?.id);
+  const { subscribe } = useWebSocket(restaurantId);
 
   const fetchTables = useCallback(async () => {
-    if (!restaurant?.id) return;
+    if (!restaurantId) return;
 
     try {
       setLoading(true);
       setError(null);
-      const data = await tableService.getTables(restaurant.id, filters);
+      const data = await tableService.getTables(restaurantId, filters);
       setTables(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch tables');
     } finally {
       setLoading(false);
     }
-  }, [restaurant?.id, filters]);
+  }, [restaurantId, filters]);
 
   useEffect(() => {
     fetchTables();
   }, [fetchTables]);
 
   useEffect(() => {
-    if (!restaurant?.id) return;
+    if (!restaurantId) return;
 
     const unsubscribe = subscribe('tableStatusUpdate', (data: { tableId: string; status: string }) => {
       setTables(prev => prev.map(table => 
@@ -42,7 +40,7 @@ export function useTables(filters?: TableFilters) {
     });
 
     return unsubscribe;
-  }, [restaurant?.id, subscribe]);
+  }, [restaurantId, subscribe]);
 
   const filteredTables = useMemo(() => {
     return tables.filter(table => {
@@ -57,16 +55,16 @@ export function useTables(filters?: TableFilters) {
   }, [tables, filters]);
 
   const createTable = useCallback(async (payload: Omit<Table, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => {
-    if (!restaurant?.id) throw new Error('No restaurant selected');
+    if (!restaurantId) throw new Error('No restaurant selected');
 
     const newTable = await tableService.createTable({
       ...payload,
-      restaurantId: restaurant.id
+      restaurantId: restaurantId
     });
     
     setTables(prev => [...prev, newTable]);
     return newTable;
-  }, [restaurant?.id]);
+  }, [restaurantId]);
 
   const updateTable = useCallback(async (tableId: string, payload: Partial<Table>) => {
     const updatedTable = await tableService.updateTable(tableId, payload);

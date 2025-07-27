@@ -5,36 +5,48 @@
 
 "use client";
 
-import { useState } from 'react';
-import { MenuGrid } from './MenuGrid';
-import { MenuForm } from './MenuForm';
-import { CategoryFilter } from './CategoryFilter';
-import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { EmptyState } from '@/shared/components/ui/EmptyState';
-import { Button } from '@/shared/components/ui/Button';
-import { Modal } from '@/shared/components/ui/Modal';
-import { useMenu } from '../hooks/useMenu';
-import { MenuItem } from '@/shared/types';
+import { useState } from "react";
+import { MenuGrid } from "./MenuGrid";
+import { MenuForm } from "./MenuForm";
+import { CategoryFilter } from "./CategoryFilter";
+import { LoadingSpinner } from "@/shared/components/ui/LoadingSpinner";
+import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { Button } from "@/shared/components/ui/Button";
+import { Modal } from "@/shared/components/ui/Modal";
+import { useMenu } from "../hooks/useMenu";
+import { MenuItem } from "@/shared/types";
 
 interface MenuPageProps {
   restaurantId: string;
 }
 
 export function MenuPage({ restaurantId }: MenuPageProps) {
-  const { menu, isLoading, error, fetchMenu, createMenuItem, updateMenuItem, deleteMenuItem } = useMenu(restaurantId);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const {
+    menu,
+    isLoading,
+    error,
+    fetchMenu,
+    createMenuItem,
+    updateMenuItem,
+    deleteMenuItem,
+  } = useMenu(restaurantId);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
-  const filteredMenu = selectedCategory === 'all' 
-    ? menu 
-    : menu.filter(item => item.categoryId === selectedCategory);
+  const filteredMenu =
+    selectedCategory === "all"
+      ? menu
+      : menu.filter((item) => item.categoryId === selectedCategory);
 
   if (isLoading) {
     return (
       <div className="p-8 bg-[#f6fcff] min-h-screen">
         <div className="flex items-center justify-center h-64">
-          <LoadingSpinner size="lg" text="Loading menu..." />
+          <div className="text-center">
+            <LoadingSpinner size="lg" className="mx-auto mb-4" />
+            <p className="text-gray-600">Loading menu...</p>
+          </div>
         </div>
       </div>
     );
@@ -62,7 +74,7 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
         </Button>
       </div>
 
-      <CategoryFilter 
+      <CategoryFilter
         selectedCategory={selectedCategory}
         onCategoryChange={setSelectedCategory}
         restaurantId={restaurantId}
@@ -80,7 +92,7 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
           }
         />
       ) : (
-        <MenuGrid 
+        <MenuGrid
           items={filteredMenu}
           onEdit={setEditingItem}
           onDelete={deleteMenuItem}
@@ -88,12 +100,12 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
       )}
 
       {/* Create Modal */}
-      <Modal 
+      <Modal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         title="Add New Menu Item"
       >
-        <MenuForm 
+        <MenuForm
           onSubmit={async (data) => {
             await createMenuItem(data);
             setIsCreateModalOpen(false);
@@ -104,13 +116,13 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
       </Modal>
 
       {/* Edit Modal */}
-      <Modal 
+      <Modal
         isOpen={!!editingItem}
         onClose={() => setEditingItem(null)}
         title="Edit Menu Item"
       >
         {editingItem && (
-          <MenuForm 
+          <MenuForm
             initialData={editingItem}
             onSubmit={async (data) => {
               await updateMenuItem(editingItem.id, data);

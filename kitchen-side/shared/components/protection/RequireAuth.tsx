@@ -44,7 +44,10 @@ export function RequireAuth({
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#f6fcff] flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Checking permissions..." />
+        <div className="text-center">
+          <LoadingSpinner size="lg" className="mx-auto mb-4" />
+          <p className="text-gray-600">Checking permissions...</p>
+        </div>
       </div>
     );
   }
@@ -52,7 +55,10 @@ export function RequireAuth({
   if (!isAuthenticated || !user) {
     return (
       <div className="min-h-screen bg-[#f6fcff] flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Redirecting to login..." />
+        <div className="text-center">
+          <LoadingSpinner size="lg" className="mx-auto mb-4" />
+          <p className="text-gray-600">Redirecting to login...</p>
+        </div>
       </div>
     );
   }
@@ -60,7 +66,10 @@ export function RequireAuth({
   if (roles.length > 0 && !roles.includes(user.role)) {
     return (
       <div className="min-h-screen bg-[#f6fcff] flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Redirecting..." />
+        <div className="text-center">
+          <LoadingSpinner size="lg" className="mx-auto mb-4" />
+          <p className="text-gray-600">Redirecting...</p>
+        </div>
       </div>
     );
   }

@@ -45,7 +45,7 @@ export default async function staffRoutes(server: FastifyInstance) {
 
     // GET /api/staff/members/statistics - Staff statistics
     server.get('/members/statistics', {
-      preHandler: [requireRole(['MANAGER', 'ADMIN'])]
+      preHandler: [requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])]
     }, (req, reply) => controller.getStaffStatistics(req as any, reply));
 
     // GET /api/staff/members/:id - Get staff details

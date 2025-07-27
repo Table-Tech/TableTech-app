@@ -5,18 +5,19 @@
 
 "use client";
 
-import { useKitchenOrders } from '../hooks/useKitchenOrders';
-import { OrderCard } from './OrderCard';
-import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { EmptyState } from '@/shared/components/ui/EmptyState';
-import { Button } from '@/shared/components/ui/Button';
+import { useKitchenOrders } from "../hooks/useKitchenOrders";
+import { OrderCard } from "./OrderCard";
+import { LoadingSpinner } from "@/shared/components/ui/LoadingSpinner";
+import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { Button } from "@/shared/components/ui/Button";
 
 interface OrdersPageProps {
   restaurantId: string;
 }
 
 export function OrdersPage({ restaurantId }: OrdersPageProps) {
-  const { orders, isLoading, error, fetchOrders } = useKitchenOrders(restaurantId);
+  const { orders, isLoading, error, fetchOrders } =
+    useKitchenOrders(restaurantId);
 
   if (isLoading) {
     return (
@@ -54,8 +55,8 @@ export function OrdersPage({ restaurantId }: OrdersPageProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {orders.map((order) => (
-            <OrderCard 
-              key={order.id} 
+            <OrderCard
+              key={order.id}
               order={order}
               onStatusUpdate={fetchOrders}
             />

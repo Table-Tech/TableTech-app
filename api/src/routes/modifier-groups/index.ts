@@ -40,7 +40,7 @@ export default async function modifierGroupRoutes(server: FastifyInstance) {
 
     // GET /api/staff/modifier-groups/statistics - Modifier group statistics
     server.get('/modifier-groups/statistics', {
-      preHandler: [requireRole(['MANAGER', 'ADMIN'])]
+      preHandler: [requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])]
     }, (req, reply) => controller.getModifierGroupStatistics(req as any, reply));
 
     // GET /api/staff/modifier-groups/:id - Get modifier group details

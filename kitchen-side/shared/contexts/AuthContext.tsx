@@ -60,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else {
             // Token is invalid, clear everything
             localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
             localStorage.removeItem('user');
             localStorage.removeItem('selectedRestaurantId');
             setToken(null);
@@ -70,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Network error or invalid token, clear everything
           console.error('Token validation failed:', error);
           localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
           localStorage.removeItem('user');
           localStorage.removeItem('selectedRestaurantId');
           setToken(null);
@@ -82,14 +84,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     initializeAuth();
-  }, []);
+
+    // Listen for automatic logout events from API client
+    const handleAutoLogout = () => {
+      setUser(null);
+      setToken(null);
+      setSelectedRestaurantId(null);
+      router.push('/login');
+    };
+
+    window.addEventListener('auth:logout', handleAutoLogout);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('auth:logout', handleAutoLogout);
+    };
+  }, [router]);
 
   const login = async (email: string, password: string) => {
     try {
       const response = await apiClient.login(email, password);
       
       if (response.success && response.data) {
-        const { token: newToken, staff } = response.data;
+        const { token: newToken, refreshToken, staff } = response.data;
         
         // Store in state
         setToken(newToken);
@@ -97,6 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Store in localStorage
         localStorage.setItem('token', newToken);
+        localStorage.setItem('refreshToken', refreshToken);
         localStorage.setItem('user', JSON.stringify(staff));
         
         // Handle restaurant selection based on role
@@ -142,6 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(null);
     setSelectedRestaurantId(null);
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     localStorage.removeItem('selectedRestaurantId');
     localStorage.removeItem('mockUser'); // Clean up cached data
