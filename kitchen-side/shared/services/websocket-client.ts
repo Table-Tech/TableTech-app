@@ -209,6 +209,10 @@ export function useWebSocket(restaurantId?: string) {
   useEffect(() => {
     if (!restaurantId) return;
 
+    // Check current connection status immediately
+    const currentStatus = wsClient.getConnectionStatus();
+    setConnectionStatus(currentStatus);
+
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     wsClient.connect(restaurantId, token || undefined);
 
@@ -220,10 +224,19 @@ export function useWebSocket(restaurantId?: string) {
     wsClient.on('internal:disconnected', handleDisconnected);
     wsClient.on('internal:error', handleError);
 
+    // Periodically check connection status to ensure accuracy
+    const statusCheckInterval = setInterval(() => {
+      const currentStatus = wsClient.getConnectionStatus();
+      setConnectionStatus(currentStatus);
+    }, 1000); // Check every second
+
     return () => {
       wsClient.off('internal:connected', handleConnected);
       wsClient.off('internal:disconnected', handleDisconnected);
       wsClient.off('internal:error', handleError);
+      
+      // Clear the status check interval
+      clearInterval(statusCheckInterval);
       
       // Clean up all subscribers
       subscribersRef.current.forEach(unsub => unsub());

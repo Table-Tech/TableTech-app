@@ -37,7 +37,7 @@ export function useTables(filters?: TableFilters) {
   useEffect(() => {
     if (!currentRestaurantId) return;
 
-    const unsubscribe = subscribe('tableStatusUpdate', (data: { tableId: string; status: string }) => {
+    const unsubscribe = subscribe('table:status', (data: { tableId: string; status: string }) => {
       console.log('Table status update received:', data);
       setTables(prev => prev.map(table => {
         if (table.id === data.tableId) {

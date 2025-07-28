@@ -117,7 +117,6 @@ class ApiClient {
         return {
           success: false,
           error: data.error?.message || data.message || `HTTP ${response.status}`,
-          details: data.error?.details || data.error || data,
         };
       }
 

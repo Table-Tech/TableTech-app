@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   TrendingUp,
   Clock,
@@ -10,6 +10,9 @@ import {
   ArrowDownRight,
   MoreVertical,
 } from "lucide-react";
+import { apiClient } from "@/shared/services/api-client";
+import { useWebSocket } from "@/shared/services/websocket-client";
+import { LoadingSpinner } from "@/shared/components/ui";
 
 interface DashboardPageProps {
   restaurantId: string;
@@ -113,80 +116,193 @@ const RecentOrderRow = ({
 };
 
 export const DashboardPage = ({ restaurantId }: DashboardPageProps) => {
-  // Mock data - replace with real API calls
-  const stats = [
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    todayRevenue: 0,
+    activeOrders: 0,
+    todayOrders: 0,
+    avgOrderValue: 0
+  });
+  const { subscribe } = useWebSocket(restaurantId);
+
+  // Fetch recent orders and stats
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch all orders
+        const ordersResponse = await apiClient.getOrders(restaurantId);
+        
+        if (ordersResponse.success && ordersResponse.data) {
+          const allOrders = Array.isArray(ordersResponse.data) 
+            ? ordersResponse.data 
+            : ordersResponse.data.orders || [];
+          
+          // Sort by createdAt and take the 5 most recent
+          const sortedOrders = allOrders
+            .sort((a: any, b: any) => 
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            )
+            .slice(0, 5);
+          
+          setRecentOrders(sortedOrders);
+
+          // Calculate stats
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          const todayOrders = allOrders.filter((order: any) => 
+            new Date(order.createdAt) >= today
+          );
+          
+          const activeOrders = allOrders.filter((order: any) => 
+            ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'].includes(order.status)
+          );
+          
+          const todayRevenue = todayOrders
+            .filter((order: any) => order.status !== 'CANCELLED')
+            .reduce((sum: number, order: any) => sum + Number(order.totalAmount), 0);
+          
+          const avgOrderValue = todayOrders.length > 0 
+            ? todayRevenue / todayOrders.length 
+            : 0;
+
+          setStats({
+            todayRevenue,
+            activeOrders: activeOrders.length,
+            todayOrders: todayOrders.length,
+            avgOrderValue
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [restaurantId]);
+
+  // Subscribe to real-time order updates
+  useEffect(() => {
+    if (!restaurantId) return;
+
+    const unsubscribeNewOrder = subscribe('order:new', (data) => {
+      const newOrder = data.order;
+      setRecentOrders(prev => [newOrder, ...prev.slice(0, 4)]);
+      
+      // Update stats
+      setStats(prev => ({
+        ...prev,
+        activeOrders: prev.activeOrders + 1,
+        todayOrders: prev.todayOrders + 1,
+        todayRevenue: prev.todayRevenue + Number(newOrder.totalAmount),
+        avgOrderValue: (prev.todayRevenue + Number(newOrder.totalAmount)) / (prev.todayOrders + 1)
+      }));
+    });
+
+    const unsubscribeStatusUpdate = subscribe('order:status', ({ orderId, status }) => {
+      setRecentOrders(prev => prev.map(order => 
+        order.id === orderId ? { ...order, status } : order
+      ));
+      
+      // Update active orders count
+      if (['COMPLETED', 'CANCELLED'].includes(status)) {
+        setStats(prev => ({
+          ...prev,
+          activeOrders: Math.max(0, prev.activeOrders - 1)
+        }));
+      }
+    });
+
+    return () => {
+      unsubscribeNewOrder();
+      unsubscribeStatusUpdate();
+    };
+  }, [restaurantId, subscribe]);
+
+  // Format time ago
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / 1000 / 60);
+    
+    if (diffInMinutes < 1) return 'just now';
+    if (diffInMinutes === 1) return '1 min ago';
+    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+    if (diffInMinutes < 120) return '1 hour ago';
+    return `${Math.floor(diffInMinutes / 60)} hours ago`;
+  };
+
+  // Map order status to display status
+  const mapOrderStatus = (status: string): RecentOrderProps['status'] => {
+    switch (status) {
+      case 'PENDING':
+      case 'CONFIRMED':
+        return 'pending';
+      case 'PREPARING':
+        return 'preparing';
+      case 'READY':
+        return 'ready';
+      case 'COMPLETED':
+      case 'DELIVERED':
+        return 'completed';
+      default:
+        return 'pending';
+    }
+  };
+
+  const statsData = [
     {
       title: "Today's Revenue",
-      value: "€2,847",
-      change: "+12.5%",
+      value: `€${stats.todayRevenue.toFixed(2)}`,
+      change: "+12.5%", // You could calculate this from historical data
       changeType: "increase" as const,
       icon: DollarSign,
     },
     {
       title: "Active Orders",
-      value: "23",
+      value: stats.activeOrders.toString(),
       change: "+5.2%",
       changeType: "increase" as const,
       icon: Clock,
     },
     {
-      title: "Tables Served",
-      value: "67",
+      title: "Orders Today",
+      value: stats.todayOrders.toString(),
       change: "-2.1%",
       changeType: "decrease" as const,
       icon: Users,
     },
     {
       title: "Avg Order Value",
-      value: "€42.50",
+      value: `€${stats.avgOrderValue.toFixed(2)}`,
       change: "+8.3%",
       changeType: "increase" as const,
       icon: TrendingUp,
     },
   ];
 
-  const recentOrders: RecentOrderProps[] = [
-    {
-      id: "128",
-      table: "5",
-      items: 3,
-      total: "€67.50",
-      status: "preparing",
-      time: "2 min ago",
-    },
-    {
-      id: "127",
-      table: "12",
-      items: 2,
-      total: "€34.90",
-      status: "ready",
-      time: "5 min ago",
-    },
-    {
-      id: "126",
-      table: "8",
-      items: 4,
-      total: "€89.20",
-      status: "completed",
-      time: "8 min ago",
-    },
-    {
-      id: "125",
-      table: "3",
-      items: 1,
-      total: "€12.50",
-      status: "pending",
-      time: "10 min ago",
-    },
-    {
-      id: "124",
-      table: "15",
-      items: 5,
-      total: "€156.80",
-      status: "preparing",
-      time: "12 min ago",
-    },
-  ];
+  // Map real orders to RecentOrderProps format
+  const formattedRecentOrders: RecentOrderProps[] = recentOrders.map(order => ({
+    id: order.orderNumber?.split('-').pop() || order.id.slice(0, 4),
+    table: order.table?.number?.toString() || 'N/A',
+    items: order.orderItems?.length || 0,
+    total: `€${Number(order.totalAmount).toFixed(2)}`,
+    status: mapOrderStatus(order.status),
+    time: formatTimeAgo(order.createdAt)
+  }));
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -200,7 +316,7 @@ export const DashboardPage = ({ restaurantId }: DashboardPageProps) => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
+        {statsData.map((stat, index) => (
           <StatCard key={index} {...stat} />
         ))}
       </div>
@@ -212,16 +328,19 @@ export const DashboardPage = ({ restaurantId }: DashboardPageProps) => {
             <h2 className="text-lg font-semibold text-gray-900">
               Recent Orders
             </h2>
-            <button className="text-sm font-medium text-blue-600 hover:text-blue-700">
+            <button 
+              onClick={() => window.location.href = '/dashboard/orders'}
+              className="text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
               View all
             </button>
           </div>
         </div>
 
         <div className="p-6">
-          {recentOrders.length > 0 ? (
+          {formattedRecentOrders.length > 0 ? (
             <div className="space-y-1">
-              {recentOrders.map((order) => (
+              {formattedRecentOrders.map((order) => (
                 <RecentOrderRow key={order.id} {...order} />
               ))}
             </div>

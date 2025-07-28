@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MenuGrid } from "./MenuGrid";
 import { MenuForm } from "./MenuForm";
 import { CategoryForm, CategoryFormData } from "./CategoryForm";
@@ -33,17 +33,35 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
     updateMenuItem,
     deleteMenuItem,
   } = useMenu(restaurantId);
-  const { createCategory } = useCategories(restaurantId);
+  const { categories, fetchCategories, createCategory } = useCategories(restaurantId);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [categoryLoading, setCategoryLoading] = useState(false);
 
+  useEffect(() => {
+    fetchCategories();
+  }, [restaurantId]);
+
   const filteredMenu =
     selectedCategory === "all"
       ? menu
       : menu.filter((item) => item.categoryId === selectedCategory);
+
+  // Group menu items by category
+  const groupedMenu = selectedCategory === "all" 
+    ? categories.reduce((acc, category) => {
+        const items = menu.filter(item => item.categoryId === category.id);
+        if (items.length > 0) {
+          acc.push({ category, items });
+        }
+        return acc;
+      }, [] as { category: any; items: MenuItem[] }[])
+    : [{ 
+        category: categories.find(c => c.id === selectedCategory),
+        items: filteredMenu 
+      }].filter(group => group.category);
 
   const handleCreateCategory = async (data: CategoryFormData) => {
     try {
@@ -125,7 +143,43 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
             </Button>
           }
         />
+      ) : selectedCategory === "all" ? (
+        // Display grouped items with category headers
+        <div className="space-y-8">
+          {groupedMenu.map(({ category, items }) => (
+            <div key={category.id} className="space-y-4">
+              {/* Category Header */}
+              <div className="relative mb-6">
+                <div className="flex items-center">
+                  <div className="bg-gradient-to-r from-blue-50 to-white rounded-lg px-6 py-3 shadow-sm border border-blue-100">
+                    <h2 className="text-xl font-semibold text-gray-800">
+                      {category.name}
+                    </h2>
+                    {category.description && (
+                      <p className="text-sm text-gray-500 mt-0.5">
+                        {category.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex-1 ml-4">
+                    <div className="h-[1px] bg-gradient-to-r from-gray-200 via-gray-200 to-transparent"></div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Items Grid */}
+              <div className="pl-4">
+                <MenuGrid
+                  items={items}
+                  onEdit={setEditingItem}
+                  onDelete={deleteMenuItem}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
+        // Single category view
         <MenuGrid
           items={filteredMenu}
           onEdit={setEditingItem}
