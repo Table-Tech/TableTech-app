@@ -7,19 +7,28 @@
 
 import { MenuItem } from '@/shared/types';
 import { Button } from '@/shared/components/ui/Button';
-import { Edit, Trash2, DollarSign } from 'lucide-react';
+import { Edit, Eye, EyeOff, DollarSign } from 'lucide-react';
 
 interface MenuGridProps {
   items: MenuItem[];
   onEdit: (item: MenuItem) => void;
-  onDelete: (id: string) => void;
+  onToggleAvailability: (id: string, isAvailable: boolean) => void;
+  showHiddenItems?: boolean;
 }
 
-export function MenuGrid({ items, onEdit, onDelete }: MenuGridProps) {
+export function MenuGrid({ items, onEdit, onToggleAvailability, showHiddenItems = false }: MenuGridProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {items.map((item) => (
-        <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+      {items.map((item) => {
+        const isHidden = !item.available;
+        const containerClasses = `bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all ${
+          isHidden && showHiddenItems 
+            ? 'opacity-60 border-2 border-dashed border-gray-300' 
+            : ''
+        }`;
+        
+        return (
+        <div key={item.id} className={containerClasses}>
           {/* Image */}
           {item.imageUrl ? (
             <img 
@@ -65,8 +74,13 @@ export function MenuGrid({ items, onEdit, onDelete }: MenuGridProps) {
                   ? 'bg-green-100 text-green-800' 
                   : 'bg-red-100 text-red-800'
               }`}>
-                {item.available ? 'Available' : 'Unavailable'}
+                {item.available ? 'Available' : 'Hidden'}
               </span>
+              {isHidden && showHiddenItems && (
+                <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
+                  Not visible to customers
+                </span>
+              )}
             </div>
 
             {/* Actions */}
@@ -81,18 +95,32 @@ export function MenuGrid({ items, onEdit, onDelete }: MenuGridProps) {
                 Edit
               </Button>
               <Button
-                variant="destructive"
+                variant={item.available ? "outline" : "default"}
                 size="sm"
-                onClick={() => onDelete(item.id)}
-                className="flex-1"
+                onClick={() => onToggleAvailability(item.id, !item.available)}
+                className={`flex-1 ${
+                  item.available 
+                    ? 'text-red-600 border-red-300 hover:bg-red-50' 
+                    : 'bg-green-600 hover:bg-green-700 text-white'
+                }`}
               >
-                <Trash2 className="w-4 h-4 mr-1" />
-                Delete
+                {item.available ? (
+                  <>
+                    <EyeOff className="w-4 h-4 mr-1" />
+                    Hide
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-4 h-4 mr-1" />
+                    Show
+                  </>
+                )}
               </Button>
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

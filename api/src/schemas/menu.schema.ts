@@ -75,7 +75,12 @@ export const UpdateMenuItemSchema = z.object({
 
 // Update menu item availability
 export const UpdateMenuItemAvailabilitySchema = z.object({
-  isAvailable: z.boolean()
+  isAvailable: z.boolean(),
+  availabilityNote: z.string()
+    .max(200, 'Availability note must be less than 200 characters')
+    .trim()
+    .transform(sanitizeText)
+    .optional()
 });
 
 // Menu query parameters

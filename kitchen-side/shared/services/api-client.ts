@@ -318,7 +318,7 @@ class ApiClient {
 
   async updateMenuItem(restaurantId: string, id: string, data: any) {
     return this.request(`/menu/staff/items/${id}?restaurantId=${restaurantId}`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
@@ -326,6 +326,16 @@ class ApiClient {
   async deleteMenuItem(restaurantId: string, id: string) {
     return this.request(`/menu/staff/items/${id}?restaurantId=${restaurantId}`, {
       method: 'DELETE',
+    });
+  }
+
+  async updateMenuItemAvailability(restaurantId: string, id: string, isAvailable: boolean, availabilityNote?: string) {
+    return this.request(`/menu/staff/items/${id}/availability?restaurantId=${restaurantId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        isAvailable,
+        availabilityNote
+      }),
     });
   }
 

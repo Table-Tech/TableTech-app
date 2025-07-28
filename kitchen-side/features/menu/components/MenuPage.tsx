@@ -17,7 +17,7 @@ import { Modal } from "@/shared/components/ui/Modal";
 import { useMenu } from "../hooks/useMenu";
 import { useCategories } from "../hooks/useCategories";
 import { MenuItem } from "@/shared/types";
-import { Plus, FolderPlus } from "lucide-react";
+import { Plus, FolderPlus, Eye, EyeOff } from "lucide-react";
 
 interface MenuPageProps {
   restaurantId: string;
@@ -32,9 +32,11 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
     createMenuItem,
     updateMenuItem,
     deleteMenuItem,
+    toggleMenuItemAvailability,
   } = useMenu(restaurantId);
   const { categories, fetchCategories, createCategory } = useCategories(restaurantId);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [showHiddenItems, setShowHiddenItems] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -44,17 +46,32 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
     fetchCategories();
   }, [restaurantId]);
 
-  const filteredMenu =
-    selectedCategory === "all"
-      ? menu
-      : menu.filter((item) => item.categoryId === selectedCategory);
+  // Filter menu based on category and availability
+  const getFilteredItems = (items: MenuItem[]) => {
+    let filtered = items;
+    
+    // Filter by category
+    if (selectedCategory !== "all") {
+      filtered = filtered.filter((item) => item.categoryId === selectedCategory);
+    }
+    
+    // Filter by availability unless showing hidden items
+    if (!showHiddenItems) {
+      filtered = filtered.filter((item) => item.available);
+    }
+    
+    return filtered;
+  };
+
+  const filteredMenu = getFilteredItems(menu);
 
   // Group menu items by category
   const groupedMenu = selectedCategory === "all" 
     ? categories.reduce((acc, category) => {
         const items = menu.filter(item => item.categoryId === category.id);
-        if (items.length > 0) {
-          acc.push({ category, items });
+        const filteredItems = showHiddenItems ? items : items.filter(item => item.available);
+        if (filteredItems.length > 0) {
+          acc.push({ category, items: filteredItems });
         }
         return acc;
       }, [] as { category: any; items: MenuItem[] }[])
@@ -83,7 +100,7 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
 
   if (isLoading) {
     return (
-      <div className="p-8 bg-[#f6fcff] min-h-screen">
+      <div className="p-8 bg-gray-50 min-h-screen">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <LoadingSpinner size="lg" className="mx-auto mb-4" />
@@ -96,7 +113,7 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
 
   if (error) {
     return (
-      <div className="p-8 bg-[#f6fcff] min-h-screen">
+      <div className="p-8 bg-gray-50 min-h-screen">
         <div className="text-center text-red-600">
           <p>Error: {error}</p>
           <Button onClick={fetchMenu} className="mt-4">
@@ -108,7 +125,7 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
   }
 
   return (
-    <div className="p-8 bg-[#f6fcff] min-h-screen">
+    <div className="p-8 bg-gray-50 min-h-screen">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-[#0a3c6e]">Menu Management</h1>
         <div className="flex space-x-3">
@@ -126,11 +143,45 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
         </div>
       </div>
 
-      <CategoryFilter
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-        restaurantId={restaurantId}
-      />
+      <div className="flex items-center justify-between mb-6">
+        <CategoryFilter
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+          restaurantId={restaurantId}
+        />
+        
+        {/* Show Hidden Items Toggle */}
+        <div className="flex items-center space-x-3">
+          <label className="flex items-center space-x-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showHiddenItems}
+              onChange={(e) => setShowHiddenItems(e.target.checked)}
+              className="sr-only"
+            />
+            <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              showHiddenItems ? 'bg-blue-600' : 'bg-gray-300'
+            }`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                showHiddenItems ? 'translate-x-6' : 'translate-x-1'
+              }`} />
+            </div>
+            <span className="text-sm font-medium text-gray-700 flex items-center">
+              {showHiddenItems ? (
+                <>
+                  <Eye className="w-4 h-4 mr-1" />
+                  Show Hidden
+                </>
+              ) : (
+                <>
+                  <EyeOff className="w-4 h-4 mr-1" />
+                  Hide Unavailable
+                </>
+              )}
+            </span>
+          </label>
+        </div>
+      </div>
 
       {filteredMenu.length === 0 ? (
         <EmptyState
@@ -172,7 +223,8 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
                 <MenuGrid
                   items={items}
                   onEdit={setEditingItem}
-                  onDelete={deleteMenuItem}
+                  onToggleAvailability={toggleMenuItemAvailability}
+                  showHiddenItems={showHiddenItems}
                 />
               </div>
             </div>
@@ -183,7 +235,8 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
         <MenuGrid
           items={filteredMenu}
           onEdit={setEditingItem}
-          onDelete={deleteMenuItem}
+          onToggleAvailability={toggleMenuItemAvailability}
+          showHiddenItems={showHiddenItems}
         />
       )}
 

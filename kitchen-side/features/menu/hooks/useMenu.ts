@@ -73,6 +73,20 @@ export function useMenu(restaurantId: string) {
     }
   };
 
+  const toggleMenuItemAvailability = async (id: string, isAvailable: boolean, availabilityNote?: string) => {
+    try {
+      const response = await apiClient.updateMenuItemAvailability(restaurantId, id, isAvailable, availabilityNote);
+      if (response.success) {
+        await fetchMenu(); // Refresh the list
+      } else {
+        throw new Error(response.error || 'Failed to update menu item availability');
+      }
+    } catch (error) {
+      console.error('Error updating menu item availability:', error);
+      throw error;
+    }
+  };
+
   const deleteMenuItem = async (id: string) => {
     if (!confirm('Are you sure you want to delete this menu item?')) {
       return;
@@ -103,5 +117,6 @@ export function useMenu(restaurantId: string) {
     createMenuItem,
     updateMenuItem,
     deleteMenuItem,
+    toggleMenuItemAvailability,
   };
 }

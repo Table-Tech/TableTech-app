@@ -68,7 +68,8 @@ export default async function menuRoutes(server: FastifyInstance) {
     server.patch('/items/:id/availability', {
       preHandler: [
         validateParams(MenuItemParamsSchema),
-        validationMiddleware(UpdateMenuItemAvailabilitySchema)
+        validationMiddleware(UpdateMenuItemAvailabilitySchema),
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.updateMenuItemAvailability(req as any, reply));
 
