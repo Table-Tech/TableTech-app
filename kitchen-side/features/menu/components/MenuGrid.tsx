@@ -95,13 +95,13 @@ export function MenuGrid({ items, onEdit, onToggleAvailability, showHiddenItems 
                 Edit
               </Button>
               <Button
-                variant={item.available ? "outline" : "default"}
+                variant={item.available ? "outline" : "success"}
                 size="sm"
                 onClick={() => onToggleAvailability(item.id, !item.available)}
                 className={`flex-1 ${
                   item.available 
                     ? 'text-red-600 border-red-300 hover:bg-red-50' 
-                    : 'bg-green-600 hover:bg-green-700 text-white'
+                    : ''
                 }`}
               >
                 {item.available ? (

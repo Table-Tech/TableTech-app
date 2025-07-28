@@ -3,11 +3,14 @@
 import React, { useState, useMemo } from 'react';
 import { useTables } from '../hooks/useTables';
 import { Button, Input, Select, LoadingSpinner, EmptyState } from '@/shared/components/ui';
-import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
-import type { TableFilters } from '../types';
+import { Wifi, WifiOff, RefreshCw, Plus } from 'lucide-react';
+import { ErrorBoundary } from '@/shared/components/error';
+import { AddTableModal } from './AddTableModal';
+import type { TableFilters, Table } from '../types';
 
 const TablesPage = React.memo(() => {
   const [filters, setFilters] = useState<TableFilters>({});
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const { tables, loading, error, connectionStatus, refetch, createTable, updateTable, deleteTable } = useTables(filters);
 
   const tableStats = useMemo(() => ({
@@ -64,7 +67,8 @@ const TablesPage = React.memo(() => {
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
-          <Button onClick={() => {/* TODO: Open create modal */}}>
+          <Button onClick={() => setIsAddModalOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
             Add Table
           </Button>
         </div>
@@ -126,33 +130,57 @@ const TablesPage = React.memo(() => {
           description="Create your first table to get started."
         />
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {tables.map((table) => (
-            <div
-              key={table.id}
-              className={`p-4 border rounded-lg ${
-                table.status === 'AVAILABLE' ? 'border-green-200 bg-green-50' :
-                table.status === 'OCCUPIED' ? 'border-red-200 bg-red-50' :
-                table.status === 'RESERVED' ? 'border-yellow-200 bg-yellow-50' :
-                'border-gray-200 bg-gray-50'
-              }`}
-            >
-              <div className="text-center">
-                <h3 className="text-lg font-semibold">Table {table.number}</h3>
-                <p className="text-sm text-gray-600">{table.capacity} seats</p>
-                <div className={`mt-2 px-2 py-1 text-xs rounded-full inline-block ${
-                  table.status === 'AVAILABLE' ? 'bg-green-100 text-green-800' :
-                  table.status === 'OCCUPIED' ? 'bg-red-100 text-red-800' :
-                  table.status === 'RESERVED' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {table.status.replace('_', ' ')}
+        <ErrorBoundary 
+          level="section" 
+          name="TablesGrid"
+        >
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {tables.map((table) => (
+              <ErrorBoundary 
+                key={table.id}
+                level="component" 
+                name={`TableCard-${table.number}`}
+              >
+                <div
+                  className={`p-4 border rounded-lg ${
+                    table.status === 'AVAILABLE' ? 'border-green-200 bg-green-50' :
+                    table.status === 'OCCUPIED' ? 'border-red-200 bg-red-50' :
+                    table.status === 'RESERVED' ? 'border-yellow-200 bg-yellow-50' :
+                    'border-gray-200 bg-gray-50'
+                  }`}
+                >
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold">Table {table.number}</h3>
+                    <p className="text-sm text-gray-600">{table.capacity} seats</p>
+                    <div className={`mt-2 px-2 py-1 text-xs rounded-full inline-block ${
+                      table.status === 'AVAILABLE' ? 'bg-green-100 text-green-800' :
+                      table.status === 'OCCUPIED' ? 'bg-red-100 text-red-800' :
+                      table.status === 'RESERVED' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {table.status.replace('_', ' ')}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
+              </ErrorBoundary>
+            ))}
+          </div>
+        </ErrorBoundary>
       )}
+
+      {/* Add Table Modal */}
+      <AddTableModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={(newTable: Table) => {
+          // The table will be automatically added to the list by the useTables hook
+          // We just need to close the modal and optionally show a success message
+          setIsAddModalOpen(false);
+          refetch(); // Refresh the table list to ensure consistency
+        }}
+        existingTables={tables}
+        createTable={createTable}
+      />
     </div>
   );
 });

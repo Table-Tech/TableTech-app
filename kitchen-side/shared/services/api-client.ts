@@ -450,6 +450,23 @@ class ApiClient {
     }>>(`/tables/staff/tables?restaurantId=${restaurantId}`);
   }
 
+  async createTable(data: { number: number; capacity: number; restaurantId: string }) {
+    return this.request<{
+      id: string;
+      number: number;
+      capacity: number;
+      status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'MAINTENANCE';
+      restaurantId: string;
+      qrCodeId?: string;
+      currentOrderId?: string;
+      createdAt: string;
+      updatedAt: string;
+    }>('/staff/tables', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Staff endpoints
   async getStaff(restaurantId: string) {
     return this.request<Array<{

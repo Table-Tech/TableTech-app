@@ -670,6 +670,33 @@ export class WebSocketService {
   }
 
   /**
+   * Emit menu item availability changes
+   */
+  public async emitMenuItemAvailabilityChange(menuItem: any) {
+    console.log('🔔 WebSocket: Emitting menu availability change', {
+      menuItemId: menuItem.id,
+      menuItemName: menuItem.name,
+      available: menuItem.available,
+      restaurantId: menuItem.restaurantId
+    });
+
+    // Emit to restaurant staff
+    this.io.to(`restaurant:${menuItem.restaurantId}`).emit('menu:item:availability:changed', {
+      menuItem: {
+        id: menuItem.id,
+        name: menuItem.name,
+        available: menuItem.available,
+        categoryId: menuItem.categoryId,
+        price: menuItem.price,
+        updatedAt: menuItem.updatedAt
+      },
+      timestamp: new Date()
+    });
+
+    console.log('🔔 WebSocket: Menu availability change emitted');
+  }
+
+  /**
    * Store order in Redis for recovery
    */
   private async storeOrderInRedis(order: any) {

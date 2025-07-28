@@ -17,6 +17,7 @@ import {
   ShoppingCart
 } from 'lucide-react'
 import { useAuth } from '@/shared/hooks/useAuth'
+import { ErrorBoundary } from '@/shared/components/error'
 
 const navItems = [
   { label: 'Dashboard', icon: Home, path: '/dashboard' },
@@ -112,9 +113,14 @@ export const DashboardLayout = React.memo(({ children }: DashboardLayoutProps) =
 
         {/* Main Content */}
         <main className="flex-1 lg:pl-64">
-          <div className="p-4 lg:p-8">
-            {children}
-          </div>
+          <ErrorBoundary
+            level="section"
+            name="MainContent"
+          >
+            <div className="p-4 lg:p-8">
+              {children}
+            </div>
+          </ErrorBoundary>
         </main>
       </div>
     </div>

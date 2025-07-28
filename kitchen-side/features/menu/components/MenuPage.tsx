@@ -14,6 +14,7 @@ import { LoadingSpinner } from "@/shared/components/ui/LoadingSpinner";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { Button } from "@/shared/components/ui/Button";
 import { Modal } from "@/shared/components/ui/Modal";
+import { ErrorBoundary } from "@/shared/components/error";
 import { useMenu } from "../hooks/useMenu";
 import { useCategories } from "../hooks/useCategories";
 import { MenuItem } from "@/shared/types";
@@ -196,48 +197,69 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
         />
       ) : selectedCategory === "all" ? (
         // Display grouped items with category headers
-        <div className="space-y-8">
-          {groupedMenu.map(({ category, items }) => (
-            <div key={category.id} className="space-y-4">
-              {/* Category Header */}
-              <div className="relative mb-6">
-                <div className="flex items-center">
-                  <div className="bg-gradient-to-r from-blue-50 to-white rounded-lg px-6 py-3 shadow-sm border border-blue-100">
-                    <h2 className="text-xl font-semibold text-gray-800">
-                      {category.name}
-                    </h2>
-                    {category.description && (
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        {category.description}
-                      </p>
-                    )}
+        <ErrorBoundary 
+          level="section" 
+          name="MenuCategoryGroups"
+        >
+          <div className="space-y-8">
+            {groupedMenu.map(({ category, items }) => (
+              <ErrorBoundary 
+                key={category.id}
+                level="component" 
+                name={`MenuCategory-${category.name}`}
+              >
+                <div className="space-y-4">
+                  {/* Category Header */}
+                  <div className="relative mb-6">
+                    <div className="flex items-center">
+                      <div className="bg-gradient-to-r from-blue-50 to-white rounded-lg px-6 py-3 shadow-sm border border-blue-100">
+                        <h2 className="text-xl font-semibold text-gray-800">
+                          {category.name}
+                        </h2>
+                        {category.description && (
+                          <p className="text-sm text-gray-500 mt-0.5">
+                            {category.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex-1 ml-4">
+                        <div className="h-[1px] bg-gradient-to-r from-gray-200 via-gray-200 to-transparent"></div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 ml-4">
-                    <div className="h-[1px] bg-gradient-to-r from-gray-200 via-gray-200 to-transparent"></div>
+                  
+                  {/* Items Grid */}
+                  <div className="pl-4">
+                    <ErrorBoundary 
+                      level="component" 
+                      name={`MenuGrid-${category.name}`}
+                    >
+                      <MenuGrid
+                        items={items}
+                        onEdit={setEditingItem}
+                        onToggleAvailability={toggleMenuItemAvailability}
+                        showHiddenItems={showHiddenItems}
+                      />
+                    </ErrorBoundary>
                   </div>
                 </div>
-              </div>
-              
-              {/* Items Grid */}
-              <div className="pl-4">
-                <MenuGrid
-                  items={items}
-                  onEdit={setEditingItem}
-                  onToggleAvailability={toggleMenuItemAvailability}
-                  showHiddenItems={showHiddenItems}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
+              </ErrorBoundary>
+            ))}
+          </div>
+        </ErrorBoundary>
       ) : (
         // Single category view
-        <MenuGrid
-          items={filteredMenu}
-          onEdit={setEditingItem}
-          onToggleAvailability={toggleMenuItemAvailability}
-          showHiddenItems={showHiddenItems}
-        />
+        <ErrorBoundary 
+          level="section" 
+          name="MenuSingleCategory"
+        >
+          <MenuGrid
+            items={filteredMenu}
+            onEdit={setEditingItem}
+            onToggleAvailability={toggleMenuItemAvailability}
+            showHiddenItems={showHiddenItems}
+          />
+        </ErrorBoundary>
       )}
 
       {/* Create Modal */}

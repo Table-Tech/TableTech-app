@@ -180,11 +180,14 @@ export class MenuService extends BaseService<Prisma.MenuItemCreateInput, MenuIte
     if (global.wsService) {
       try {
         // The WebSocket service already has this method from the websocket.service.ts
-        global.wsService.io.to(`restaurant:${menuItem.restaurantId}`).emit('menu:item:availability:changed', {
-          itemId: updatedItem.id,
-          itemName: updatedItem.name,
+        global.wsService.emitMenuItemAvailabilityChange({
+          id: updatedItem.id,
+          name: updatedItem.name,
           available: data.isAvailable,
-          reason: data.availabilityNote
+          categoryId: updatedItem.categoryId,
+          price: updatedItem.price,
+          restaurantId: updatedItem.restaurantId,
+          updatedAt: updatedItem.updatedAt
         });
       } catch (error) {
         // Don't fail the request if WebSocket emission fails

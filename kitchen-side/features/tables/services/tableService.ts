@@ -21,7 +21,21 @@ class TableService {
   }
 
   async createTable(payload: CreateTablePayload) {
-    return apiClient.post<Table>(this.baseUrl, payload);
+    const response = await apiClient.createTable(payload);
+    if (response.success && response.data) {
+      return {
+        id: response.data.id,
+        number: response.data.number,
+        capacity: response.data.capacity,
+        status: response.data.status,
+        restaurantId: response.data.restaurantId,
+        qrCodeId: response.data.qrCodeId,
+        currentOrderId: response.data.currentOrderId,
+        createdAt: new Date(response.data.createdAt),
+        updatedAt: new Date(response.data.updatedAt)
+      } as Table;
+    }
+    throw new Error(response.error || 'Failed to create table');
   }
 
   async updateTable(tableId: string, payload: UpdateTablePayload) {
