@@ -457,7 +457,8 @@ class ApiClient {
       capacity: number;
       status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'MAINTENANCE';
       restaurantId: string;
-      qrCodeId?: string;
+      code: string; // Add permanent table code
+      qrCodeUrl?: string; // Add permanent QR code URL
       currentOrderId?: string;
       createdAt: string;
       updatedAt: string;

@@ -60,11 +60,11 @@ function SelectPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col">
+      <div className="max-w-6xl mx-auto w-full px-8 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <div>
+          <div className="text-center flex-1">
             <h1 className="text-3xl font-bold text-slate-800">
               Selecteer Restaurant
             </h1>
@@ -74,7 +74,7 @@ function SelectPageContent() {
           </div>
           <button
             onClick={logout}
-            className="px-4 py-2 text-slate-600 hover:text-slate-800 transition-colors"
+            className="px-6 py-2 bg-red-50 border-2 border-red-200 text-red-700 hover:bg-red-100 hover:border-red-300 hover:text-red-800 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md"
           >
             Uitloggen
           </button>
@@ -88,58 +88,60 @@ function SelectPageContent() {
         )}
 
         {/* Restaurant Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {restaurants.map((restaurant) => (
-            <button
-              key={restaurant.id}
-              onClick={() => selectRestaurant(restaurant)}
-              className="bg-white hover:bg-slate-50 p-6 rounded-2xl shadow-lg border border-slate-200 transition-all hover:shadow-xl hover:scale-105"
-            >
-              <div className="flex flex-col items-center">
-                {restaurant.logoUrl ? (
-                  <img
-                    src={restaurant.logoUrl}
-                    alt={restaurant.name}
-                    className="w-16 h-16 mx-auto mb-4 object-contain rounded-lg"
-                  />
-                ) : (
-                  <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                    <Building2 className="w-8 h-8 text-blue-600" />
-                  </div>
-                )}
-                <h3 className="font-semibold text-slate-800 text-lg mb-2">
-                  {restaurant.name}
+        <div className="flex justify-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl">
+            {restaurants.map((restaurant) => (
+              <button
+                key={restaurant.id}
+                onClick={() => selectRestaurant(restaurant)}
+                className="bg-white hover:bg-slate-50 p-6 rounded-2xl shadow-lg border border-slate-200 transition-all hover:shadow-xl hover:scale-105"
+              >
+                <div className="flex flex-col items-center">
+                  {restaurant.logoUrl ? (
+                    <img
+                      src={restaurant.logoUrl}
+                      alt={restaurant.name}
+                      className="w-16 h-16 mx-auto mb-4 object-contain rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                      <Building2 className="w-8 h-8 text-blue-600" />
+                    </div>
+                  )}
+                  <h3 className="font-semibold text-slate-800 text-lg mb-2">
+                    {restaurant.name}
+                  </h3>
+                  <p className="text-slate-500 text-sm text-center">
+                    {restaurant.address}
+                  </p>
+                  <p className="text-slate-400 text-xs mt-1">
+                    {restaurant.phone}
+                  </p>
+                </div>
+              </button>
+            ))}
+
+            {/* No restaurants message */}
+            {restaurants.length === 0 && !error && (
+              <div className="col-span-full text-center py-12">
+                <Building2 className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-slate-600 mb-2">
+                  Geen restaurants gevonden
                 </h3>
-                <p className="text-slate-500 text-sm text-center">
-                  {restaurant.address}
-                </p>
-                <p className="text-slate-400 text-xs mt-1">
-                  {restaurant.phone}
+                <p className="text-slate-500">
+                  Er zijn nog geen restaurants beschikbaar in het systeem.
                 </p>
               </div>
-            </button>
-          ))}
-
-          {/* No restaurants message */}
-          {restaurants.length === 0 && !error && (
-            <div className="col-span-full text-center py-12">
-              <Building2 className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-slate-600 mb-2">
-                Geen restaurants gevonden
-              </h3>
-              <p className="text-slate-500">
-                Er zijn nog geen restaurants beschikbaar in het systeem.
-              </p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Retry button for errors */}
         {error && (
-          <div className="text-center mt-8">
+          <div className="flex justify-center mt-8">
             <button
               onClick={loadRestaurants}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors font-medium"
             >
               Opnieuw proberen
             </button>

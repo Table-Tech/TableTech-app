@@ -76,11 +76,12 @@ export function useTables(filters?: TableFilters) {
     });
   }, [tables, filters]);
 
-  const createTable = useCallback(async (payload: Omit<Table, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'restaurantId'>) => {
+  const createTable = useCallback(async (payload: { number: number; capacity: number }) => {
     if (!currentRestaurantId) throw new Error('No restaurant selected');
 
     const newTable = await tableService.createTable({
-      ...payload,
+      number: payload.number,
+      capacity: payload.capacity,
       restaurantId: currentRestaurantId
     });
     

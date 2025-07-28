@@ -29,7 +29,8 @@ class TableService {
         capacity: response.data.capacity,
         status: response.data.status,
         restaurantId: response.data.restaurantId,
-        qrCodeId: response.data.qrCodeId,
+        code: response.data.code || '', // Add code field from API response
+        qrCodeUrl: response.data.qrCodeUrl, // Add qrCodeUrl field
         currentOrderId: response.data.currentOrderId,
         createdAt: new Date(response.data.createdAt),
         updatedAt: new Date(response.data.updatedAt)

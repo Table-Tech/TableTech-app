@@ -116,8 +116,8 @@ export default function OrdersPage() {
     
     setTestOrderLoading(true);
     try {
-      // Using known IDs from our previous data
-      const tableId = "2706fe77-4c9a-420d-b70e-62641bd35e64";
+      // Using Table #2 with specific ID
+      const tableId = "6fcf1085-876a-4755-8915-95a9c0fee02f";
       const menuItemId = "b77c704d-fcfd-494e-a262-bb82fcf0bfcc";
       
       const response = await apiClient.createTestOrder(currentRestaurantId, tableId, menuItemId);
