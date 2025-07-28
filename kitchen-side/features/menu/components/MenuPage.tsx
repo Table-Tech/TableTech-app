@@ -8,13 +8,16 @@
 import { useState } from "react";
 import { MenuGrid } from "./MenuGrid";
 import { MenuForm } from "./MenuForm";
+import { CategoryForm, CategoryFormData } from "./CategoryForm";
 import { CategoryFilter } from "./CategoryFilter";
 import { LoadingSpinner } from "@/shared/components/ui/LoadingSpinner";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { Button } from "@/shared/components/ui/Button";
 import { Modal } from "@/shared/components/ui/Modal";
 import { useMenu } from "../hooks/useMenu";
+import { useCategories } from "../hooks/useCategories";
 import { MenuItem } from "@/shared/types";
+import { Plus, FolderPlus } from "lucide-react";
 
 interface MenuPageProps {
   restaurantId: string;
@@ -30,14 +33,35 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
     updateMenuItem,
     deleteMenuItem,
   } = useMenu(restaurantId);
+  const { createCategory } = useCategories(restaurantId);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [categoryLoading, setCategoryLoading] = useState(false);
 
   const filteredMenu =
     selectedCategory === "all"
       ? menu
       : menu.filter((item) => item.categoryId === selectedCategory);
+
+  const handleCreateCategory = async (data: CategoryFormData) => {
+    try {
+      setCategoryLoading(true);
+      await createCategory({
+        ...data,
+        restaurantId: restaurantId
+      });
+      setIsCategoryModalOpen(false);
+      // Optionally refresh menu to update categories in CategoryFilter
+      await fetchMenu();
+    } catch (error) {
+      console.error('Failed to create category:', error);
+      // Error handling could be improved with toast notifications
+    } finally {
+      setCategoryLoading(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -69,9 +93,19 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
     <div className="p-8 bg-[#f6fcff] min-h-screen">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-[#0a3c6e]">Menu Management</h1>
-        <Button onClick={() => setIsCreateModalOpen(true)}>
-          Add Menu Item
-        </Button>
+        <div className="flex space-x-3">
+          <Button 
+            variant="outline"
+            onClick={() => setIsCategoryModalOpen(true)}
+          >
+            <FolderPlus className="w-4 h-4 mr-2" />
+            Add Category
+          </Button>
+          <Button onClick={() => setIsCreateModalOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Menu Item
+          </Button>
+        </div>
       </div>
 
       <CategoryFilter
@@ -132,6 +166,19 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
             restaurantId={restaurantId}
           />
         )}
+      </Modal>
+
+      {/* Category Modal */}
+      <Modal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        title="Create New Category"
+      >
+        <CategoryForm
+          onSubmit={handleCreateCategory}
+          onCancel={() => setIsCategoryModalOpen(false)}
+          isLoading={categoryLoading}
+        />
       </Modal>
     </div>
   );

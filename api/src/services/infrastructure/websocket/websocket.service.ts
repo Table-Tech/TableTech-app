@@ -83,7 +83,13 @@ export class WebSocketService {
           const payload = verifyToken(token);
           socket.data.user = payload;
           socket.data.userType = 'staff';
-          socket.data.restaurantId = payload.restaurantId;
+          
+          // For SUPER_ADMIN, use the restaurantId from query params if available
+          // Otherwise use the restaurantId from the JWT payload
+          const queryRestaurantId = socket.handshake.query.restaurantId as string;
+          socket.data.restaurantId = payload.role === 'SUPER_ADMIN' && queryRestaurantId 
+            ? queryRestaurantId 
+            : payload.restaurantId;
           
         } else if (userType === 'customer') {
           // Customer authentication via table code
@@ -174,9 +180,21 @@ export class WebSocketService {
       socket.join(`restaurant:${restaurantId}:staff`);
       socket.join(`restaurant:${restaurantId}:role:${user.role}`);
       
+      console.log('🔔 Staff WebSocket Connection:', {
+        staffId: user.staffId,
+        role: user.role,
+        restaurantId,
+        tokenRestaurantId: user.restaurantId,
+        queryRestaurantId: socket.handshake.query.restaurantId,
+        rooms: [`restaurant:${restaurantId}:staff`, `restaurant:${restaurantId}:role:${user.role}`]
+      });
+      
       // Kitchen display room
-      if (['CHEF', 'MANAGER', 'ADMIN'].includes(user.role)) {
+      if (['CHEF', 'MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
         socket.join(`restaurant:${restaurantId}:kitchen`);
+        console.log('🔔 Joined kitchen room:', `restaurant:${restaurantId}:kitchen`);
+      } else {
+        console.log('🔔 Role not eligible for kitchen room:', user.role);
       }
 
       // Notify other staff of new connection
@@ -573,6 +591,14 @@ export class WebSocketService {
    * Public method to emit order updates (called from OrderService)
    */
   public async emitNewOrder(order: any) {
+    console.log('🔔 WebSocket: Emitting new order', {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      restaurantId: order.restaurantId,
+      kitchenRoom: `restaurant:${order.restaurantId}:kitchen`,
+      staffRoom: `restaurant:${order.restaurantId}:staff`
+    });
+    
     // Emit to kitchen displays
     this.io.to(`restaurant:${order.restaurantId}:kitchen`).emit('order:new', {
       order,
@@ -583,6 +609,21 @@ export class WebSocketService {
         sound: 'new-order'
       }
     });
+    
+    console.log('🔔 WebSocket: Emitted to kitchen room');
+
+    // Also emit to all staff (since they might not be in kitchen room)
+    this.io.to(`restaurant:${order.restaurantId}:staff`).emit('order:new', {
+      order,
+      notification: {
+        title: `New Order #${order.orderNumber}`,
+        body: `Table ${order.table.number} - ${order.orderItems.length} items`,
+        priority: 'high',
+        sound: 'new-order'
+      }
+    });
+    
+    console.log('🔔 WebSocket: Emitted to staff room');
 
     // Emit to all staff
     this.io.to(`restaurant:${order.restaurantId}:staff`).emit('order:created', {

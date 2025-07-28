@@ -51,6 +51,10 @@ class ApiClient {
     }
 
     try {
+      console.log('Making request to:', url);
+      console.log('With headers:', { ...defaultHeaders, ...options.headers });
+      console.log('With options:', options);
+      
       const response = await fetch(url, {
         ...options,
         headers: {
@@ -59,7 +63,19 @@ class ApiClient {
         },
       });
 
-      const data = await response.json();
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+
+      const responseText = await response.text();
+      console.log('Raw response text:', responseText);
+      
+      let data;
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        console.error('Failed to parse JSON response:', parseError);
+        data = { error: 'Invalid JSON response', rawResponse: responseText };
+      }
 
       if (!response.ok) {
         // Handle 401 Unauthorized - token expired or invalid
@@ -100,7 +116,8 @@ class ApiClient {
         
         return {
           success: false,
-          error: data.message || `HTTP ${response.status}`,
+          error: data.error?.message || data.message || `HTTP ${response.status}`,
+          details: data.error?.details || data.error || data,
         };
       }
 
@@ -288,10 +305,16 @@ class ApiClient {
   }
 
   async createMenuItem(restaurantId: string, data: any) {
-    return this.request(`/menu/staff/items?restaurantId=${restaurantId}`, {
+    console.log('API Client: Creating menu item');
+    console.log('URL:', `/menu/staff/items`);
+    console.log('Data:', data);
+    console.log('Full URL:', `${this.baseUrl}/menu/staff/items`);
+    const response = await this.request(`/menu/staff/items`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    console.log('Raw API Response:', response);
+    return response;
   }
 
   async updateMenuItem(restaurantId: string, id: string, data: any) {
@@ -437,6 +460,25 @@ class ApiClient {
       activeOrders: number;
       todayRevenue: number;
     }>(`/orders/staff/statistics?restaurantId=${restaurantId}`);
+  }
+
+  // Test order creation for WebSocket testing
+  async createTestOrder(restaurantId: string, tableId: string, menuItemId: string) {
+    return this.request(`/orders/staff/orders`, {
+      method: 'POST',
+      body: JSON.stringify({
+        tableId: tableId,
+        restaurantId: restaurantId,
+        items: [
+          {
+            menuId: menuItemId,
+            quantity: 2,
+            notes: "Test order for WebSocket"
+          }
+        ],
+        notes: "WebSocket test order"
+      }),
+    });
   }
 }
 

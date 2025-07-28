@@ -38,13 +38,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const initializeAuth = async () => {
+      console.log('AuthContext: initializeAuth started');
       // Check for stored auth on mount
       const storedToken = localStorage.getItem('token');
       const storedUser = localStorage.getItem('user');
       const storedSelectedRestaurant = localStorage.getItem('selectedRestaurant');
 
+      console.log('AuthContext: stored data check - token:', !!storedToken, 'user:', !!storedUser);
+
       // If no token or user data, stop loading immediately
       if (!storedToken || !storedUser) {
+        console.log('AuthContext: No stored auth data, stopping loading');
         setIsLoading(false);
         return;
       }
@@ -71,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         
         // Stop loading immediately so user can interact with the app
+        console.log('AuthContext: Setting user data and stopping loading');
         setIsLoading(false);
         
         // Validate token in the background (don't block UI)
@@ -98,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         
       } catch (error) {
-        console.error('Failed to parse stored user data:', error);
+        console.error('AuthContext: Failed to parse stored user data:', error);
         clearAuthData();
         setIsLoading(false);
       }

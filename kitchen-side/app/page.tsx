@@ -9,20 +9,24 @@ export default function Home() {
   const { user, isLoading } = useAuth();
 
   useEffect(() => {
+    console.log('Home page - isLoading:', isLoading, 'user:', user);
+    
     if (isLoading) return;
     
     if (!user) {
+      console.log('No user, redirecting to login');
       router.push("/login");
     } else {
+      console.log('User found:', user.role, user.restaurant?.id);
       // Check user role and redirect appropriately
       if (user.role === 'SUPER_ADMIN') {
-        // Super admin - can select restaurants
+        console.log('SUPER_ADMIN - redirecting to select');
         router.push("/select");
       } else if (user.restaurant?.id) {
-        // Staff with restaurant - go directly to dashboard
+        console.log('Regular user with restaurant - redirecting to dashboard');
         router.push("/dashboard");
       } else {
-        // Fallback to login if no restaurant
+        console.log('User without restaurant - redirecting to login');
         router.push("/login");
       }
     }

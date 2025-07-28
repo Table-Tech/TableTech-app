@@ -1,7 +1,7 @@
 // src/middleware/validation.middleware.ts
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { ZodSchema, ZodError } from 'zod';
-import { ApiError } from '../types/errors.js';
+import { ApiError, ValidationError } from '../types/errors.js';
 
 /**
  * Generic validation middleware for request body
@@ -20,7 +20,10 @@ export function validationMiddleware<T extends ZodSchema<any>>(schema: T) {
           ip: req.ip
         }, 'Request validation failed');
         
-        throw new ApiError(400, 'VALIDATION_ERROR', 'Request validation failed');
+        throw new ValidationError('Request validation failed', {
+          fieldErrors: err.flatten().fieldErrors,
+          formErrors: err.flatten().formErrors
+        });
       }
       throw err;
     }

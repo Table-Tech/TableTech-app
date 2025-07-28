@@ -3,11 +3,11 @@
 import { io, Socket } from 'socket.io-client';
 
 interface WebSocketEvents {
-  newOrder: (order: any) => void;
-  orderStatusUpdate: (data: { orderId: string; status: string }) => void;
-  orderCancelled: (data: { orderId: string }) => void;
-  tableStatusUpdate: (data: { tableId: string; status: string }) => void;
-  staffMessage: (data: { message: string; type: string }) => void;
+  'order:new': (data: { order: any; notification: any }) => void;
+  'order:status': (data: { orderId: string; status: string }) => void;
+  'order:cancelled': (data: { orderId: string }) => void;
+  'table:status': (data: { tableId: string; status: string }) => void;
+  'staff:message': (data: { message: string; type: string }) => void;
 }
 
 class WebSocketClient {
@@ -26,18 +26,27 @@ class WebSocketClient {
 
     const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
     
+    // Get token from parameter, localStorage, or return early if none available
+    const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+    
+    if (!authToken) {
+      console.warn('⚠️ No authentication token available for WebSocket connection');
+      return;
+    }
+    
     this.socket = io(WS_URL, {
       auth: {
-        token: token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null),
+        token: authToken,
       },
       query: {
         type: 'staff',
         restaurantId,
       },
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'], // Allow fallback to polling
       upgrade: true,
       timeout: 20000,
       reconnection: false, // We handle reconnection manually
+      forceNew: true, // Force new connection to avoid conflicts
     });
 
     this.setupEventHandlers(restaurantId, token);
@@ -71,11 +80,11 @@ class WebSocketClient {
 
     // Business events
     const events: (keyof WebSocketEvents)[] = [
-      'newOrder',
-      'orderStatusUpdate', 
-      'orderCancelled',
-      'tableStatusUpdate',
-      'staffMessage'
+      'order:new',
+      'order:status', 
+      'order:cancelled',
+      'table:status',
+      'staff:message'
     ];
 
     events.forEach(event => {

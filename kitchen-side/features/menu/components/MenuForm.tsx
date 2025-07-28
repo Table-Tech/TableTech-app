@@ -17,7 +17,7 @@ interface MenuFormData {
   price: number;
   categoryId: string;
   imageUrl?: string;
-  available: boolean;
+  isAvailable: boolean;
 }
 
 interface MenuFormProps {
@@ -36,7 +36,7 @@ export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: Menu
     price: initialData?.price || 0,
     categoryId: initialData?.categoryId || '',
     imageUrl: initialData?.imageUrl || '',
-    available: initialData?.available ?? true,
+    isAvailable: initialData?.available ?? true,
   });
 
   useEffect(() => {
@@ -48,7 +48,13 @@ export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: Menu
     setIsLoading(true);
     
     try {
-      await onSubmit(formData);
+      // Add restaurantId to the form data and handle empty imageUrl
+      const submitData = {
+        ...formData,
+        restaurantId: restaurantId,
+        imageUrl: formData.imageUrl?.trim() || undefined // Convert empty string to undefined
+      };
+      await onSubmit(submitData);
     } catch (error) {
       console.error('Error submitting form:', error);
     } finally {
@@ -137,8 +143,8 @@ export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: Menu
         <input
           type="checkbox"
           id="available"
-          checked={formData.available}
-          onChange={(e) => handleChange('available', e.target.checked)}
+          checked={formData.isAvailable}
+          onChange={(e) => handleChange('isAvailable', e.target.checked)}
           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
         />
         <label htmlFor="available" className="ml-2 block text-sm text-gray-700">

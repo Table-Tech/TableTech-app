@@ -27,6 +27,7 @@ export function useMenu(restaurantId: string) {
           available: item.isAvailable,
           categoryId: item.category.id,
           imageUrl: item.imageUrl || undefined,
+          price: parseFloat(item.price.toString()), // Ensure price is a number
         }));
         setMenu(transformedMenu);
       } else {
@@ -42,10 +43,14 @@ export function useMenu(restaurantId: string) {
 
   const createMenuItem = async (data: any) => {
     try {
+      console.log('Creating menu item with data:', data);
+      console.log('Restaurant ID:', restaurantId);
       const response = await apiClient.createMenuItem(restaurantId, data);
+      console.log('API Response:', response);
       if (response.success) {
         await fetchMenu(); // Refresh the list
       } else {
+        console.error('API Error Response:', response);
         throw new Error(response.error || 'Failed to create menu item');
       }
     } catch (error) {

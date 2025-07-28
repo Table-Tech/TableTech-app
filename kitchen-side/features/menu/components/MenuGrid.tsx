@@ -41,7 +41,7 @@ export function MenuGrid({ items, onEdit, onDelete }: MenuGridProps) {
               </h3>
               <div className="flex items-center text-green-600 font-medium">
                 <DollarSign className="w-4 h-4" />
-                {item.price.toFixed(2)}
+                {parseFloat(item.price.toString()).toFixed(2)}
               </div>
             </div>
 
