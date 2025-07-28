@@ -3,6 +3,7 @@
  * Displays menu items grouped by category with add functionality
  */
 
+
 import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { MenuItem } from '@/shared/types';
