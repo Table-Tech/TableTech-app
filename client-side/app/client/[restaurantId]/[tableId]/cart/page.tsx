@@ -65,6 +65,20 @@ export default function CartPage() {
         }
 
         try {
+            console.log("🛒 Cart items:", cartItems);
+            
+            const orderPayload = {
+                tableId: String(tableId),
+                restaurantId: String(restaurantId),
+                items: cartItems.map((item) => ({
+                    menuId: String(item.id),
+                    quantity: parseInt(item.quantity),
+                    modifiers: item.modifiers ? item.modifiers.map(mod => String(mod)) : [],
+                })),
+            };
+
+            console.log("🔍 Order payload:", JSON.stringify(orderPayload, null, 2));
+
             const orderRes = await fetch(
                 "http://localhost:3001/api/orders",
                 {
@@ -72,22 +86,17 @@ export default function CartPage() {
                     headers: {
                         "Content-Type": "application/json",
                     },
-                    body: JSON.stringify({
-                        tableId,
-                        restaurantId,
-                        items: cartItems.map((item) => ({
-                            menuId: item.id,
-                            quantity: parseInt(item.quantity),
-                            modifiers: item.modifiers || [],
-                        })),
-                    }),
+                    body: JSON.stringify(orderPayload),
                 }
             );
 
             console.log("📡 orderRes status:", orderRes.status);
-            console.log("📦 orderRes raw:", await orderRes.text());
 
-            if (!orderRes.ok) throw new Error("Bestelling opslaan mislukt");
+            if (!orderRes.ok) {
+                const errorText = await orderRes.text();
+                console.log("📦 orderRes error:", errorText);
+                throw new Error("Bestelling opslaan mislukt");
+            }
 
             const orderData = await orderRes.json();
 
