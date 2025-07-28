@@ -17,6 +17,15 @@ import { requireUser, requireRole, requireRestaurantAccess } from '../../middlew
 export default async function restaurantRoutes(server: FastifyInstance) {
   const controller = new RestaurantController();
 
+  // =================== PUBLIC RESTAURANT ROUTES ===================
+  // GET /api/restaurants - Get all restaurants (for SUPER_ADMIN)
+  server.get('/', {
+    preHandler: [
+      requireUser,
+      requireRole(['SUPER_ADMIN'])
+    ]
+  }, (req, reply) => controller.getAllRestaurants(req as any, reply));
+
   // =================== RESTAURANT ROUTES ===================
   server.register(async function restaurantManagementRoutes(server) {
     // All routes here require authentication
@@ -26,7 +35,7 @@ export default async function restaurantRoutes(server: FastifyInstance) {
     server.post('/restaurants', {
       preHandler: [
         validationMiddleware(CreateRestaurantSchema),
-        requireRole(['ADMIN']),
+        requireRole(['ADMIN', 'SUPER_ADMIN']),
         rateLimit(3, 3600000) // 3 attempts per hour
       ]
     }, (req, reply) => controller.createRestaurant(req as any, reply));
@@ -35,7 +44,7 @@ export default async function restaurantRoutes(server: FastifyInstance) {
     server.get('/restaurants', {
       preHandler: [
         validateQuery(RestaurantQuerySchema),
-        requireRole(['ADMIN', 'MANAGER'])
+        requireRole(['SUPER_ADMIN', 'ADMIN', 'MANAGER'])
       ]
     }, (req, reply) => controller.listRestaurants(req as any, reply));
 
@@ -44,7 +53,7 @@ export default async function restaurantRoutes(server: FastifyInstance) {
       preHandler: [
         validateParams(RestaurantParamsSchema),
         requireRestaurantAccess,
-        requireRole(['ADMIN', 'MANAGER'])
+        requireRole(['ADMIN', 'MANAGER', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.getRestaurantById(req as any, reply));
 
@@ -54,7 +63,7 @@ export default async function restaurantRoutes(server: FastifyInstance) {
         validateParams(RestaurantParamsSchema),
         requireRestaurantAccess,
         validationMiddleware(UpdateRestaurantSchema),
-        requireRole(['ADMIN'])
+        requireRole(['ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.updateRestaurant(req as any, reply));
 
@@ -63,7 +72,7 @@ export default async function restaurantRoutes(server: FastifyInstance) {
       preHandler: [
         validateParams(RestaurantParamsSchema),
         requireRestaurantAccess,
-        requireRole(['ADMIN'])
+        requireRole(['ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.archiveRestaurant(req as any, reply));
 
@@ -72,7 +81,7 @@ export default async function restaurantRoutes(server: FastifyInstance) {
       preHandler: [
         validateParams(RestaurantParamsSchema),
         requireRestaurantAccess,
-        requireRole(['ADMIN', 'MANAGER'])
+        requireRole(['ADMIN', 'MANAGER', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.getRestaurantStatistics(req as any, reply));
 

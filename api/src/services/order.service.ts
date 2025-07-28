@@ -16,6 +16,9 @@ import {
   validateCustomerOrder,
   canModifyOrder
 } from '../utils/logic-validation/order.validation.js';
+import { logger, createRequestLogger } from '../utils/logger.js';
+import { audit } from '../utils/audit.js';
+import { FastifyRequest } from 'fastify';
 
 // Types for the processed data
 type MenuItemWithModifiers = MenuItem & {
@@ -31,7 +34,19 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
     /**
    * Create staff order
    */
-  async createStaffOrder(data: CreateOrderDTO, staffId: string): Promise<Order> {
+  async createStaffOrder(data: CreateOrderDTO, staffId: string, req?: FastifyRequest): Promise<Order> {
+    const timer = Date.now();
+    const reqLogger = req ? createRequestLogger(req) : logger.base;
+    
+    reqLogger.info({ 
+      orderData: { 
+        tableId: data.tableId, 
+        restaurantId: data.restaurantId, 
+        itemCount: data.items.length 
+      },
+      staffId 
+    }, 'Creating staff order');
+
     // Business validation
     validateBusinessHours();
     validateOrderItems(data.items);
@@ -52,13 +67,13 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
       validateTableAvailability(table.status, false);
 
       // ── 2. Process items & totals ─────────────────────────────────
-      const { orderItems, totalAmount } = await this.processOrderItems(
+      const { orderItems, financials } = await this.processOrderItems(
         tx,
         data.items,
         data.restaurantId
       );
 
-      validateOrderAmount(totalAmount);
+      validateOrderAmount(financials.totalAmount);
 
       // ── 3. Create order with duplicate-number retry ───────────────
       let order: Order | null = null;
@@ -70,13 +85,15 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
           order = await tx.order.create({
             data: {
               orderNumber,
-              totalAmount,
+              subtotal: financials.subtotal,
+              taxAmount: financials.taxAmount,
+              totalAmount: financials.totalAmount,
               notes: data.notes,
               status: "PENDING",
               paymentStatus: "PENDING",
-              table:       { connect: { id: data.tableId } },
-              restaurant:  { connect: { id: data.restaurantId } },
-              orderItems:  { create: orderItems },
+              tableId: data.tableId,
+              restaurantId: data.restaurantId,
+              orderItems: { create: orderItems },
             },
             include: this.getOrderIncludes(),
           });
@@ -103,6 +120,40 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
         });
       }
 
+      // Emit WebSocket event for new order
+      if (global.wsService && order) {
+        await global.wsService.emitNewOrder(order);
+      }
+
+      // ── 6. Logging & Audit ────────────────────────────────────────
+      const duration = Date.now() - timer;
+      
+      // Performance logging
+      logger.perf.timing('createStaffOrder', duration, { 
+        orderId: order.id, 
+        itemCount: data.items.length 
+      });
+      
+      // Business metrics
+      logger.business.revenue(
+        Number(order.totalAmount), 
+        order.id, 
+        order.restaurantId,
+        { orderType: 'staff', staffId }
+      );
+      
+      // Audit logging (permanent record)
+      if (req) {
+        await audit.orderCreated(order, req);
+      }
+      
+      reqLogger.info({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        totalAmount: Number(order.totalAmount),
+        duration
+      }, 'Staff order created successfully');
+
       return order;
     });
   }
@@ -111,7 +162,19 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
   /**
    * Create customer order (via QR)
   */
-  async createCustomerOrder(data: CreateCustomerOrderDTO): Promise<Order> {
+  async createCustomerOrder(data: CreateCustomerOrderDTO, sessionToken?: string, req?: FastifyRequest): Promise<Order> {
+    const timer = Date.now();
+    const reqLogger = req ? createRequestLogger(req) : logger.base;
+    
+    reqLogger.info({ 
+      orderData: { 
+        tableCode: data.tableCode, 
+        itemCount: data.items.length,
+        customerName: data.customerName 
+      },
+      sessionToken: sessionToken ? 'present' : 'none'
+    }, 'Creating customer order');
+
     validateCustomerOrder(data);
 
     return await this.prisma.$transaction(async (tx) => {
@@ -128,13 +191,13 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
       validateTableAvailability(table.status, false);
 
       // ── 2. Process items & totals ───────────────────────────────
-      const { orderItems, totalAmount } = await this.processOrderItems(
+      const { orderItems, financials } = await this.processOrderItems(
         tx,
         data.items,
         table.restaurantId
       );
 
-      validateOrderAmount(totalAmount);
+      validateOrderAmount(financials.totalAmount);
 
       // ── 3. Create order with duplicate-key retry ────────────────
       let order: Order | null = null;
@@ -146,13 +209,16 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
           order = await tx.order.create({
             data: {
               orderNumber,
-              totalAmount,
+              subtotal: financials.subtotal,
+              taxAmount: financials.taxAmount,
+              totalAmount: financials.totalAmount,
+              sessionId: sessionToken?.replace('sess_', '') || null, // Link to customer session
               notes: data.notes,
               status: "PENDING",
               paymentStatus: "PENDING",
-              table:       { connect: { id: table.id } },
-              restaurant:  { connect: { id: table.restaurantId } },
-              orderItems:  { create: orderItems },
+              tableId: table.id,
+              restaurantId: table.restaurantId,
+              orderItems: { create: orderItems },
             },
             include: this.getOrderIncludes(),
           });
@@ -179,7 +245,50 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
         });
       }
 
-      // TODO: Emit WebSocket event for new order
+      // Emit WebSocket event for new order
+      if (global.wsService && order) {
+        await global.wsService.emitNewOrder(order);
+      }
+
+      // ── 5. Logging & Audit (Customer Order) ───────────────────────
+      const duration = Date.now() - timer;
+      
+      // Performance logging
+      logger.perf.timing('createCustomerOrder', duration, { 
+        orderId: order.id, 
+        itemCount: data.items.length,
+        tableCode: data.tableCode
+      });
+      
+      // Business metrics & customer behavior
+      logger.business.revenue(
+        Number(order.totalAmount), 
+        order.id, 
+        order.restaurantId,
+        { orderType: 'customer', sessionToken }
+      );
+      
+      if (sessionToken) {
+        logger.business.customerBehavior(
+          'order_placed', 
+          sessionToken, 
+          table.id,
+          { itemCount: data.items.length, amount: Number(order.totalAmount) }
+        );
+      }
+      
+      // Audit logging (permanent record)
+      if (req) {
+        await audit.orderCreated(order, req);
+      }
+      
+      reqLogger.info({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        totalAmount: Number(order.totalAmount),
+        duration,
+        tableCode: data.tableCode
+      }, 'Customer order created successfully');
 
       return order;
     });
@@ -192,8 +301,11 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
   async updateOrderStatus(
     orderId: string, 
     data: UpdateOrderStatusDTO,
-    staffId?: string
+    staffId?: string,
+    req?: FastifyRequest
   ): Promise<Order> {
+    const timer = Date.now();
+    const reqLogger = req ? createRequestLogger(req) : logger.base;
     return await this.prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
         where: { id: orderId },
@@ -235,7 +347,46 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
         }
       }
 
-      // TODO: Emit WebSocket event for status change
+      // Emit WebSocket event for status change
+      if (global.wsService && updated && order.status !== updated.status) {
+        await global.wsService.emitOrderStatusUpdate(updated, order.status);
+      }
+
+      // ── Logging & Audit (Order Status Update) ─────────────────────
+      const duration = Date.now() - timer;
+      
+      // Performance logging
+      logger.perf.timing('updateOrderStatus', duration, { 
+        orderId, 
+        statusChange: `${order.status} -> ${data.status}`
+      });
+      
+      // Business metrics for completion
+      if (data.status === 'COMPLETED' && updated) {
+        logger.business.orderMetrics(orderId, order.restaurantId, {
+          itemCount: updated.orderItems?.length || 0,
+          tableNumber: order.table.number,
+          preparationTime: updated.completedAt && order.createdAt ? 
+            Math.round((updated.completedAt.getTime() - order.createdAt.getTime()) / 1000 / 60) : undefined
+        });
+      }
+      
+      // Audit logging for status changes
+      if (req && staffId) {
+        await audit.orderStatusChanged(orderId, order.status, data.status, staffId, req);
+        
+        // Special audit for cancellations
+        if (data.status === 'CANCELLED') {
+          await audit.orderCancelled(orderId, data.notes || 'No reason provided', staffId, req);
+        }
+      }
+      
+      reqLogger.info({
+        orderId,
+        statusChange: `${order.status} -> ${data.status}`,
+        staffId,
+        duration
+      }, `Order status updated to ${data.status}`);
 
       return updated;
     });
@@ -356,7 +507,7 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
     }
 
     // ── 3. Process items using cached data ───────────────────────────────
-    let totalAmount = 0;
+    let subtotalAmount = 0;
     const orderItems = [];
 
     for (const item of items) {
@@ -385,7 +536,7 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
       }
 
       const itemTotal = itemPrice * item.quantity;
-      totalAmount += itemTotal;
+      subtotalAmount += itemTotal;
 
       orderItems.push({
         quantity: item.quantity,
@@ -396,7 +547,30 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
       });
     }
 
-    return { orderItems, totalAmount };
+    // ── 4. Calculate Dutch BTW tax compliance (dynamic rate) ──────────────
+    const taxRate = await this.getRestaurantTaxRate(tx, restaurantId);
+    const subtotal = Math.round(subtotalAmount * 100) / 100; // Round to 2 decimals
+    const taxAmount = Math.round(subtotal * (taxRate / 100) * 100) / 100; // BTW percentage
+    const totalAmount = Math.round((subtotal + taxAmount) * 100) / 100;
+
+    const financials = {
+      subtotal,
+      taxAmount,
+      totalAmount
+    };
+
+    return { orderItems, financials };
+  }
+
+  /**
+   * Get restaurant tax rate (9% for Dutch restaurants)
+   */
+  private async getRestaurantTaxRate(tx: any, restaurantId: string): Promise<number> {
+    const restaurant = await tx.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { taxRate: true }
+    });
+    return restaurant?.taxRate ? Number(restaurant.taxRate) : 9.0; // Default to 9% Dutch BTW
   }
 
   /**

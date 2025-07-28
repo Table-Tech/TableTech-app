@@ -148,18 +148,54 @@ export class MenuService extends BaseService<Prisma.MenuItemCreateInput, MenuIte
   ): Promise<MenuItem> {
     const menuItem = await this.prisma.menuItem.findUnique({
       where: { id: itemId },
-      select: { id: true }
+      select: { id: true, restaurantId: true }
     });
 
     if (!menuItem) {
       throw new ApiError(404, 'MENU_ITEM_NOT_FOUND', 'Menu item not found');
     }
 
-    return await this.prisma.menuItem.update({
+    const updateData: any = {
+      isAvailable: data.isAvailable,
+      unavailableBy: staffId
+    };
+
+    // Track availability changes
+    if (!data.isAvailable) {
+      updateData.lastUnavailableAt = new Date();
+      updateData.availabilityNote = data.availabilityNote || null;
+    } else {
+      // Clear unavailability data when making available again
+      updateData.availabilityNote = null;
+      updateData.lastUnavailableAt = null;
+    }
+
+    const updatedItem = await this.prisma.menuItem.update({
       where: { id: itemId },
-      data: { isAvailable: data.isAvailable },
+      data: updateData,
       include: this.getMenuItemIncludes()
     });
+
+    // Emit WebSocket event for availability change (if websocket service available)
+    if (global.wsService) {
+      try {
+        // The WebSocket service already has this method from the websocket.service.ts
+        global.wsService.emitMenuItemAvailabilityChange({
+          id: updatedItem.id,
+          name: updatedItem.name,
+          available: data.isAvailable,
+          categoryId: updatedItem.categoryId,
+          price: updatedItem.price,
+          restaurantId: updatedItem.restaurantId,
+          updatedAt: updatedItem.updatedAt
+        });
+      } catch (error) {
+        // Don't fail the request if WebSocket emission fails
+        console.error('Failed to emit availability change event:', error);
+      }
+    }
+
+    return updatedItem;
   }
 
   /**

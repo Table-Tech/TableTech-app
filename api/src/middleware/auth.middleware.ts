@@ -74,12 +74,13 @@ export const requireRole = (allowedRoles: string[]) => {
 /**
  * Shortcuts for common role checks
  */
-export const requireAdmin = requireRole(['ADMIN']);
-export const requireManager = requireRole(['ADMIN', 'MANAGER']);
-export const requireStaff = requireRole(['ADMIN', 'MANAGER', 'CHEF', 'WAITER', 'CASHIER']);
+export const requireSuperAdmin = requireRole(['SUPER_ADMIN']);
+export const requireAdmin = requireRole(['SUPER_ADMIN', 'ADMIN']);
+export const requireManager = requireRole(['SUPER_ADMIN', 'ADMIN', 'MANAGER']);
+export const requireStaff = requireRole(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CHEF', 'WAITER', 'CASHIER']);
 
 /**
- * Ensure user can only access their own restaurant's data
+ * Ensure user can only access their own restaurant's data (unless SUPER_ADMIN)
  */
 export const requireRestaurantAccess = async (
   req: FastifyRequest,
@@ -89,6 +90,11 @@ export const requireRestaurantAccess = async (
   
   if (!user) {
     throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required');
+  }
+
+  // SUPER_ADMIN can access any restaurant
+  if (user.role === 'SUPER_ADMIN') {
+    return;
   }
 
   // Extract restaurantId from request
@@ -104,6 +110,51 @@ export const requireRestaurantAccess = async (
   if (requestedRestaurantId && requestedRestaurantId !== user.restaurantId) {
     throw new ApiError(403, 'FORBIDDEN', 'Access denied to this restaurant');
   }
+};
+
+/**
+ * Ensure user has a restaurantId (not SUPER_ADMIN with null restaurantId)
+ * Use this for routes that require a specific restaurant context
+ */
+export const requireRestaurantId = async (
+  req: FastifyRequest,
+  reply: FastifyReply
+) => {
+  const user = (req as AuthenticatedRequest).user;
+  
+  if (!user) {
+    throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required');
+  }
+
+  if (!user.restaurantId) {
+    throw new ApiError(400, 'RESTAURANT_REQUIRED', 'Restaurant context required for this operation');
+  }
+};
+
+/**
+ * Get restaurantId from user context or route params (for SUPER_ADMIN)
+ * Helper function for controllers to handle both cases
+ */
+export const getRestaurantId = (req: AuthenticatedRequest): string => {
+  const user = req.user;
+  
+  // For regular users, use their restaurantId
+  if (user.restaurantId) {
+    return user.restaurantId;
+  }
+  
+  // For SUPER_ADMIN, try to get from restaurant context header first, then route params/query
+  const restaurantContext = req.headers['x-restaurant-context'] as string;
+  const params = req.params as any;
+  const query = req.query as any;
+  
+  const restaurantId = restaurantContext || params?.restaurantId || query?.restaurantId;
+  
+  if (!restaurantId) {
+    throw new ApiError(400, 'RESTAURANT_ID_REQUIRED', 'Restaurant context must be provided for SUPER_ADMIN');
+  }
+  
+  return restaurantId;
 };
 
 /**

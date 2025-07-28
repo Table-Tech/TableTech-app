@@ -21,7 +21,7 @@ if (!JWT_REFRESH_SECRET) {
 
 export interface JWTPayload {
   staffId: string;
-  restaurantId: string;
+  restaurantId: string | null; // null for SUPER_ADMIN
   role: string;
   email: string;
 }

@@ -16,6 +16,16 @@ export class RestaurantService extends BaseService<
   protected model = 'restaurant' as const;
 
   /**
+   * Get all restaurants (SUPER_ADMIN only)
+   */
+  async getAllRestaurants(): Promise<Restaurant[]> {
+    return this.prisma.restaurant.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' }
+    });
+  }
+
+  /**
    * Create a new restaurant (admin only)
    */
   async createRestaurant(

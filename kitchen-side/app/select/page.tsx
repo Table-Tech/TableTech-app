@@ -2,343 +2,160 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Plus, X } from "lucide-react";
+import { useAuth } from "@/shared/hooks/useAuth";
+import { apiClient } from "@/shared/services/api-client";
+import { Restaurant } from "@/shared/types/restaurant";
+import { RequireAuth } from "@/shared/components/protection";
+import { Plus, Building2 } from "lucide-react";
 
-interface Restaurant {
-  id: string;
-  name: string;
-  address: string;
-  phone: string;
-  email: string;
-  logoUrl: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-const API_URL = "http://localhost:3001";
-
-export default function SelectPage() {
+function SelectPageContent() {
   const router = useRouter();
+  const { user, logout, selectRestaurant } = useAuth();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // 👉 Restaurants ophalen
   useEffect(() => {
-    const fetchRestaurants = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`${API_URL}/api/restaurants`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const data = await res.json();
-        console.log('Restaurants response:', data); // Debug log
-        
-        // Handle different response structures
-        if (Array.isArray(data)) {
-          setRestaurants(data);
-        } else if (data.data && Array.isArray(data.data)) {
-          setRestaurants(data.data);
-        } else if (data.restaurants && Array.isArray(data.restaurants)) {
-          setRestaurants(data.restaurants);
-        } else {
-          console.error("Unexpected response structure:", data);
-          setRestaurants([]);
-        }
-      } catch (err) {
-        console.error("Fout bij ophalen restaurants:", err);
-        setRestaurants([]);
-      }
-    };
-
-    fetchRestaurants();
-  }, []);
-
-  // 👉 Nieuw restaurant toevoegen
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-    
-    // Valideer required fields (alleen name en email zijn verplicht)
-    const name = formData.get("name") as string;
-    const email = formData.get("email") as string;
-    const address = formData.get("address") as string;
-    const phone = formData.get("phone") as string;
-    const logoUrl = formData.get("logoUrl") as string;
-    
-    if (!name.trim()) {
-      alert("Restaurant naam is verplicht");
-      setLoading(false);
-      return;
-    }
-    
-    if (!email.trim()) {
-      alert("E-mailadres is verplicht");
-      setLoading(false);
-      return;
-    }
-    
-    // Bouw restaurant data object - alleen verstuur velden die ingevuld zijn
-    const now = new Date().toISOString();
-    const restaurantData: any = {
-      name: name.trim(),
-      email: email.trim(),
-      createdAt: now, // Voeg automatisch createdAt toe
-      updatedAt: now, // Voeg automatisch updatedAt toe
-    };
-
-    // Voeg optionele velden toe als ze ingevuld zijn
-    if (address && address.trim()) {
-      restaurantData.address = address.trim();
-    }
-    
-    if (phone && phone.trim()) {
-      restaurantData.phone = phone.trim();
-    }
-    
-    if (logoUrl && logoUrl.trim()) {
-      restaurantData.logoUrl = logoUrl.trim();
-    }
-
-    console.log('Sending restaurant data:', restaurantData); // Debug log
-
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/api/restaurants`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(restaurantData),
-      });
-
-      const data = await res.json();
-      console.log('Response data:', data); // Debug log
-      
-      if (!res.ok) {
-        // Betere error handling
-        let errorMessage = "Onbekende fout";
-        
-        if (data.error) {
-          if (typeof data.error === 'string') {
-            errorMessage = data.error;
-          } else if (data.error.message) {
-            errorMessage = data.error.message;
-          } else if (data.error.code === 'VALIDATION_ERROR') {
-            errorMessage = "Validatiefout: Controleer of alle velden correct zijn ingevuld";
-          }
-        } else if (data.message) {
-          errorMessage = data.message;
-        }
-        
-        alert("Fout bij toevoegen restaurant: " + errorMessage);
-        return;
-      }
-
-      // Handle different response structures
-      let newRestaurant;
-      if (data.data) {
-        newRestaurant = data.data;
-      } else if (data.restaurant) {
-        newRestaurant = data.restaurant;
+    // Only load restaurants if user is authenticated as SUPER_ADMIN
+    if (user && user.role === 'SUPER_ADMIN') {
+      loadRestaurants();
+    } else if (user && user.role !== 'SUPER_ADMIN') {
+      // Regular users shouldn't be on this page
+      if (user.restaurant) {
+        router.push('/dashboard');
       } else {
-        newRestaurant = data;
+        logout(); // Something is wrong, logout
       }
+    }
+  }, [user, router, logout]);
 
-      setRestaurants((prev) => [...prev, newRestaurant]);
-      form.reset();
-      setShowForm(false);
-      alert("Restaurant succesvol toegevoegd!");
+  const loadRestaurants = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      
+      const response = await apiClient.getAllRestaurants();
+      
+      if (response.success && response.data) {
+        setRestaurants(response.data);
+      } else {
+        setError(response.error || "Failed to load restaurants");
+      }
     } catch (err) {
-      console.error("Fout bij POST:", err);
-      alert("Netwerkfout bij toevoegen restaurant");
+      setError("Network error - make sure API is running");
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="p-8 min-h-screen bg-gray-100 flex flex-col items-center">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">
-        Selecteer een Restaurant
-      </h1>
-
-      <div className="flex gap-6 flex-wrap justify-center max-w-6xl">
-        {restaurants.map((r) => (
-          <button
-            key={r.id}
-            onClick={() => router.push(`/dashboard/${r.id}`)}
-            className="bg-white hover:bg-gray-50 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 w-72 text-left"
-          >
-            <div className="flex flex-col items-center text-center mb-4">
-              <img
-                src={r.logoUrl || "/default-restaurant-logo.png"}
-                alt={r.name}
-                className="w-16 h-16 mx-auto mb-3 object-contain rounded-lg"
-                onError={(e) => {
-                  e.currentTarget.src = "/default-restaurant-logo.png";
-                }}
-              />
-              <h3 className="font-bold text-lg text-[#12395B] mb-2">{r.name}</h3>
-            </div>
-            
-            <div className="space-y-1 text-sm text-gray-600">
-              {r.address && (
-                <p className="flex items-center">
-                  <span className="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
-                  {r.address}
-                </p>
-              )}
-              {r.phone && (
-                <p className="flex items-center">
-                  <span className="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
-                  {r.phone}
-                </p>
-              )}
-              {r.email && (
-                <p className="flex items-center">
-                  <span className="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
-                  {r.email}
-                </p>
-              )}
-            </div>
-          </button>
-        ))}
-
-        {/* Plus knop */}
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 hover:bg-gray-50 hover:border-gray-400 p-6 rounded-xl w-72 h-64 text-[#12395B] transition-all duration-200"
-        >
-          <Plus size={48} className="mb-4 text-gray-400" />
-          <span className="font-semibold text-lg">Nieuw restaurant</span>
-          <span className="text-sm text-gray-500 mt-1">Klik om toe te voegen</span>
-        </button>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading restaurants...</p>
+        </div>
       </div>
+    );
+  }
 
-      {/* Formulier Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-[#12395B]">
-                  Nieuw restaurant toevoegen
-                </h2>
-                <button
-                  onClick={() => setShowForm(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                  disabled={loading}
-                >
-                  <X size={24} />
-                </button>
-              </div>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col">
+      <div className="max-w-6xl mx-auto w-full px-8 py-8">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div className="text-center flex-1">
+            <h1 className="text-3xl font-bold text-slate-800">
+              Selecteer Restaurant
+            </h1>
+            <p className="text-slate-600 mt-2">
+              Welkom {user?.name}, kies een restaurant om te beheren
+            </p>
+          </div>
+          <button
+            onClick={logout}
+            className="px-6 py-2 bg-red-50 border-2 border-red-200 text-red-700 hover:bg-red-100 hover:border-red-300 hover:text-red-800 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+          >
+            Uitloggen
+          </button>
+        </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Restaurant naam *
-                  </label>
-                  <input
-                    id="name"
-                    name="name"
-                    type="text"
-                    placeholder="Bijv. Pizzeria Mario"
-                    className="w-full border border-gray-300 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-[#12395B] focus:border-transparent"
-                    required
-                    disabled={loading}
-                  />
-                </div>
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6">
+            {error}
+          </div>
+        )}
 
-                <div>
-                  <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                    Adres
-                  </label>
-                  <input
-                    id="address"
-                    name="address"
-                    type="text"
-                    placeholder="Hoofdstraat 123, 1234 AB Amsterdam"
-                    className="w-full border border-gray-300 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-[#12395B] focus:border-transparent"
-                    disabled={loading}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Telefoonnummer
-                  </label>
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    placeholder="06-12345678 of 020-1234567"
-                    className="w-full border border-gray-300 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-[#12395B] focus:border-transparent"
-                    disabled={loading}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                    E-mailadres *
-                  </label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="info@restaurant.nl"
-                    className="w-full border border-gray-300 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-[#12395B] focus:border-transparent"
-                    required
-                    disabled={loading}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="logoUrl" className="block text-sm font-medium text-gray-700 mb-1">
-                    Logo URL
-                  </label>
-                  <input
-                    id="logoUrl"
-                    name="logoUrl"
-                    type="url"
-                    placeholder="https://example.com/logo.png"
-                    className="w-full border border-gray-300 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-[#12395B] focus:border-transparent"
-                    disabled={loading}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Optioneel - URL naar het restaurant logo
+        {/* Restaurant Grid */}
+        <div className="flex justify-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl">
+            {restaurants.map((restaurant) => (
+              <button
+                key={restaurant.id}
+                onClick={() => selectRestaurant(restaurant)}
+                className="bg-white hover:bg-slate-50 p-6 rounded-2xl shadow-lg border border-slate-200 transition-all hover:shadow-xl hover:scale-105"
+              >
+                <div className="flex flex-col items-center">
+                  {restaurant.logoUrl ? (
+                    <img
+                      src={restaurant.logoUrl}
+                      alt={restaurant.name}
+                      className="w-16 h-16 mx-auto mb-4 object-contain rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                      <Building2 className="w-8 h-8 text-blue-600" />
+                    </div>
+                  )}
+                  <h3 className="font-semibold text-slate-800 text-lg mb-2">
+                    {restaurant.name}
+                  </h3>
+                  <p className="text-slate-500 text-sm text-center">
+                    {restaurant.address}
+                  </p>
+                  <p className="text-slate-400 text-xs mt-1">
+                    {restaurant.phone}
                   </p>
                 </div>
+              </button>
+            ))}
 
-                <div className="flex gap-3 justify-end pt-4 border-t">
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(false)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                    disabled={loading}
-                  >
-                    Annuleren
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-[#12395B] text-white px-6 py-2 rounded-md hover:bg-[#0a2e4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={loading}
-                  >
-                    {loading ? "Toevoegen..." : "Restaurant toevoegen"}
-                  </button>
-                </div>
-              </form>
-            </div>
+            {/* No restaurants message */}
+            {restaurants.length === 0 && !error && (
+              <div className="col-span-full text-center py-12">
+                <Building2 className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-slate-600 mb-2">
+                  Geen restaurants gevonden
+                </h3>
+                <p className="text-slate-500">
+                  Er zijn nog geen restaurants beschikbaar in het systeem.
+                </p>
+              </div>
+            )}
           </div>
         </div>
-      )}
+
+        {/* Retry button for errors */}
+        {error && (
+          <div className="flex justify-center mt-8">
+            <button
+              onClick={loadRestaurants}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors font-medium"
+            >
+              Opnieuw proberen
+            </button>
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+export default function SelectPage() {
+  return (
+    <RequireAuth roles={['SUPER_ADMIN']}>
+      <SelectPageContent />
+    </RequireAuth>
   );
 }

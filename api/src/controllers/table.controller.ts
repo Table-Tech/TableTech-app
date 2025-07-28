@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import { AuthenticatedRequest, getRestaurantId } from '../middleware/auth.middleware.js';
 import { ApiError } from '../types/errors.js';
 import { TableService } from '../services/table.service.js';
 import {
@@ -22,7 +22,7 @@ export class TableController {
     reply: FastifyReply
   ) {
     // Ensure user can only create tables for their restaurant
-    if (req.body.restaurantId !== req.user.restaurantId) {
+    if (req.body.restaurantId !== getRestaurantId(req)) {
       throw new ApiError(403, 'FORBIDDEN', 'Cannot create tables for other restaurants');
     }
 
@@ -35,7 +35,7 @@ export class TableController {
     req: AuthenticatedRequest<z.infer<typeof BulkCreateTablesSchema>>,
     reply: FastifyReply
   ) {
-    if (req.body.restaurantId !== req.user.restaurantId) {
+    if (req.body.restaurantId !== getRestaurantId(req)) {
       throw new ApiError(403, 'FORBIDDEN', 'Cannot create tables for other restaurants');
     }
 
@@ -52,7 +52,7 @@ export class TableController {
     req: AuthenticatedRequest<unknown, unknown, z.infer<typeof TableQuerySchema>>,
     reply: FastifyReply
   ) {
-    const result = await this.svc.getTables(req.user.restaurantId, req.query);
+    const result = await this.svc.getTables(getRestaurantId(req), req.query);
     return reply.send({ 
       success: true, 
       data: result.tables,
@@ -72,7 +72,7 @@ export class TableController {
     }
     
     // Verify table belongs to user's restaurant
-    if (table.restaurantId !== req.user.restaurantId) {
+    if (table.restaurantId !== getRestaurantId(req)) {
       throw new ApiError(403, 'FORBIDDEN', 'Access denied');
     }
     
@@ -142,7 +142,7 @@ export class TableController {
     req: AuthenticatedRequest,
     reply: FastifyReply
   ) {
-    const stats = await this.svc.getTableStatistics(req.user.restaurantId);
+    const stats = await this.svc.getTableStatistics(getRestaurantId(req));
     return reply.send({ success: true, data: stats });
   }
 

@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import { AuthenticatedRequest, getRestaurantId } from '../middleware/auth.middleware.js';
 import { ApiError } from '../types/errors.js';
 import { StaffService } from '../services/staff.service.js';
 import {
@@ -25,7 +25,7 @@ export class StaffController {
     reply: FastifyReply
   ) {
     // Ensure user can only create staff for their restaurant
-    if (req.body.restaurantId !== req.user.restaurantId) {
+    if (req.body.restaurantId !== getRestaurantId(req)) {
       throw new ApiError(403, 'FORBIDDEN', 'Cannot create staff for other restaurants');
     }
 
@@ -42,7 +42,7 @@ export class StaffController {
     req: AuthenticatedRequest<unknown, unknown, z.infer<typeof StaffQuerySchema>>,
     reply: FastifyReply
   ) {
-    const result = await this.svc.getStaff(req.user.restaurantId, req.query);
+    const result = await this.svc.getStaff(getRestaurantId(req), req.query);
     return reply.send({ 
       success: true, 
       data: result.staff,
@@ -55,7 +55,7 @@ export class StaffController {
     req: AuthenticatedRequest,
     reply: FastifyReply
   ) {
-    const staff = await this.svc.findByRestaurant(req.user.restaurantId);
+    const staff = await this.svc.findByRestaurant(getRestaurantId(req));
     return reply.send({ success: true, data: staff });
   }
 
@@ -71,7 +71,7 @@ export class StaffController {
     }
     
     // Verify staff belongs to user's restaurant
-    if (staff.restaurantId !== req.user.restaurantId) {
+    if (staff.restaurantId !== getRestaurantId(req)) {
       throw new ApiError(403, 'FORBIDDEN', 'Access denied');
     }
     
@@ -125,7 +125,7 @@ export class StaffController {
     req: AuthenticatedRequest,
     reply: FastifyReply
   ) {
-    const stats = await this.svc.getStaffStatistics(req.user.restaurantId);
+    const stats = await this.svc.getStaffStatistics(getRestaurantId(req));
     return reply.send({ success: true, data: stats });
   }
 

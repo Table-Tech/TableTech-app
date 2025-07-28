@@ -16,6 +16,12 @@ import {
   canModifyTable
 } from '../utils/logic-validation/table.validation.js';
 import crypto from 'crypto';
+import { 
+  generateUniqueTableCode, 
+  generatePermanentQRCodeURL,
+  isValidTableCode,
+  regenerateTableCodeAndQR
+} from '../utils/qr-code.js';
 
 export class TableService extends BaseService<Prisma.TableCreateInput, Table> {
   protected model = 'table' as const;
@@ -40,10 +46,13 @@ export class TableService extends BaseService<Prisma.TableCreateInput, Table> {
       // Validate table number is unique for restaurant
       await validateTableNumber(tx, data.number, data.restaurantId);
 
-      // Generate unique table code
-      const code = await this.generateUniqueTableCode(tx);
+      // Generate permanent, unique table code (NEVER changes once created)
+      const code = await this.generatePermanentUniqueTableCode(tx);
+      
+      // Generate permanent QR code URL (safe for printing/carving)
+      const qrCodeUrl = generatePermanentQRCodeURL(code);
 
-      // Create table
+      // Create table with permanent QR code
       const table = await tx.table.create({
         data: {
           number: data.number,
@@ -51,9 +60,18 @@ export class TableService extends BaseService<Prisma.TableCreateInput, Table> {
           capacity: data.capacity || 4,
           status: 'AVAILABLE',
           restaurant: { connect: { id: data.restaurantId } },
-          qrCodeUrl: this.generateQRUrl(code, data.restaurantId)
+          qrCodeUrl // Permanent QR code URL
         },
         include: this.getTableIncludes()
+      });
+
+      // Log table creation for audit trail
+      console.log('✅ Table created with permanent QR code:', {
+        tableId: table.id,
+        tableNumber: table.number,
+        code: table.code,
+        restaurantId: data.restaurantId,
+        timestamp: new Date().toISOString()
       });
 
       return table;
@@ -95,12 +113,17 @@ export class TableService extends BaseService<Prisma.TableCreateInput, Table> {
         );
       }
 
-      // Create all tables
+      // Create all tables with permanent QR codes
       const createdTables = [];
       for (const tableData of tables) {
         validateTableCapacity(tableData.capacity);
         
-        const code = await this.generateUniqueTableCode(tx);
+        // Generate permanent, unique table code
+        const code = await this.generatePermanentUniqueTableCode(tx);
+        
+        // Generate permanent QR code URL
+        const qrCodeUrl = generatePermanentQRCodeURL(code);
+        
         const table = await tx.table.create({
           data: {
             number: tableData.number,
@@ -108,13 +131,21 @@ export class TableService extends BaseService<Prisma.TableCreateInput, Table> {
             capacity: tableData.capacity || 4,
             status: 'AVAILABLE',
             restaurant: { connect: { id: restaurantId } },
-            qrCodeUrl: this.generateQRUrl(code, restaurantId)
+            qrCodeUrl // Permanent QR code URL
           },
           include: this.getTableIncludes()
         });
         
         createdTables.push(table);
       }
+
+      // Log bulk creation for audit trail
+      console.log('✅ Bulk tables created with permanent QR codes:', {
+        restaurantId,
+        tableCount: createdTables.length,
+        tableNumbers: createdTables.map(t => t.number),
+        timestamp: new Date().toISOString()
+      });
 
       return createdTables;
     });
@@ -146,13 +177,23 @@ export class TableService extends BaseService<Prisma.TableCreateInput, Table> {
         await validateTableNumber(tx, data.number, table.restaurantId);
       }
 
+      // IMPORTANT: Never update QR code fields in regular updates
+      // QR codes must remain permanent for printed materials
       const updated = await tx.table.update({
         where: { id: tableId },
         data: {
           ...(data.number && { number: data.number }),
           ...(data.capacity && { capacity: data.capacity })
+          // Note: code and qrCodeUrl are intentionally excluded to maintain permanence
         },
         include: this.getTableIncludes()
+      });
+
+      // Log update for audit trail
+      console.log('✅ Table updated (QR code preserved):', {
+        tableId,
+        changes: data,
+        timestamp: new Date().toISOString()
       });
 
       return updated;
@@ -313,29 +354,64 @@ export class TableService extends BaseService<Prisma.TableCreateInput, Table> {
   }
 
   /**
-   * Regenerate QR code for table
+   * 🚨 EMERGENCY ONLY: Regenerate QR code for table
+   * WARNING: This breaks the permanence guarantee!
+   * Only use when absolutely necessary (damaged QR, security breach, etc.)
    */
   async regenerateQRCode(tableId: string, staffId: string): Promise<Table> {
     return await this.prisma.$transaction(async (tx) => {
       const table = await tx.table.findUnique({
-        where: { id: tableId }
+        where: { id: tableId },
+        include: { restaurant: { select: { name: true } } }
       });
 
       if (!table) {
         throw new ApiError(404, 'TABLE_NOT_FOUND', 'Table not found');
       }
 
-      // Generate new code
-      const newCode = await this.generateUniqueTableCode(tx);
-      const qrCodeUrl = this.generateQRUrl(newCode, table.restaurantId);
+      // Store old values for audit
+      const oldCode = table.code;
+      const oldQRUrl = table.qrCodeUrl;
+
+      // Generate new permanent QR code and URL
+      const { code: newCode, qrCodeUrl: newQRUrl } = regenerateTableCodeAndQR();
+
+      // Ensure new code is unique
+      const existingTable = await tx.table.findUnique({
+        where: { code: newCode }
+      });
+
+      if (existingTable) {
+        // Extremely rare collision - try again
+        throw new ApiError(
+          500, 
+          'CODE_COLLISION', 
+          'Generated code already exists. Please try again.'
+        );
+      }
 
       const updated = await tx.table.update({
         where: { id: tableId },
         data: { 
           code: newCode,
-          qrCodeUrl 
+          qrCodeUrl: newQRUrl
         },
         include: this.getTableIncludes()
+      });
+
+      // 🚨 CRITICAL: Log this dangerous operation for audit
+      console.error('🚨 QR CODE REGENERATED - BREAKS PERMANENCE GUARANTEE:', {
+        action: 'QR_CODE_REGENERATED',
+        tableId,
+        tableNumber: table.number,
+        restaurantName: table.restaurant?.name,
+        staffId,
+        oldCode,
+        newCode,
+        oldQRUrl,
+        newQRUrl,
+        timestamp: new Date().toISOString(),
+        warning: 'Physical QR codes (printed materials) are now invalid!'
       });
 
       return updated;
@@ -384,17 +460,25 @@ export class TableService extends BaseService<Prisma.TableCreateInput, Table> {
   }
 
   /**
-   * Generate unique table code
+   * Generate permanent, unique table code
+   * Uses enhanced entropy and format validation for permanence
    */
-  private async generateUniqueTableCode(tx: any): Promise<string> {
+  private async generatePermanentUniqueTableCode(tx: any): Promise<string> {
     let code: string;
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 20; // Increased attempts for better collision handling
 
     do {
-      // Generate 6-character alphanumeric code
-      code = crypto.randomBytes(3).toString('hex').toUpperCase();
+      // Generate code using our permanent QR utilities
+      code = generateUniqueTableCode();
       
+      // Validate format
+      if (!isValidTableCode(code)) {
+        attempts++;
+        continue;
+      }
+      
+      // Check uniqueness in database
       const existing = await tx.table.findUnique({
         where: { code }
       });
@@ -406,7 +490,7 @@ export class TableService extends BaseService<Prisma.TableCreateInput, Table> {
         throw new ApiError(
           500,
           'CODE_GENERATION_FAILED',
-          'Failed to generate unique table code'
+          'Failed to generate unique permanent table code after multiple attempts'
         );
       }
     } while (true);
@@ -415,11 +499,13 @@ export class TableService extends BaseService<Prisma.TableCreateInput, Table> {
   }
 
   /**
-   * Generate QR URL for table
+   * Generate QR URL for table (DEPRECATED)
+   * Use generatePermanentQRCodeURL from qr-code.ts instead
+   * @deprecated This method is kept for backward compatibility only
    */
   private generateQRUrl(code: string, restaurantId: string): string {
-    const frontendDomain = process.env.FRONTEND_URL || 'https://your-app.com';
-    return `${frontendDomain}/menu/${code}`;
+    console.warn('DEPRECATED: generateQRUrl method used. Use generatePermanentQRCodeURL instead.');
+    return generatePermanentQRCodeURL(code);
   }
 
   /**

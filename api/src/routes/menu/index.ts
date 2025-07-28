@@ -31,7 +31,7 @@ export default async function menuRoutes(server: FastifyInstance) {
     server.post('/items', {
       preHandler: [
         validationMiddleware(CreateMenuItemSchema),
-        requireRole(['MANAGER', 'ADMIN', 'CHEF'])
+        requireRole(['MANAGER', 'ADMIN', 'CHEF', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.createMenuItem(req as any, reply));
 
@@ -47,7 +47,7 @@ export default async function menuRoutes(server: FastifyInstance) {
 
     // GET /api/staff/menu/statistics - Menu statistics
     server.get('/statistics', {
-      preHandler: [requireRole(['MANAGER', 'ADMIN'])]
+      preHandler: [requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])]
     }, (req, reply) => controller.getMenuStatistics(req as any, reply));
 
     // GET /api/staff/menu/items/:id - Get menu item details
@@ -60,7 +60,7 @@ export default async function menuRoutes(server: FastifyInstance) {
       preHandler: [
         validateParams(MenuItemParamsSchema),
         validationMiddleware(UpdateMenuItemSchema),
-        requireRole(['MANAGER', 'ADMIN', 'CHEF'])
+        requireRole(['MANAGER', 'ADMIN', 'CHEF', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.updateMenuItem(req as any, reply));
 
@@ -68,7 +68,8 @@ export default async function menuRoutes(server: FastifyInstance) {
     server.patch('/items/:id/availability', {
       preHandler: [
         validateParams(MenuItemParamsSchema),
-        validationMiddleware(UpdateMenuItemAvailabilitySchema)
+        validationMiddleware(UpdateMenuItemAvailabilitySchema),
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.updateMenuItemAvailability(req as any, reply));
 
@@ -76,7 +77,7 @@ export default async function menuRoutes(server: FastifyInstance) {
     server.delete('/items/:id', {
       preHandler: [
         validateParams(MenuItemParamsSchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.deleteMenuItem(req as any, reply));
 
@@ -84,7 +85,7 @@ export default async function menuRoutes(server: FastifyInstance) {
     server.patch('/items/bulk', {
       preHandler: [
         validationMiddleware(BulkUpdateMenuItemsSchema),
-        requireRole(['MANAGER', 'ADMIN', 'CHEF'])
+        requireRole(['MANAGER', 'ADMIN', 'CHEF', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.bulkUpdateMenuItems(req as any, reply));
 
@@ -92,7 +93,7 @@ export default async function menuRoutes(server: FastifyInstance) {
     server.post('/items/reorder', {
       preHandler: [
         validationMiddleware(ReorderMenuItemsSchema),
-        requireRole(['MANAGER', 'ADMIN', 'CHEF'])
+        requireRole(['MANAGER', 'ADMIN', 'CHEF', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.reorderMenuItems(req as any, reply));
 

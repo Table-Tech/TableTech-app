@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import { AuthenticatedRequest, getRestaurantId } from '../middleware/auth.middleware.js';
 import { ApiError } from '../types/errors.js';
 import { MenuService } from '../services/menu.service.js';
 import {
@@ -26,7 +26,8 @@ export class MenuController {
     reply: FastifyReply
   ) {
     // Ensure user can only create items for their restaurant
-    if (req.body.restaurantId !== req.user.restaurantId) {
+    const restaurantId = getRestaurantId(req);
+    if (req.body.restaurantId !== restaurantId) {
       throw new ApiError(403, 'FORBIDDEN', 'Cannot create menu items for other restaurants');
     }
 
@@ -39,7 +40,8 @@ export class MenuController {
     req: AuthenticatedRequest<unknown, unknown, z.infer<typeof MenuQuerySchema>>,
     reply: FastifyReply
   ) {
-    const result = await this.svc.getMenuItems(req.user.restaurantId, req.query);
+    const restaurantId = getRestaurantId(req);
+    const result = await this.svc.getMenuItems(restaurantId, req.query);
     return reply.send({ 
       success: true, 
       data: result.menuItems,
@@ -52,7 +54,8 @@ export class MenuController {
     req: AuthenticatedRequest,
     reply: FastifyReply
   ) {
-    const menu = await this.svc.getMenuByRestaurant(req.user.restaurantId);
+    const restaurantId = getRestaurantId(req);
+    const menu = await this.svc.getMenuByRestaurant(restaurantId);
     return reply.send({ success: true, data: menu });
   }
 
@@ -68,7 +71,8 @@ export class MenuController {
     }
     
     // Verify item belongs to user's restaurant
-    if (menuItem.restaurantId !== req.user.restaurantId) {
+    const restaurantId = getRestaurantId(req);
+    if (menuItem.restaurantId !== restaurantId) {
       throw new ApiError(403, 'FORBIDDEN', 'Access denied');
     }
     
@@ -147,7 +151,8 @@ export class MenuController {
     req: AuthenticatedRequest,
     reply: FastifyReply
   ) {
-    const stats = await this.svc.getMenuStatistics(req.user.restaurantId);
+    const restaurantId = getRestaurantId(req);
+    const stats = await this.svc.getMenuStatistics(restaurantId);
     return reply.send({ success: true, data: stats });
   }
 

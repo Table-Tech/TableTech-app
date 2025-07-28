@@ -30,7 +30,7 @@ export default async function tableRoutes(server: FastifyInstance) {
     server.post('/tables', {
       preHandler: [
         validationMiddleware(CreateTableSchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.createTable(req as any, reply));
 
@@ -38,7 +38,7 @@ export default async function tableRoutes(server: FastifyInstance) {
     server.post('/tables/bulk', {
       preHandler: [
         validationMiddleware(BulkCreateTablesSchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.bulkCreateTables(req as any, reply));
 
@@ -49,7 +49,7 @@ export default async function tableRoutes(server: FastifyInstance) {
 
     // GET /api/staff/tables/statistics - Table statistics
     server.get('/tables/statistics', {
-      preHandler: [requireRole(['MANAGER', 'ADMIN'])]
+      preHandler: [requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])]
     }, (req, reply) => controller.getTableStatistics(req as any, reply));
 
     // GET /api/staff/tables/:id - Get table details
@@ -62,7 +62,7 @@ export default async function tableRoutes(server: FastifyInstance) {
       preHandler: [
         validateParams(TableParamsSchema),
         validationMiddleware(UpdateTableSchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.updateTable(req as any, reply));
 
@@ -78,7 +78,7 @@ export default async function tableRoutes(server: FastifyInstance) {
     server.post('/tables/:id/regenerate-qr', {
       preHandler: [
         validateParams(TableParamsSchema),
-        requireRole(['MANAGER', 'ADMIN'])
+        requireRole(['MANAGER', 'ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.regenerateQRCode(req as any, reply));
 
@@ -86,7 +86,7 @@ export default async function tableRoutes(server: FastifyInstance) {
     server.delete('/tables/:id', {
       preHandler: [
         validateParams(TableParamsSchema),
-        requireRole(['ADMIN'])
+        requireRole(['ADMIN', 'SUPER_ADMIN'])
       ]
     }, (req, reply) => controller.deleteTable(req as any, reply));
 
