@@ -49,7 +49,7 @@ export default function ThankYouPage() {
 
                 <button
                     onClick={() => router.push(`/client/${restaurantId}/${tableId}`)}
-                    className="w-full bg-purple-700 hover:bg-purple-800 text-white py-3 rounded-lg font-semibold text-sm"
+                    className="w-full bg-black hover:bg-gray-800 text-white py-3 rounded-lg font-semibold text-sm"
                 >
                     Terug naar menu kaart →
                 </button>
