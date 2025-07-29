@@ -66,14 +66,14 @@ export default function CartPage() {
 
         try {
             console.log("🛒 Cart items:", cartItems);
-            
+
             const orderPayload = {
                 tableId: String(tableId),
                 restaurantId: String(restaurantId),
                 items: cartItems.map((item) => ({
                     menuId: String(item.id),
                     quantity: parseInt(item.quantity),
-                    modifiers: item.modifiers ? item.modifiers.map(mod => String(mod)) : [],
+                    modifiers: item.modifiers ? item.modifiers.map((mod: string) => String(mod)) : [],
                 })),
             };
 
