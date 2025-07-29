@@ -1,409 +1,345 @@
-// /api/src/utils/logger.ts
+// Professional logging setup for TableTech API
+import pino from 'pino';
 import { FastifyRequest } from 'fastify';
-import { pino, Logger as PinoLogger } from 'pino';
-import { getLoggerConfig } from '../config/logger.config.js';
 
-// More comprehensive types
-interface LogContext {
-  requestId?: string;
-  userId?: string;
-  staffId?: string;
-  customerId?: string;
-  restaurantId?: string;
-  tableId?: string;
-  ip?: string;
-  userAgent?: string;
-  sessionId?: string;
-  correlationId?: string;
-}
-
-// Extended categories
-export enum LogCategory {
-  AUTH = 'AUTH',
-  ORDER = 'ORDER',
-  CUSTOMER = 'CUSTOMER',
-  SECURITY = 'SECURITY',
-  PAYMENT = 'PAYMENT',
-  STAFF = 'STAFF',
-  SYSTEM = 'SYSTEM',
-  DATABASE = 'DATABASE',
-  PERFORMANCE = 'PERFORMANCE',
-  ERROR = 'ERROR',
-  BUSINESS = 'BUSINESS'
-}
-
-// Event types for better filtering
-export enum LogEvent {
-  // Auth events
-  LOGIN_ATTEMPT = 'LOGIN_ATTEMPT',
-  LOGOUT = 'LOGOUT',
-  TOKEN_REFRESH = 'TOKEN_REFRESH',
-  PASSWORD_RESET = 'PASSWORD_RESET',
-  
-  // Order events
-  ORDER_CREATED = 'ORDER_CREATED',
-  ORDER_UPDATED = 'ORDER_UPDATED',
-  ORDER_CANCELLED = 'ORDER_CANCELLED',
-  ORDER_STATUS_CHANGE = 'ORDER_STATUS_CHANGE',
-  ORDER_COMPLETED = 'ORDER_COMPLETED',
-  
-  // Security events
-  RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
-  SUSPICIOUS_ACTIVITY = 'SUSPICIOUS_ACTIVITY',
-  INVALID_INPUT = 'INVALID_INPUT',
-  UNAUTHORIZED_ACCESS = 'UNAUTHORIZED_ACCESS',
-  
-  // Payment events
-  PAYMENT_INITIATED = 'PAYMENT_INITIATED',
-  PAYMENT_COMPLETED = 'PAYMENT_COMPLETED',
-  PAYMENT_FAILED = 'PAYMENT_FAILED',
-  REFUND_PROCESSED = 'REFUND_PROCESSED',
-  
-  // System events
-  SERVER_START = 'SERVER_START',
-  SERVER_STOP = 'SERVER_STOP',
-  HEALTH_CHECK = 'HEALTH_CHECK',
-  CACHE_HIT = 'CACHE_HIT',
-  CACHE_MISS = 'CACHE_MISS'
-}
-
-// Get environment-specific configuration
-const loggerConfig = {
-  ...getLoggerConfig(),
-  
-  // Base context
+// Base logger with enhanced context
+const baseLogger = pino({
+  level: process.env.LOG_LEVEL || 'info',
   base: {
     env: process.env.NODE_ENV,
-    service: 'restaurant-api',
-    version: process.env.APP_VERSION || '1.0.0',
-    hostname: process.env.HOSTNAME
+    service: 'tabletech-api',
+    version: process.env.npm_package_version || '1.0.0',
+    region: 'eu-west-1' // Netherlands/Europe
+  },
+  // Pretty print in development
+  transport: process.env.NODE_ENV === 'development' ? {
+    target: 'pino-pretty',
+    options: {
+      translateTime: 'HH:MM:ss Z',
+      ignore: 'pid,hostname',
+      colorize: true
+    }
+  } : undefined
+});
+
+// Request-scoped logger with full context
+export function createRequestLogger(req: FastifyRequest) {
+  return baseLogger.child({
+    requestId: req.id,
+    userId: (req as any).user?.staffId,
+    restaurantId: (req as any).user?.restaurantId,
+    userRole: (req as any).user?.role,
+    ip: req.ip,
+    userAgent: req.headers['user-agent'],
+    method: req.method,
+    path: req.url,
+    correlationId: req.headers['x-correlation-id'] || req.id
+  });
+}
+
+// Specialized loggers for different concerns
+export const logger = {
+  // Base logger for general use
+  base: baseLogger,
+  
+  // Performance tracking and monitoring
+  perf: {
+    slow: (operation: string, duration: number, threshold: number = 1000, context?: any) => {
+      if (duration > threshold) {
+        baseLogger.warn({
+          category: 'PERFORMANCE',
+          operation,
+          duration,
+          threshold,
+          ...context
+        }, `Slow ${operation}: ${duration}ms (threshold: ${threshold}ms)`);
+      }
+    },
+    
+    timing: (operation: string, duration: number, context?: any) => {
+      baseLogger.info({
+        category: 'PERFORMANCE',
+        operation,
+        duration,
+        ...context
+      }, `${operation} completed in ${duration}ms`);
+    },
+    
+    memory: (operation: string, memoryUsage: NodeJS.MemoryUsage) => {
+      const heapMB = Math.round(memoryUsage.heapUsed / 1024 / 1024 * 100) / 100;
+      if (heapMB > 100) { // Alert if over 100MB heap
+        baseLogger.warn({
+          category: 'PERFORMANCE',
+          operation,
+          heapUsedMB: heapMB,
+          heapTotalMB: Math.round(memoryUsage.heapTotal / 1024 / 1024 * 100) / 100
+        }, `High memory usage in ${operation}: ${heapMB}MB`);
+      }
+    }
+  },
+
+  // Security and fraud detection
+  security: {
+    suspiciousActivity: (req: FastifyRequest, reason: string, severity: 'low' | 'medium' | 'high' = 'medium') => {
+      baseLogger.warn({
+        category: 'SECURITY',
+        severity,
+        reason,
+        ip: req.ip,
+        url: req.url,
+        userAgent: req.headers['user-agent'],
+        userId: (req as any).user?.staffId,
+        restaurantId: (req as any).user?.restaurantId
+      }, `Suspicious activity detected: ${reason}`);
+    },
+    
+    loginAttempt: (email: string, success: boolean, ip: string, reason?: string) => {
+      const level = success ? 'info' : 'warn';
+      baseLogger[level]({
+        category: 'SECURITY',
+        action: 'LOGIN_ATTEMPT',
+        email,
+        success,
+        ip,
+        reason
+      }, `Login ${success ? 'successful' : 'failed'} for ${email}`);
+    },
+    
+    rateLimited: (ip: string, endpoint: string, attempts: number) => {
+      baseLogger.warn({
+        category: 'SECURITY',
+        action: 'RATE_LIMITED',
+        ip,
+        endpoint,
+        attempts
+      }, `Rate limit exceeded: ${attempts} attempts to ${endpoint}`);
+    }
+  },
+
+  // Business metrics and KPIs
+  business: {
+    revenue: (amount: number, orderId: string, restaurantId: string, context?: any) => {
+      baseLogger.info({
+        category: 'BUSINESS',
+        metric: 'revenue',
+        amount: Number(amount),
+        orderId,
+        restaurantId,
+        currency: 'EUR',
+        ...context
+      }, `Revenue generated: €${amount} (Order: ${orderId})`);
+    },
+    
+    orderMetrics: (orderId: string, restaurantId: string, metrics: {
+      itemCount: number;
+      preparationTime?: number;
+      customerWaitTime?: number;
+      tableNumber: number;
+    }) => {
+      baseLogger.info({
+        category: 'BUSINESS',
+        metric: 'order_completion',
+        orderId,
+        restaurantId,
+        ...metrics
+      }, `Order completed: ${metrics.itemCount} items, table ${metrics.tableNumber}`);
+    },
+    
+    customerBehavior: (action: string, sessionToken: string, tableId: string, context?: any) => {
+      baseLogger.info({
+        category: 'BUSINESS',
+        metric: 'customer_behavior',
+        action,
+        sessionToken,
+        tableId,
+        ...context
+      }, `Customer ${action}`);
+    }
+  },
+
+  // Payment logging
+  payment: {
+    created: (paymentId: string, amount: number, orderId: string) => {
+      baseLogger.info({
+        category: 'PAYMENT',
+        action: 'PAYMENT_CREATED',
+        paymentId,
+        amount,
+        orderId,
+        currency: 'EUR'
+      }, `Payment created: €${amount} for order ${orderId}`);
+    },
+    
+    initiated: (paymentId: string, amount: number, orderId: string) => {
+      baseLogger.info({
+        category: 'PAYMENT',
+        action: 'PAYMENT_INITIATED',
+        paymentId,
+        amount,
+        orderId,
+        currency: 'EUR'
+      }, `Payment initiated: €${amount} for order ${orderId}`);
+    },
+    
+    completed: (paymentId: string, amount: number, orderId: string) => {
+      baseLogger.info({
+        category: 'PAYMENT',
+        action: 'PAYMENT_COMPLETED',
+        paymentId,
+        amount,
+        orderId
+      }, `Payment completed: €${amount}`);
+    },
+    
+    failed: (paymentId: string, reason: string, orderId: string) => {
+      baseLogger.warn({
+        category: 'PAYMENT',
+        action: 'PAYMENT_FAILED',
+        paymentId,
+        reason,
+        orderId
+      }, `Payment failed: ${reason}`);
+    }
+  },
+
+  // Customer session logging
+  customer: {
+    sessionStarted: (req: any, sessionToken: string) => {
+      baseLogger.info({
+        category: 'CUSTOMER',
+        action: 'SESSION_STARTED',
+        sessionToken
+      }, `Customer session started: ${sessionToken}`);
+    }
+  },
+
+  // Error handling with context
+  error: {
+    log: (error: Error, context?: any) => {
+      baseLogger.error({
+        category: 'ERROR',
+        errorName: error.name,
+        errorMessage: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        ...context
+      }, `Error: ${error.message}`);
+    },
+    
+    apiError: (req: FastifyRequest, error: any, statusCode: number) => {
+      const reqLogger = createRequestLogger(req);
+      reqLogger.error({
+        category: 'ERROR',
+        statusCode,
+        errorName: error.name,
+        errorMessage: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      }, `API Error: ${statusCode} - ${error.message}`);
+    }
+  },
+
+  // System and infrastructure
+  system: {
+    startup: (port: number, services: string[]) => {
+      baseLogger.info({
+        category: 'SYSTEM',
+        action: 'STARTUP',
+        port,
+        services,
+        nodeVersion: process.version,
+        platform: process.platform
+      }, `TableTech API started on port ${port}`);
+    },
+    
+    start: (service: string, details?: any) => {
+      baseLogger.info({
+        category: 'SYSTEM',
+        action: 'SERVICE_START',
+        service,
+        ...details
+      }, `${service} service started`);
+    },
+    
+    stop: (service: string, details?: any) => {
+      baseLogger.info({
+        category: 'SYSTEM',
+        action: 'SERVICE_STOP',
+        service,
+        ...details
+      }, `${service} service stopped`);
+    },
+    
+    shutdown: (reason: string) => {
+      baseLogger.info({
+        category: 'SYSTEM',
+        action: 'SHUTDOWN',
+        reason
+      }, `API shutting down: ${reason}`);
+    },
+    
+    serviceHealth: (service: string, status: 'healthy' | 'unhealthy', details?: any) => {
+      const level = status === 'healthy' ? 'info' : 'error';
+      baseLogger[level]({
+        category: 'SYSTEM',
+        service,
+        status,
+        ...details
+      }, `Service ${service} is ${status}`);
+    }
+  },
+
+  // Database operations
+  database: {
+    query: (query: string, duration: number, recordCount?: number) => {
+      if (duration > 100) { // Log slow queries
+        baseLogger.warn({
+          category: 'DATABASE',
+          query: query.substring(0, 100) + '...', // Truncate long queries
+          duration,
+          recordCount
+        }, `Slow database query: ${duration}ms`);
+      }
+    },
+    
+    connection: (status: 'connected' | 'disconnected' | 'error', details?: any) => {
+      const level = status === 'connected' ? 'info' : 'error';
+      baseLogger[level]({
+        category: 'DATABASE',
+        status,
+        ...details
+      }, `Database ${status}`);
+    }
   }
 };
 
-// Create base logger instance
-const baseLogger = pino(loggerConfig);
+// Backward compatibility with existing code
+export const createLogger = () => ({
+  info: baseLogger.info.bind(baseLogger),
+  error: baseLogger.error.bind(baseLogger),
+  warn: baseLogger.warn.bind(baseLogger),
+  debug: baseLogger.debug.bind(baseLogger)
+});
 
-/**
- * Enhanced Logger class with more features
- */
-export class Logger {
-  private static extractContext(req?: FastifyRequest): LogContext {
-    if (!req) return {};
-    
-    const user = (req as any).user;
-    const customer = (req as any).customer;
-    const table = (req as any).table;
-    
-    return {
-      requestId: req.id,
-      userId: user?.id || customer?.id,
-      staffId: user?.staffId,
-      customerId: customer?.id,
-      restaurantId: user?.restaurantId || table?.restaurantId,
-      tableId: table?.id,
-      ip: req.ip,
-      userAgent: req.headers['user-agent'],
-      sessionId: (req as any).sessionId,
-      correlationId: req.headers['x-correlation-id'] as string
-    };
+// Deprecated - kept for existing code compatibility  
+export const oldLogger = {
+  base: {
+    info: (data: any, message: string) => baseLogger.info(data, message),
+    debug: (data: any, message: string) => baseLogger.debug(data, message),
+    warn: (data: any, message: string) => baseLogger.warn(data, message),
+    error: (data: any, message: string) => baseLogger.error(data, message)
+  },
+  customer: {
+    sessionStarted: (req: any, sessionToken: string) => {
+      baseLogger.info({
+        category: 'CUSTOMER',
+        action: 'SESSION_STARTED',
+        sessionToken
+      }, `Customer session started: ${sessionToken}`);
+    }
+  },
+  error: {
+    log: (error: Error, context?: any) => logger.error.log(error, context)
   }
+};
 
-  // AUTH LOGGING
-  static auth = {
-    login: (req: FastifyRequest, email: string, success: boolean, reason?: string) => {
-      const context = Logger.extractContext(req);
-      const level = success ? 'info' : 'warn';
-      
-      baseLogger[level]({
-        category: LogCategory.AUTH,
-        event: LogEvent.LOGIN_ATTEMPT,
-        email,
-        success,
-        reason,
-        ...context
-      }, `Login ${success ? 'successful' : 'failed'} for ${email}`);
-    },
-
-    logout: (req: FastifyRequest, userId: string) => {
-      const context = Logger.extractContext(req);
-      baseLogger.info({
-        category: LogCategory.AUTH,
-        event: LogEvent.LOGOUT,
-        userId,
-        ...context
-      }, `User ${userId} logged out`);
-    },
-
-    tokenRefresh: (req: FastifyRequest, success: boolean) => {
-      const context = Logger.extractContext(req);
-      baseLogger.debug({
-        category: LogCategory.AUTH,
-        event: LogEvent.TOKEN_REFRESH,
-        success,
-        ...context
-      }, `Token refresh ${success ? 'successful' : 'failed'}`);
-    }
-  };
-
-  // ORDER LOGGING
-  static order = {
-    created: (req: FastifyRequest, order: {
-      id: string;
-      tableId: string;
-      totalAmount: number;
-      itemCount: number;
-      paymentMethod: string;
-    }) => {
-      const context = Logger.extractContext(req);
-      baseLogger.info({
-        category: LogCategory.ORDER,
-        event: LogEvent.ORDER_CREATED,
-        orderId: order.id,
-        tableId: order.tableId,
-        totalAmount: order.totalAmount,
-        itemCount: order.itemCount,
-        paymentMethod: order.paymentMethod,
-        ...context
-      }, `Order ${order.id} created - €${order.totalAmount}`);
-    },
-
-    statusChanged: (req: FastifyRequest, orderId: string, fromStatus: string, toStatus: string, changedBy?: string) => {
-      const context = Logger.extractContext(req);
-      baseLogger.info({
-        category: LogCategory.ORDER,
-        event: LogEvent.ORDER_STATUS_CHANGE,
-        orderId,
-        fromStatus,
-        toStatus,
-        changedBy: changedBy || context.userId,
-        ...context
-      }, `Order ${orderId}: ${fromStatus} → ${toStatus}`);
-    },
-
-    cancelled: (req: FastifyRequest, orderId: string, reason: string) => {
-      const context = Logger.extractContext(req);
-      baseLogger.info({
-        category: LogCategory.ORDER,
-        event: LogEvent.ORDER_CANCELLED,
-        orderId,
-        reason,
-        ...context
-      }, `Order ${orderId} cancelled: ${reason}`);
-    }
-  };
-
-  // SECURITY LOGGING
-  static security = {
-    rateLimitExceeded: (req: FastifyRequest, limitType: string, identifier: string, limit: number) => {
-      const context = Logger.extractContext(req);
-      baseLogger.warn({
-        category: LogCategory.SECURITY,
-        event: LogEvent.RATE_LIMIT_EXCEEDED,
-        limitType,
-        identifier,
-        limit,
-        endpoint: req.url,
-        method: req.method,
-        ...context
-      }, `Rate limit exceeded: ${limitType} for ${identifier}`);
-    },
-
-    suspiciousActivity: (req: FastifyRequest, activity: string, details: any) => {
-      const context = Logger.extractContext(req);
-      baseLogger.warn({
-        category: LogCategory.SECURITY,
-        event: LogEvent.SUSPICIOUS_ACTIVITY,
-        activity,
-        details,
-        ...context
-      }, `Suspicious activity: ${activity}`);
-    },
-
-    unauthorizedAccess: (req: FastifyRequest, resource: string, reason: string) => {
-      const context = Logger.extractContext(req);
-      baseLogger.warn({
-        category: LogCategory.SECURITY,
-        event: LogEvent.UNAUTHORIZED_ACCESS,
-        resource,
-        reason,
-        method: req.method,
-        path: req.url,
-        ...context
-      }, `Unauthorized access to ${resource}: ${reason}`);
-    }
-  };
-
-  // CUSTOMER LOGGING
-  static customer = {
-    qrScanned: (req: FastifyRequest, tableCode: string, tableNumber: number) => {
-      const context = Logger.extractContext(req);
-      baseLogger.info({
-        category: LogCategory.CUSTOMER,
-        event: 'QR_SCANNED',
-        tableCode,
-        tableNumber,
-        ...context
-      }, `QR scanned for table ${tableNumber}`);
-    },
-
-    sessionStarted: (req: FastifyRequest, sessionId: string) => {
-      const context = Logger.extractContext(req);
-      baseLogger.debug({
-        category: LogCategory.CUSTOMER,
-        event: 'SESSION_STARTED',
-        sessionId,
-        ...context
-      }, 'Customer session started');
-    }
-  };
-
-  // PAYMENT LOGGING  
-  static payment = {
-    initiated: (req: FastifyRequest, orderId: string, amount: number, method: string) => {
-      const context = Logger.extractContext(req);
-      baseLogger.info({
-        category: LogCategory.PAYMENT,
-        event: LogEvent.PAYMENT_INITIATED,
-        orderId,
-        amount,
-        method,
-        currency: 'EUR',
-        ...context
-      }, `Payment initiated for order ${orderId} - €${amount}`);
-    },
-
-    completed: (req: FastifyRequest, orderId: string, transactionId: string, amount: number) => {
-      const context = Logger.extractContext(req);
-      baseLogger.info({
-        category: LogCategory.PAYMENT,
-        event: LogEvent.PAYMENT_COMPLETED,
-        orderId,
-        transactionId,
-        amount,
-        ...context
-      }, `Payment completed for order ${orderId}`);
-    },
-
-    failed: (req: FastifyRequest, orderId: string, reason: string, errorCode?: string) => {
-      const context = Logger.extractContext(req);
-      baseLogger.error({
-        category: LogCategory.PAYMENT,
-        event: LogEvent.PAYMENT_FAILED,
-        orderId,
-        reason,
-        errorCode,
-        ...context
-      }, `Payment failed for order ${orderId}: ${reason}`);
-    }
-  };
-
-  // ERROR LOGGING
-  static error = {
-    log: (error: Error, context?: any, req?: FastifyRequest) => {
-      baseLogger.error({
-        category: LogCategory.ERROR,
-        event: 'ERROR',
-        error: {
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-          code: (error as any).code
-        },
-        context,
-        ...Logger.extractContext(req)
-      }, error.message);
-    },
-
-    database: (operation: string, error: Error, query?: any) => {
-      baseLogger.error({
-        category: LogCategory.DATABASE,
-        event: 'DATABASE_ERROR',
-        operation,
-        error: {
-          name: error.name,
-          message: error.message,
-          code: (error as any).code
-        },
-        query: process.env.NODE_ENV === 'development' ? query : undefined
-      }, `Database error in ${operation}: ${error.message}`);
-    }
-  };
-
-  // PERFORMANCE LOGGING
-  static performance = {
-    slowRequest: (req: FastifyRequest, duration: number, threshold: number) => {
-      const context = Logger.extractContext(req);
-      baseLogger.warn({
-        category: LogCategory.PERFORMANCE,
-        event: 'SLOW_REQUEST',
-        duration,
-        threshold,
-        method: req.method,
-        path: req.url,
-        ...context
-      }, `Slow request: ${req.method} ${req.url} took ${duration}ms`);
-    },
-
-    timer: (operation: string) => {
-      const start = Date.now();
-      return {
-        end: (metadata?: any) => {
-          const duration = Date.now() - start;
-          baseLogger.debug({
-            category: LogCategory.PERFORMANCE,
-            event: 'OPERATION_TIMING',
-            operation,
-            duration,
-            ...metadata
-          }, `${operation} completed in ${duration}ms`);
-          return duration;
-        }
-      };
-    }
-  };
-
-  // SYSTEM LOGGING
-  static system = {
-    start: () => {
-      baseLogger.info({
-        category: LogCategory.SYSTEM,
-        event: LogEvent.SERVER_START,
-        nodeVersion: process.version,
-        environment: process.env.NODE_ENV,
-        port: process.env.PORT
-      }, 'Server started');
-    },
-
-    stop: (reason: string) => {
-      baseLogger.info({
-        category: LogCategory.SYSTEM,
-        event: LogEvent.SERVER_STOP,
-        reason,
-        uptime: process.uptime()
-      }, `Server stopping: ${reason}`);
-    },
-
-    healthCheck: (healthy: boolean, details?: any) => {
-      const level = healthy ? 'debug' : 'warn';
-      baseLogger[level]({
-        category: LogCategory.SYSTEM,
-        event: LogEvent.HEALTH_CHECK,
-        healthy,
-        details
-      }, `Health check: ${healthy ? 'OK' : 'FAILED'}`);
-    }
-  };
-
-  // Create child logger for modules
-  static createModuleLogger(module: string): PinoLogger {
-    return baseLogger.child({ module });
-  }
-
-  // Get base logger for custom logging
-  static get base(): PinoLogger {
-    return baseLogger;
-  }
-}
-
-// Export for convenience
-export const logger = Logger;
+// Export default for easier imports
+export default logger;

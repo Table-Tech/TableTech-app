@@ -1,227 +1,125 @@
-// src/middleware/order.security.ts
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { ApiError } from '../types/errors.js';
 import { AuthenticatedRequest } from './auth.middleware.js';
-
-// Simple in-memory stores (use Redis in production)
-const lastOrderTimestamps: Record<string, number> = {};
-const orderAttempts: Record<string, { attempts: number; firstAttempt: number }> = {};
+import { redisService } from '../services/infrastructure/redis/redis.service.js';
 
 /**
- * Prevent duplicate orders within a time window (ms)
+ * Prevent duplicate orders (double-click protection) using Redis
  */
-export function preventDuplicateOrders(windowMs: number) {
+export function preventDuplicateOrders(windowMs: number = 5000) {
   return async (req: FastifyRequest, reply: FastifyReply) => {
-    const user = (req as AuthenticatedRequest).user;
-    if (!user) {
-      // requireUser should run first
-      throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required');
+    let key: string;
+    
+    // Different keys for staff vs customer
+    if ((req as any).user) {
+      const user = (req as AuthenticatedRequest).user;
+      key = `staff:${user.staffId}`;
+    } else {
+      // For customers, use IP + table code
+      const body = req.body as any;
+      key = `customer:${req.ip}:${body.tableCode || 'unknown'}`;
     }
 
-    const key = user.staffId || user.email;
     const now = Date.now();
-    const last = lastOrderTimestamps[key];
+    const lastOrderTime = await redisService.getRecentOrder(key);
     
-    if (last && now - last < windowMs) {
-      const waitTime = Math.ceil((windowMs - (now - last)) / 1000);
-      
-      req.log.warn({
-        staffId: user.staffId,
-        timeSinceLastOrder: now - last,
-        windowMs,
-        waitTime,
-        ip: req.ip
-      }, 'Duplicate order attempt blocked');
-      
+    if (lastOrderTime && now - lastOrderTime < windowMs) {
+      const waitSeconds = Math.ceil((windowMs - (now - lastOrderTime)) / 1000);
       throw new ApiError(
         429,
-        'TOO_MANY_REQUESTS',
-        `Please wait ${waitTime} more seconds before placing another order`
+        'DUPLICATE_ORDER',
+        `Please wait ${waitSeconds} seconds before placing another order`
       );
     }
     
-    lastOrderTimestamps[key] = now;
+    await redisService.setRecentOrder(key, now, windowMs);
   };
 }
 
 /**
- * Rate limiting for order creation (per user)
+ * Enhanced rate limiting for order creation using Redis
  */
-export function rateLimitOrderCreation(maxAttempts: number, windowMs: number) {
+export function orderRateLimit(
+  maxOrders: number, 
+  windowMs: number,
+  keyPrefix: string = 'order'
+) {
   return async (req: FastifyRequest, reply: FastifyReply) => {
-    const user = (req as AuthenticatedRequest).user;
-    if (!user) {
-      throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required');
+    let key: string;
+    
+    if ((req as any).user) {
+      const user = (req as AuthenticatedRequest).user;
+      key = `staff:${user.staffId}`;
+    } else {
+      key = `customer:${req.ip}`;
     }
 
-    const key = `order_create_${user.staffId}`;
-    const now = Date.now();
-    
-    const current = orderAttempts[key];
-    
-    if (!current || now - current.firstAttempt > windowMs) {
-      // Reset or initialize counter
-      orderAttempts[key] = { attempts: 1, firstAttempt: now };
-      return;
-    }
-    
-    if (current.attempts >= maxAttempts) {
-      const retryAfter = Math.ceil((windowMs - (now - current.firstAttempt)) / 1000);
-      
-      req.log.warn({
-        staffId: user.staffId,
-        attempts: current.attempts,
-        maxAttempts,
-        retryAfter,
-        ip: req.ip
-      }, 'Order creation rate limit exceeded');
-      
-      reply.header('Retry-After', retryAfter.toString());
-      throw new ApiError(
-        429,
-        'RATE_LIMIT_EXCEEDED',
-        `Too many order attempts. Try again in ${retryAfter} seconds.`
-      );
-    }
-    
-    // Increment counter
-    current.attempts++;
-    orderAttempts[key] = current;
-  };
-}
-
-/**
- * Validate business hours for order creation
- */
-export function validateBusinessHours() {
-  return async (req: FastifyRequest, reply: FastifyReply) => {
-    const now = new Date();
-    const hour = now.getHours();
-    const day = now.getDay(); // 0 = Sunday, 6 = Saturday
-    
-    // Example business hours: Monday-Saturday 8AM-10PM, Closed Sunday
-    if (day === 0) {
-      req.log.warn({
-        day,
-        hour,
-        ip: req.ip
-      }, 'Order attempt during closed day');
-      
-      throw new ApiError(400, 'RESTAURANT_CLOSED', 'Restaurant is closed on Sundays');
-    }
-    
-    if (hour < 8 || hour >= 22) {
-      req.log.warn({
-        day,
-        hour,
-        ip: req.ip
-      }, 'Order attempt outside business hours');
-      
-      throw new ApiError(400, 'RESTAURANT_CLOSED', 'Restaurant is closed. Business hours: 8AM-10PM');
-    }
-  };
-}
-
-/**
- * Sanitize order data for security
- */
-export function sanitizeOrderData() {
-  return async (req: FastifyRequest, reply: FastifyReply) => {
-    const orderData = req.body as any;
-    if (!orderData) return;
-
-    // Remove potentially harmful fields
-    delete orderData.__proto__;
-    delete orderData.constructor;
-    
-    // Sanitize notes fields if present
-    if (orderData.notes) {
-      orderData.notes = sanitizeText(orderData.notes);
-    }
-
-    // Sanitize item notes
-    if (orderData.items && Array.isArray(orderData.items)) {
-      orderData.items.forEach((item: any) => {
-        if (item.notes) {
-          item.notes = sanitizeText(item.notes);
-        }
+    try {
+      const rateLimiter = redisService.getRateLimiter(`${keyPrefix}_rate_limit`, {
+        points: maxOrders,
+        duration: Math.ceil(windowMs / 1000), // Convert to seconds
       });
+
+      await rateLimiter.consume(key);
+    } catch (rejRes: any) {
+      const retryAfter = Math.round(rejRes.msBeforeNext / 1000) || 1;
+      reply.header('Retry-After', retryAfter.toString());
+      
+      throw new ApiError(
+        429,
+        'ORDER_RATE_LIMIT',
+        `Too many orders. Try again in ${retryAfter} seconds`
+      );
     }
   };
 }
 
 /**
- * Log order attempts for audit
+ * Log order attempts for security audit
  */
-export function logOrderAttempt() {
+export function auditOrderAttempt() {
   return async (req: FastifyRequest, reply: FastifyReply) => {
-    const user = (req as AuthenticatedRequest).user;
-    const orderData = req.body as any;
+    const body = req.body as any;
+    const user = (req as any).user;
     
-    req.log.info({
+    const auditLog = {
+      type: user ? 'staff_order' : 'customer_order',
       staffId: user?.staffId,
-      restaurantId: user?.restaurantId,
-      tableId: orderData?.tableId,
-      itemCount: orderData?.items?.length || 0,
+      restaurantId: user?.restaurantId || body.restaurantId,
+      tableId: body.tableId,
+      tableCode: body.tableCode,
+      itemCount: body.items?.length || 0,
+      orderValue: body.totalAmount,
       ip: req.ip,
       userAgent: req.headers['user-agent'],
       timestamp: new Date().toISOString()
-    }, 'Order creation attempt');
+    };
+
+    // Log for security monitoring
+    req.log.info(auditLog, 'Order attempt');
+    
+    // TODO: Send to security monitoring service
+    // await securityService.logOrderAttempt(auditLog);
   };
 }
 
 /**
- * Validate order session (prevent stale orders)
+ * Validate customer session for ordering
  */
-export function validateOrderSession(maxSessionMs: number = 30 * 60 * 1000) {
+export function validateCustomerSession(maxIdleMs: number = 30 * 60 * 1000) {
   return async (req: FastifyRequest, reply: FastifyReply) => {
-    const sessionStart = req.headers['x-session-start'];
+    const sessionId = req.headers['x-session-id'] as string;
     
-    if (sessionStart) {
-      const sessionStartTime = parseInt(sessionStart as string);
-      const now = Date.now();
-      
-      if (isNaN(sessionStartTime) || now - sessionStartTime > maxSessionMs) {
-        req.log.warn({
-          sessionStart: sessionStartTime,
-          now,
-          maxSessionMs,
-          ip: req.ip
-        }, 'Order session validation failed');
-        
-        throw new ApiError(400, 'SESSION_EXPIRED', 'Order session has expired. Please refresh and try again.');
-      }
+    if (!sessionId) {
+      return; // No session validation for first request
+    }
+    
+    // TODO: Implement proper session validation with Redis
+    // For now, just validate format
+    if (!/^[a-zA-Z0-9-]{36}$/.test(sessionId)) {
+      throw new ApiError(400, 'INVALID_SESSION', 'Invalid session');
     }
   };
 }
 
-// Helper function to sanitize text input
-function sanitizeText(text: string): string {
-  return text
-    .replace(/<[^>]*>/g, '') // Remove HTML tags
-    .replace(/javascript:/gi, '') // Remove javascript: protocol
-    .replace(/on\w+=/gi, '') // Remove event handlers
-    .replace(/[<>]/g, '') // Remove angle brackets
-    .trim()
-    .slice(0, 500); // Limit length
-}
-
-// Cleanup old entries periodically
-setInterval(() => {
-  const now = Date.now();
-  const oneHour = 60 * 60 * 1000;
-  
-  // Clean order timestamps older than 1 hour
-  for (const [key, timestamp] of Object.entries(lastOrderTimestamps)) {
-    if (now - timestamp > oneHour) {
-      delete lastOrderTimestamps[key];
-    }
-  }
-  
-  // Clean order attempts older than 1 hour
-  for (const [key, data] of Object.entries(orderAttempts)) {
-    if (now - data.firstAttempt > oneHour) {
-      delete orderAttempts[key];
-    }
-  }
-}, 300000); // Cleanup every 5 minutes
+// Redis automatically handles TTL and cleanup

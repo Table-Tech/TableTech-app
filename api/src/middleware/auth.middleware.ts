@@ -5,10 +5,6 @@ import { ApiError } from '../types/errors.js';
 
 /**
  * Generic extension of FastifyRequest that carries our JWT payload.
- *
- * B = Body schema
- * P = Params schema
- * Q = Query schema
  */
 export interface AuthenticatedRequest<
   B = unknown,
@@ -45,82 +41,49 @@ export const requireUser = async (
     const payload = verifyToken(token);
     (req as AuthenticatedRequest).user = payload;
     
-    // Log authentication success for audit
-    req.log.debug({
-      staffId: payload.staffId,
-      role: payload.role,
-      restaurantId: payload.restaurantId,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    }, 'User authenticated successfully');
+    // Optional: Check if user is still active
+    // const staff = await prisma.staff.findUnique({
+    //   where: { id: payload.staffId },
+    //   select: { isActive: true }
+    // });
+    
+    // if (!staff?.isActive) {
+    //   throw new ApiError(401, 'ACCOUNT_DEACTIVATED', 'Account has been deactivated');
+    // }
     
   } catch (error) {
-    // Log authentication failure for security monitoring
-    req.log.warn({
-      ip: req.ip,
-      userAgent: req.headers['user-agent'],
-      url: req.url,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, 'Authentication failed');
-    
     throw new ApiError(401, 'UNAUTHORIZED', 'Invalid or expired token');
   }
 };
 
 /**
- * Require specific roles (pass array of allowed roles)
+ * Require specific roles
  */
 export const requireRole = (allowedRoles: string[]) => {
   return async (req: FastifyRequest, reply: FastifyReply) => {
+    await requireUser(req, reply); // Ensure user is authenticated first
+    
     const user = (req as AuthenticatedRequest).user;
     
-    if (!user) {
-      throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required');
-    }
-    
     if (!allowedRoles.includes(user.role)) {
-      req.log.warn({
-        staffId: user.staffId,
-        currentRole: user.role,
-        requiredRoles: allowedRoles,
-        url: req.url,
-        ip: req.ip
-      }, 'Access denied - insufficient role permissions');
-      
-      throw new ApiError(403, 'FORBIDDEN', `Access denied. Required roles: ${allowedRoles.join(', ')}`);
+      throw new ApiError(403, 'FORBIDDEN', `Required roles: ${allowedRoles.join(', ')}`);
     }
   };
 };
 
 /**
- * Require staff role (shorthand for requireRole(['ADMIN', 'MANAGER', 'CHEF', 'WAITER', 'CASHIER']))
+ * Shortcuts for common role checks
  */
-export const requireStaff = async (
-  req: FastifyRequest,
-  reply: FastifyReply
-) => {
-  await requireUser(req, reply);
-  const user = (req as AuthenticatedRequest).user;
-  
-  const staffRoles = ['ADMIN', 'MANAGER', 'CHEF', 'WAITER', 'CASHIER'];
-  
-  if (!staffRoles.includes(user.role)) {
-    req.log.warn({
-      staffId: user.staffId,
-      currentRole: user.role,
-      url: req.url,
-      ip: req.ip
-    }, 'Access denied - staff access required');
-    
-    throw new ApiError(403, 'FORBIDDEN', 'Staff access required');
-  }
-};
+export const requireSuperAdmin = requireRole(['SUPER_ADMIN']);
+export const requireAdmin = requireRole(['SUPER_ADMIN', 'ADMIN']);
+export const requireManager = requireRole(['SUPER_ADMIN', 'ADMIN', 'MANAGER']);
+export const requireStaff = requireRole(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CHEF', 'WAITER', 'CASHIER']);
 
 /**
- * Ensure staff can only access their own restaurant's data
+ * Ensure user can only access their own restaurant's data (unless SUPER_ADMIN)
  */
 export const requireRestaurantAccess = async (
-  req: FastifyRequest, 
+  req: FastifyRequest,
   reply: FastifyReply
 ) => {
   const user = (req as AuthenticatedRequest).user;
@@ -129,7 +92,12 @@ export const requireRestaurantAccess = async (
     throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required');
   }
 
-  // Extract restaurantId from various sources
+  // SUPER_ADMIN can access any restaurant
+  if (user.role === 'SUPER_ADMIN') {
+    return;
+  }
+
+  // Extract restaurantId from request
   const params = req.params as any;
   const query = req.query as any;
   const body = req.body as any;
@@ -139,31 +107,73 @@ export const requireRestaurantAccess = async (
     query?.restaurantId || 
     body?.restaurantId;
 
-  // If no restaurantId in request, allow (will use user's restaurant)
-  if (!requestedRestaurantId) {
-    return;
-  }
-
-  // Check if user is trying to access different restaurant
-  if (requestedRestaurantId !== user.restaurantId) {
-    req.log.warn({
-      staffId: user.staffId,
-      userRestaurantId: user.restaurantId,
-      requestedRestaurantId,
-      url: req.url,
-      ip: req.ip
-    }, 'Access denied - restaurant access violation');
-    
+  if (requestedRestaurantId && requestedRestaurantId !== user.restaurantId) {
     throw new ApiError(403, 'FORBIDDEN', 'Access denied to this restaurant');
   }
 };
 
 /**
- * Admin-only access
+ * Ensure user has a restaurantId (not SUPER_ADMIN with null restaurantId)
+ * Use this for routes that require a specific restaurant context
  */
-export const requireAdmin = requireRole(['ADMIN']);
+export const requireRestaurantId = async (
+  req: FastifyRequest,
+  reply: FastifyReply
+) => {
+  const user = (req as AuthenticatedRequest).user;
+  
+  if (!user) {
+    throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required');
+  }
+
+  if (!user.restaurantId) {
+    throw new ApiError(400, 'RESTAURANT_REQUIRED', 'Restaurant context required for this operation');
+  }
+};
 
 /**
- * Manager or Admin access
+ * Get restaurantId from user context or route params (for SUPER_ADMIN)
+ * Helper function for controllers to handle both cases
  */
-export const requireManager = requireRole(['ADMIN', 'MANAGER']);
+export const getRestaurantId = (req: AuthenticatedRequest): string => {
+  const user = req.user;
+  
+  // For regular users, use their restaurantId
+  if (user.restaurantId) {
+    return user.restaurantId;
+  }
+  
+  // For SUPER_ADMIN, try to get from restaurant context header first, then route params/query
+  const restaurantContext = req.headers['x-restaurant-context'] as string;
+  const params = req.params as any;
+  const query = req.query as any;
+  
+  const restaurantId = restaurantContext || params?.restaurantId || query?.restaurantId;
+  
+  if (!restaurantId) {
+    throw new ApiError(400, 'RESTAURANT_ID_REQUIRED', 'Restaurant context must be provided for SUPER_ADMIN');
+  }
+  
+  return restaurantId;
+};
+
+/**
+ * Optional authentication - attaches user if token present, but doesn't require it
+ */
+export const optionalUser = async (
+  req: FastifyRequest,
+  reply: FastifyReply
+) => {
+  const auth = req.headers.authorization;
+  
+  if (auth?.startsWith('Bearer ')) {
+    const token = auth.slice(7);
+    
+    try {
+      const payload = verifyToken(token);
+      (req as AuthenticatedRequest).user = payload;
+    } catch {
+      // Ignore invalid tokens for optional auth
+    }
+  }
+};

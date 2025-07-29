@@ -1,7 +1,7 @@
 // src/middleware/error.middleware.ts
 import { FastifyError, FastifyReply, FastifyRequest, FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
-import { ApiError } from '../types/errors.js';
+import { ApiError, ValidationError } from '../types/errors.js';
 
 /**
  * Registers global error and timeout handlers on the Fastify instance.
@@ -18,6 +18,20 @@ export function registerErrorHandlers(fastify: FastifyInstance) {
       userAgent: request.headers['user-agent'],
       requestId
     };
+
+    // Handle ValidationError (detailed validation errors)
+    if (error instanceof ValidationError) {
+      request.log.warn({ error: error.details, context }, 'Validation Error');
+      return reply.status(error.statusCode).send({ 
+        success: false, 
+        error: {
+          code: error.type,
+          message: error.message,
+          details: error.details
+        },
+        requestId 
+      });
+    }
 
     // Handle ApiError (our custom errors)
     if (error instanceof ApiError) {

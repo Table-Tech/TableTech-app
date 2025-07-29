@@ -1,73 +1,198 @@
-import { FastifyRequest, FastifyReply } from "fastify";
+import { FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
+import { AuthenticatedRequest, getRestaurantId } from '../middleware/auth.middleware.js';
+import { ApiError } from '../types/errors.js';
+import { CategoryService } from '../services/category.service.js';
 import {
   CreateCategorySchema,
   UpdateCategorySchema,
+  CategoryQuerySchema,
+  CategoryParamsSchema,
+  ReorderCategoriesSchema,
+  BulkUpdateCategoriesSchema,
   GetCategoriesQuerySchema,
-  CategoryIdParamSchema,
-} from "../schemas/category.schema";
-import {
-  createCategory,
-  getCategoriesByRestaurant,
-  getCategoryById,
-  updateCategory,
-  deleteCategory,
-} from "../services/category.service";
+  CategoryIdParamSchema
+} from '../schemas/category.schema.js';
 
-export const createCategoryHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const result = CreateCategorySchema.safeParse(req.body);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Invalid input", details: result.error });
+export class CategoryController {
+  private svc = new CategoryService();
+
+  // =================== STAFF ENDPOINTS ===================
+
+  /** POST /categories - Create category */
+  async createCategory(
+    req: AuthenticatedRequest<z.infer<typeof CreateCategorySchema>>,
+    reply: FastifyReply
+  ) {
+    const restaurantId = getRestaurantId(req);
+    
+    // Ensure user can only create categories for their restaurant
+    if (req.body.restaurantId !== restaurantId) {
+      throw new ApiError(403, 'FORBIDDEN', 'Cannot create categories for other restaurants');
+    }
+
+    const category = await this.svc.createCategory(req.body, req.user.staffId);
+    return reply.status(201).send({ success: true, data: category });
   }
 
-  const category = await createCategory(result.data);
-  return reply.code(201).send(category);
-};
-
-export const getCategoriesHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const result = GetCategoriesQuerySchema.safeParse(req.query);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Missing or invalid restaurantId" });
+  /** GET /categories - List categories with filters */
+  async listCategories(
+    req: AuthenticatedRequest<unknown, unknown, z.infer<typeof CategoryQuerySchema>>,
+    reply: FastifyReply
+  ) {
+    const restaurantId = getRestaurantId(req);
+    const result = await this.svc.getCategories(restaurantId, req.query);
+    return reply.send({ 
+      success: true, 
+      data: result.categories,
+      pagination: result.pagination
+    });
   }
 
-  const categories = await getCategoriesByRestaurant(result.data.restaurantId);
-  return reply.send(categories);
-};
-
-export const getCategoryHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const result = CategoryIdParamSchema.safeParse(req.params);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Invalid category ID" });
+  /** GET /categories/full - Get full categories with menu items */
+  async getFullCategories(
+    req: AuthenticatedRequest,
+    reply: FastifyReply
+  ) {
+    const restaurantId = getRestaurantId(req);
+    const categories = await this.svc.getCategoriesByRestaurant(restaurantId);
+    return reply.send({ success: true, data: categories });
   }
 
-  const category = await getCategoryById(result.data.id);
-  if (!category) {
-    return reply.status(404).send({ error: "Category not found" });
+  /** GET /categories/:id - Get category details */
+  async getCategoryById(
+    req: AuthenticatedRequest<unknown, z.infer<typeof CategoryParamsSchema>>,
+    reply: FastifyReply
+  ) {
+    const category = await this.svc.findById(req.params.id);
+    
+    if (!category) {
+      throw new ApiError(404, 'CATEGORY_NOT_FOUND', 'Category not found');
+    }
+    
+    // Verify category belongs to user's restaurant
+    const restaurantId = getRestaurantId(req);
+    if (category.restaurantId !== restaurantId) {
+      throw new ApiError(403, 'FORBIDDEN', 'Access denied');
+    }
+    
+    return reply.send({ success: true, data: category });
   }
 
-  return reply.send(category);
-};
-
-export const updateCategoryHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const paramResult = CategoryIdParamSchema.safeParse(req.params);
-  if (!paramResult.success) {
-    return reply.status(400).send({ error: "Invalid category ID" });
+  /** PATCH /categories/:id - Update category */
+  async updateCategory(
+    req: AuthenticatedRequest<
+      z.infer<typeof UpdateCategorySchema>,
+      z.infer<typeof CategoryParamsSchema>
+    >,
+    reply: FastifyReply
+  ) {
+    const category = await this.svc.updateCategory(
+      req.params.id,
+      req.body,
+      req.user.staffId
+    );
+    return reply.send({ success: true, data: category });
   }
 
-  const bodyResult = UpdateCategorySchema.safeParse(req.body);
-  if (!bodyResult.success) {
-    return reply.status(400).send({ error: "Invalid input", details: bodyResult.error });
+  /** DELETE /categories/:id - Delete category */
+  async deleteCategory(
+    req: AuthenticatedRequest<unknown, z.infer<typeof CategoryParamsSchema>>,
+    reply: FastifyReply
+  ) {
+    await this.svc.deleteCategory(req.params.id, req.user.staffId);
+    return reply.send({ success: true, message: 'Category deleted successfully' });
   }
 
-  const category = await updateCategory(paramResult.data.id, bodyResult.data);
-  return reply.send(category);
-};
-
-export const deleteCategoryHandler = async (req: FastifyRequest, reply: FastifyReply) => {
-  const result = CategoryIdParamSchema.safeParse(req.params);
-  if (!result.success) {
-    return reply.status(400).send({ error: "Invalid category ID" });
+  /** POST /categories/reorder - Reorder categories */
+  async reorderCategories(
+    req: AuthenticatedRequest<z.infer<typeof ReorderCategoriesSchema>>,
+    reply: FastifyReply
+  ) {
+    const result = await this.svc.reorderCategories(req.body, req.user.staffId);
+    return reply.send({ 
+      success: true, 
+      data: result,
+      message: `Reordered ${result.updated} categories`
+    });
   }
 
-  await deleteCategory(result.data.id);
-  return reply.status(204).send(); // 204 No Content for successful deletion
-};
+  /** PATCH /categories/bulk - Bulk update categories */
+  async bulkUpdateCategories(
+    req: AuthenticatedRequest<z.infer<typeof BulkUpdateCategoriesSchema>>,
+    reply: FastifyReply
+  ) {
+    const result = await this.svc.bulkUpdateCategories(req.body, req.user.staffId);
+    return reply.send({ 
+      success: true, 
+      data: result,
+      message: `Updated ${result.updated} categories`
+    });
+  }
+
+  /** GET /categories/statistics - Get category statistics */
+  async getCategoryStatistics(
+    req: AuthenticatedRequest,
+    reply: FastifyReply
+  ) {
+    const restaurantId = getRestaurantId(req);
+    const stats = await this.svc.getCategoryStatistics(restaurantId);
+    return reply.send({ success: true, data: stats });
+  }
+
+  // =================== LEGACY ENDPOINTS (for backward compatibility) ===================
+
+  /** GET /menu-categories - Legacy endpoint for getting categories by restaurant */
+  async getLegacyCategories(
+    req: FastifyRequest<{ Querystring: z.infer<typeof GetCategoriesQuerySchema> }>,
+    reply: FastifyReply
+  ) {
+    const categories = await this.svc.getCategoriesByRestaurant(req.query.restaurantId);
+    return reply.send(categories);
+  }
+
+  /** GET /menu-categories/:id - Legacy get category endpoint */
+  async getLegacyCategory(
+    req: FastifyRequest<{ Params: z.infer<typeof CategoryIdParamSchema> }>,
+    reply: FastifyReply
+  ) {
+    const category = await this.svc.findById(req.params.id);
+    
+    if (!category) {
+      throw new ApiError(404, 'CATEGORY_NOT_FOUND', 'Category not found');
+    }
+    
+    return reply.send(category);
+  }
+
+  /** POST /menu-categories - Legacy create endpoint */
+  async createLegacyCategory(
+    req: FastifyRequest<{ Body: z.infer<typeof CreateCategorySchema> }>,
+    reply: FastifyReply
+  ) {
+    const category = await this.svc.createCategory(req.body, 'legacy-staff');
+    return reply.status(201).send(category);
+  }
+
+  /** PUT /menu-categories/:id - Legacy update endpoint */
+  async updateLegacyCategory(
+    req: FastifyRequest<{ 
+      Body: z.infer<typeof UpdateCategorySchema>;
+      Params: z.infer<typeof CategoryIdParamSchema>;
+    }>,
+    reply: FastifyReply
+  ) {
+    const category = await this.svc.updateCategory(req.params.id, req.body, 'legacy-staff');
+    return reply.send(category);
+  }
+
+  /** DELETE /menu-categories/:id - Legacy delete endpoint */
+  async deleteLegacyCategory(
+    req: FastifyRequest<{ Params: z.infer<typeof CategoryIdParamSchema> }>,
+    reply: FastifyReply
+  ) {
+    await this.svc.deleteCategory(req.params.id, 'legacy-staff');
+    return reply.status(204).send();
+  }
+}
+
