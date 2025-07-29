@@ -46,20 +46,25 @@ export default function ClientPage() {
 
         const fetchMenu = async () => {
             try {
-                const [restaurantRes, menuRes] = await Promise.all([
-                    fetch(`http://localhost:3001/api/restaurants/${restaurantId}`),
-                    fetch(`http://localhost:3001/api/menu?restaurantId=${restaurantId}`)
-                ]);
+                // Get the table code from localStorage (set by table redirect page)
+                const tableCode = localStorage.getItem('tableCode') || tableId;
 
-                const restaurantData = await restaurantRes.json();
+                console.log("👉 tableCode:", tableCode);
+                console.log("👉 restaurantId:", restaurantId);
+
+                // Use customer endpoints for menu data - correct endpoint structure
+                const menuRes = await fetch(`http://localhost:3001/api/customer/menu/${tableCode}/${restaurantId}`);
                 const menuRaw = await menuRes.json();
 
                 console.log("🍽️ MENU RESPONSE:", menuRaw);
+                console.log("🔍 Response status:", menuRes.status);
+                console.log("🔍 Response OK:", menuRes.ok);
 
-                // ✅ FIX restaurantnaam ophalen
-                setRestaurantName(restaurantData?.data?.name ?? "Onbekend");
+                // ✅ FIX restaurantnaam ophalen - extract from menu response
+                const restaurantName = menuRaw?.data?.restaurant?.name || "Onbekend";
+                setRestaurantName(restaurantName);
 
-                const categories = menuRaw?.data || [];
+                const categories = menuRaw?.data?.menu || [];
 
                 // ✅ Groepeer menuItems per categorie
                 const grouped: Record<string, any[]> = {};

@@ -67,9 +67,11 @@ export default function CartPage() {
         try {
             console.log("🛒 Cart items:", cartItems);
 
+            // Get the table code from localStorage (set by table redirect page)
+            const tableCode = localStorage.getItem('tableCode') || String(tableId);
+
             const orderPayload = {
-                tableId: String(tableId),
-                restaurantId: String(restaurantId),
+                tableCode: tableCode,
                 items: cartItems.map((item) => ({
                     menuId: String(item.id),
                     quantity: parseInt(item.quantity),
@@ -80,7 +82,7 @@ export default function CartPage() {
             console.log("🔍 Order payload:", JSON.stringify(orderPayload, null, 2));
 
             const orderRes = await fetch(
-                "http://localhost:3001/api/orders",
+                "http://localhost:3001/api/customer/orders",
                 {
                     method: "POST",
                     headers: {
