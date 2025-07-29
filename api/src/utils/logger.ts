@@ -113,6 +113,50 @@ export const logger = {
         endpoint,
         attempts
       }, `Rate limit exceeded: ${attempts} attempts to ${endpoint}`);
+    },
+
+    // CRITICAL production security logging
+    webhookSecurityViolation: (reason: string, context?: any) => {
+      baseLogger.error({
+        category: 'SECURITY',
+        event: 'WEBHOOK_SECURITY_VIOLATION',
+        reason,
+        severity: 'CRITICAL',
+        ...context
+      }, `Webhook security violation: ${reason}`);
+    },
+
+    rateLimitExceeded: (ip: string, endpoint: string, attempts: number) => {
+      baseLogger.warn({
+        category: 'SECURITY',
+        event: 'RATE_LIMIT_EXCEEDED',
+        ip,
+        endpoint,
+        attempts,
+        severity: 'HIGH'
+      }, `Rate limit exceeded from ${ip} on ${endpoint}`);
+    },
+
+    paymentFraudAttempt: (paymentId: string, reason: string, context?: any) => {
+      baseLogger.error({
+        category: 'SECURITY',
+        event: 'PAYMENT_FRAUD_ATTEMPT',
+        paymentId,
+        reason,
+        severity: 'CRITICAL',
+        ...context
+      }, `Potential payment fraud detected: ${reason}`);
+    },
+
+    invalidApiAccess: (ip: string, endpoint: string, reason: string) => {
+      baseLogger.warn({
+        category: 'SECURITY',
+        event: 'INVALID_API_ACCESS',
+        ip,
+        endpoint,
+        reason,
+        severity: 'MEDIUM'
+      }, `Invalid API access attempt: ${reason}`);
     }
   },
 
@@ -156,6 +200,7 @@ export const logger = {
       }, `Customer ${action}`);
     }
   },
+
 
   // Payment logging
   payment: {

@@ -1,29 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
-import createMollieClient from "@mollie/api-client";
 
-const mollie = createMollieClient({ apiKey: process.env.MOLLIE_API_KEY! });
-
+/**
+ * DEPRECATED: This endpoint is replaced by the secure API payment system
+ * All payments should go through /api/payments/create for security and consistency
+ * 
+ * This endpoint now redirects to the proper API endpoint
+ */
 export async function POST(req: NextRequest) {
     const body = await req.json();
-    const { totalAmount, tableId } = body;
+    const { totalAmount, orderId, tableId } = body;
+
+    // Validation
+    if (!orderId) {
+        return NextResponse.json({ 
+            error: "Order ID is required. Use the API payment system." 
+        }, { status: 400 });
+    }
 
     try {
-        const payment = await mollie.payments.create({
-            amount: {
-                value: totalAmount.toFixed(2),
-                currency: "EUR",
+        // Call the secure API endpoint instead of direct Mollie
+        const apiUrl = process.env.API_BASE_URL || 'http://localhost:3001';
+        const response = await fetch(`${apiUrl}/api/payments/create`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                // Add any required authentication headers here
             },
-            description: `Bestelling voor tafel ${tableId}`,
-            redirectUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/client/${tableId}/thankyou`,
-            // webhookUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook`, // optioneel
-            metadata: {
-                tableId,
-            },
+            body: JSON.stringify({
+                orderId,
+                amount: totalAmount,
+                description: `Bestelling voor tafel ${tableId}`,
+                metadata: { tableId }
+            })
         });
 
-        return NextResponse.json({ url: payment.getCheckoutUrl() }, { status: 200 });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Payment creation failed');
+        }
+
+        const paymentData = await response.json();
+        
+        return NextResponse.json({ 
+            url: paymentData.checkoutUrl,
+            paymentId: paymentData.paymentId
+        }, { status: 200 });
+
     } catch (err) {
-        console.error("Mollie fout:", err);
-        return NextResponse.json({ error: "Betaling mislukt" }, { status: 500 });
+        console.error("Payment creation failed:", err);
+        return NextResponse.json({ 
+            error: "Payment creation failed. Please try again." 
+        }, { status: 500 });
     }
 }
