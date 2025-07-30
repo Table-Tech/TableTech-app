@@ -53,7 +53,7 @@ export default function ClientPage() {
                 console.log("👉 restaurantId:", restaurantId);
 
                 // Use customer endpoints for menu data - correct endpoint structure
-                const menuRes = await fetch(`http://localhost:3001/api/customer/menu/${tableCode}/${restaurantId}`);
+                const menuRes = await fetch(`http://localhost:3001/api/menu/customer/${tableCode}/${restaurantId}`);
                 const menuRaw = await menuRes.json();
 
                 console.log("🍽️ MENU RESPONSE:", menuRaw);

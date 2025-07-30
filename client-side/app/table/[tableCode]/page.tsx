@@ -11,7 +11,7 @@ export default function TableCodeRedirect() {
         const validateAndRedirect = async () => {
             try {
                 // Validate table code with backend
-                const response = await fetch("http://localhost:3001/api/customer/validate-table", {
+                const response = await fetch("http://localhost:3001/api/tables/customer/validate-table", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",

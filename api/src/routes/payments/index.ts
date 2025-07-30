@@ -14,6 +14,7 @@ import { verifyMollieWebhookSignature } from '../../utils/webhook-security.js';
 import { RedisRateLimiter } from '../../utils/redis-rate-limiter.js';
 import { logger } from '../../utils/logger.js';
 import { ApiError } from '../../types/errors.js';
+import { validationMiddleware, validateParams } from '../../middleware/validation.middleware.js';
 
 export default async function paymentRoutes(fastify: FastifyInstance) {
   const mollieService = createMollieService(fastify.prisma);
@@ -21,27 +22,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
 
   // Create payment for an order - PRODUCTION SECURE with Redis rate limiting
   fastify.post('/create', {
-    schema: {
-      body: CreatePaymentSchema,
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            paymentId: { type: 'string' },
-            checkoutUrl: { type: 'string' },
-            status: { type: 'string' }
-          }
-        },
-        400: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            code: { type: 'string' }
-          }
-        }
-      }
-    }
+    preHandler: [validationMiddleware(CreatePaymentSchema)]
   }, async (request, reply) => {
     const requestLogger = logger.base.child({
       requestId: request.id,
@@ -107,14 +88,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
     config: {
       rawBody: true // Enable raw body for signature verification
     },
-    schema: {
-      body: WebhookPayloadSchema,
-      response: {
-        200: { type: 'string' },
-        401: { type: 'object', properties: { error: { type: 'string' } } },
-        500: { type: 'object', properties: { error: { type: 'string' } } }
-      }
-    }
+    preHandler: [validationMiddleware(WebhookPayloadSchema)]
   }, async (request, reply) => {
     const webhookLogger = logger.base.child({
       requestId: request.id,
@@ -167,21 +141,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
 
   // Check payment status - PRODUCTION SECURE
   fastify.get('/status/:paymentId', {
-    schema: {
-      params: PaymentStatusSchema,
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            status: { type: 'string' },
-            isPaid: { type: 'boolean' },
-            amount: { type: 'number' },
-            method: { type: 'string' }
-          }
-        }
-      }
-    }
+    preHandler: [validateParams(PaymentStatusSchema)]
   }, async (request, reply) => {
     const statusLogger = logger.base.child({
       requestId: request.id,
@@ -214,18 +174,7 @@ export default async function paymentRoutes(fastify: FastifyInstance) {
 
   // Create refund - PRODUCTION SECURE
   fastify.post('/refund', {
-    schema: {
-      body: CreateRefundSchema,
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            refundId: { type: 'string' }
-          }
-        }
-      }
-    }
+    preHandler: [validationMiddleware(CreateRefundSchema)]
   }, async (request, reply) => {
     const refundLogger = logger.base.child({
       requestId: request.id,

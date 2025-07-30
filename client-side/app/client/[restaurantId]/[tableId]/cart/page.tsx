@@ -82,7 +82,7 @@ export default function CartPage() {
             console.log("🔍 Order payload:", JSON.stringify(orderPayload, null, 2));
 
             const orderRes = await fetch(
-                "http://localhost:3001/api/customer/orders",
+                "http://localhost:3001/api/orders/customer/orders",
                 {
                     method: "POST",
                     headers: {
