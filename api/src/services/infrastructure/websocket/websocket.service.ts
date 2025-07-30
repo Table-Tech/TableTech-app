@@ -910,4 +910,61 @@ export class WebSocketService {
 
     logger.system.stop('WebSocket service shutdown');
   }
+
+  /**
+   * Emit payment status updates to relevant clients
+   * Used by webhook processing for real-time payment updates
+   */
+  public emitPaymentUpdate(paymentData: {
+    paymentId: string;
+    orderId?: string;
+    status: string;
+    amount: number;
+  }) {
+    if (!paymentData.orderId) {
+      logger.base.warn({ paymentId: paymentData.paymentId }, 'Cannot emit payment update without orderId');
+      return;
+    }
+
+    // Get order details to determine which rooms to emit to
+    this.prisma.order.findUnique({
+      where: { id: paymentData.orderId },
+      select: { restaurantId: true, tableId: true, orderNumber: true }
+    }).then(order => {
+      if (order) {
+        // Emit to restaurant staff (kitchen dashboard)
+        this.io.to(`restaurant:${order.restaurantId}:staff`).emit('payment:status:updated', {
+          paymentId: paymentData.paymentId,
+          orderId: paymentData.orderId,
+          orderNumber: order.orderNumber,
+          status: paymentData.status,
+          amount: paymentData.amount,
+          timestamp: new Date()
+        });
+
+        // Emit to customers at the table
+        this.io.to(`table:${order.tableId}`).emit('payment:status:updated', {
+          paymentId: paymentData.paymentId,
+          orderId: paymentData.orderId,
+          status: paymentData.status,
+          timestamp: new Date()
+        });
+
+        logger.base.info({
+          category: 'WEBSOCKET',
+          event: 'PAYMENT_UPDATE_EMITTED',
+          paymentId: paymentData.paymentId,
+          orderId: paymentData.orderId,
+          status: paymentData.status,
+          restaurantId: order.restaurantId
+        }, `Payment update emitted: ${paymentData.status}`);
+      }
+    }).catch(error => {
+      logger.error.log(error, {
+        service: 'websocket',
+        operation: 'emitPaymentUpdate',
+        paymentId: paymentData.paymentId
+      });
+    });
+  }
 }

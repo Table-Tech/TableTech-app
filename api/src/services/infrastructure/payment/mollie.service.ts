@@ -2,6 +2,7 @@ import { createMollieClient, PaymentStatus, Payment, PaymentMethod } from '@moll
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../../../utils/logger.js';
 import { ApiError } from '../../../types/errors.js';
+import { generateIdempotencyKey } from '../../../utils/webhook-security.js';
 
 export interface CreatePaymentOptions {
   amount: number;
@@ -10,6 +11,7 @@ export interface CreatePaymentOptions {
   description?: string;
   customerEmail?: string;
   metadata?: Record<string, any>;
+  idempotencyKey?: string; // Prevent duplicate payments
 }
 
 export interface PaymentResult {
@@ -57,9 +59,30 @@ export class MolliePaymentService {
 
   /**
    * Create a new payment with Mollie
+   * Production-ready with fraud detection and idempotency
    */
   public async createPayment(options: CreatePaymentOptions): Promise<PaymentResult> {
     try {
+      // Generate idempotency key if not provided
+      const idempotencyKey = options.idempotencyKey || generateIdempotencyKey(options.orderId, options.amount);
+
+      // Check for duplicate payment attempts
+      const existingPayment = await this.prisma.payment.findFirst({
+        where: {
+          orderId: options.orderId,
+          status: { in: ['PENDING', 'COMPLETED'] }
+        }
+      });
+
+      if (existingPayment) {
+        logger.security.paymentFraudAttempt(existingPayment.id, 'Duplicate payment attempt', {
+          orderId: options.orderId,
+          existingPaymentId: existingPayment.id,
+          idempotencyKey
+        });
+        throw new ApiError(409, 'PAYMENT_ALREADY_EXISTS', 'Payment already exists for this order');
+      }
+
       // Validate order exists and is payable
       const order = await this.prisma.order.findUnique({
         where: { 
@@ -84,6 +107,16 @@ export class MolliePaymentService {
         throw new ApiError(400, 'ORDER_CANCELLED', 'Cannot pay for cancelled order');
       }
 
+      // Fraud detection: Check if amount matches order
+      if (Math.abs(parseFloat(order.totalAmount.toString()) - options.amount) > 0.01) {
+        logger.security.paymentFraudAttempt('amount_mismatch', 'Payment amount does not match order', {
+          orderId: options.orderId,
+          orderAmount: order.totalAmount,
+          requestedAmount: options.amount
+        });
+        throw new ApiError(400, 'AMOUNT_MISMATCH', 'Payment amount does not match order total');
+      }
+
       // Create payment with Mollie
       const molliePayment = await this.mollieClient.payments.create({
         amount: {
@@ -98,6 +131,7 @@ export class MolliePaymentService {
           restaurantId: options.restaurantId,
           tableId: order.tableId,
           tableNumber: order.table.number.toString(),
+          idempotencyKey,
           ...(options.metadata || {})
         },
         method: [
