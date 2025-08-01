@@ -1,7 +1,5 @@
 "use client";
 
-//client-side/app/client/[restaurantId]/[tableId]/cart/page.tsx
-
 import { useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -21,11 +19,14 @@ export default function CartPage() {
     useEffect(() => {
         const storedCart = localStorage.getItem("cart");
         if (storedCart) {
-            const parsedCart = JSON.parse(storedCart);
-            console.log("🛒 Cart data from localStorage:", parsedCart);
-            console.log("🛒 First item structure:", parsedCart[0]);
-            console.log("🛒 First item imageUrl:", parsedCart[0]?.imageUrl);
-            setCartItems(parsedCart);
+            try {
+                const parsedCart = JSON.parse(storedCart);
+                console.log("🛒 Cart loaded:", parsedCart);
+                setCartItems(parsedCart);
+            } catch (error) {
+                console.error("Error parsing cart:", error);
+                setCartItems([]);
+            }
         }
 
         const timeout = setTimeout(() => setShowContent(true), 400);
@@ -49,8 +50,9 @@ export default function CartPage() {
     };
 
     const total = cartItems.reduce((sum: number, item: any) => {
-        const qty = isNaN(item.quantity) ? 0 : item.quantity;
-        return sum + item.price * qty;
+        const qty = Number(item.quantity) || 1;
+        const price = Number(item.price) || 0;
+        return sum + (price * qty);
     }, 0);
 
     const handlePlaceOrder = async () => {
@@ -163,11 +165,7 @@ export default function CartPage() {
         }
     };
 
-    // Get product image from item data (comes from API)
-    const getProductImage = (item: any) => {
-        console.log(`🖼️ getProductImage called for ${item.name}, imageUrl: ${item.imageUrl}`);
-        return item.imageUrl || null;
-    };
+    // Verwijder de oude functie - we gebruiken direct item.imageUrl
 
     const getItemCardColor = (index: number) => {
         const colors = [
@@ -203,6 +201,7 @@ export default function CartPage() {
                     {/* Header */}
                     <div className="bg-white border-b border-gray-200 px-4 py-6">
                         <div className="max-w-sm mx-auto">
+                            <div className="w-16 h-1 bg-gray-800 rounded-full mx-auto mb-6"></div>
                             <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">TableTech</h1>
                             <p className="text-center text-gray-600 mb-4">Jouw Bestelling • Tafel {tableId}</p>
                             
@@ -236,8 +235,19 @@ export default function CartPage() {
                                         >
                                             <div className="flex items-center space-x-4">
                                                 {/* Product Image */}
-                                                <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                                                    <span className="text-3xl">{getProductImage(item.name)}</span>
+                                                <div className="w-16 h-16 bg-white rounded-xl overflow-hidden shadow-sm">
+                                                    {item.imageUrl ? (
+                                                        <img
+                                                            src={item.imageUrl}
+                                                            alt={item.name || "Product"}
+                                                            loading="lazy"
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center">
+                                                            <span className="text-2xl">🍽️</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 
                                                 {/* Product Info */}
