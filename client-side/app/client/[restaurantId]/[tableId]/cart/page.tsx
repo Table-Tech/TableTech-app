@@ -1,7 +1,5 @@
 "use client";
 
-// client-side/app/client/[restaurantId]/[tableId]/cart/page.tsx
-
 import { useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -21,7 +19,11 @@ export default function CartPage() {
     useEffect(() => {
         const storedCart = localStorage.getItem("cart");
         if (storedCart) {
-            setCartItems(JSON.parse(storedCart));
+            const parsedCart = JSON.parse(storedCart);
+            console.log("🛒 Cart data from localStorage:", parsedCart);
+            console.log("🛒 First item structure:", parsedCart[0]);
+            console.log("🛒 First item imageUrl:", parsedCart[0]?.imageUrl);
+            setCartItems(parsedCart);
         }
 
         const timeout = setTimeout(() => setShowContent(true), 400);
@@ -159,6 +161,34 @@ export default function CartPage() {
         }
     };
 
+    // Get product image from item data (comes from API)
+    const getProductImage = (item: any) => {
+        console.log(`🖼️ getProductImage called for ${item.name}, imageUrl: ${item.imageUrl}`);
+        return item.imageUrl || null;
+    };
+
+    const getItemCardColor = (index: number) => {
+        const colors = [
+            "bg-gradient-to-br from-green-50 to-emerald-100 border-green-200",
+            "bg-gradient-to-br from-blue-50 to-sky-100 border-blue-200", 
+            "bg-gradient-to-br from-orange-50 to-amber-100 border-orange-200",
+            "bg-gradient-to-br from-purple-50 to-violet-100 border-purple-200",
+            "bg-gradient-to-br from-pink-50 to-rose-100 border-pink-200"
+        ];
+        return colors[index % colors.length];
+    };
+
+    const getItemTextColor = (index: number) => {
+        const colors = [
+            "text-green-700",
+            "text-blue-700",
+            "text-orange-700", 
+            "text-purple-700",
+            "text-pink-700"
+        ];
+        return colors[index % colors.length];
+    };
+
     return (
         <>
             {showContent && (
@@ -166,96 +196,142 @@ export default function CartPage() {
                     initial={{ y: "100%", opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ duration: 0.6, ease: "easeOut" }}
-                    className="flex flex-col min-h-screen bg-white text-black relative"
+                    className="flex flex-col min-h-screen bg-gray-50 text-black relative"
                 >
-                    <div className="sticky top-0 bg-white z-40 w-full border-b border-gray-300">
-                        <div className="max-w-md mx-auto px-4 pt-6 pb-2">
-                            <h1 className="text-2xl font-bold text-center">🛒 Winkelwagen</h1>
-                            <div className="flex justify-between items-center mt-2 font-bold text-lg">
-                                <span>Totaal:</span>
-                                <span>€{total.toFixed(2)}</span>
+                    {/* Header */}
+                    <div className="bg-white border-b border-gray-200 px-4 py-6">
+                        <div className="max-w-sm mx-auto">
+                            <div className="w-16 h-1 bg-gray-800 rounded-full mx-auto mb-6"></div>
+                            <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">TableTech</h1>
+                            <p className="text-center text-gray-600 mb-4">Jouw Bestelling • Tafel {tableId}</p>
+                            
+                            <div className="bg-green-100 rounded-full px-4 py-2 text-center">
+                                <span className="text-green-700 font-semibold">
+                                    {cartItems.length} item{cartItems.length !== 1 ? 's' : ''} toegevoegd
+                                </span>
                             </div>
                         </div>
                     </div>
 
-                    <main className="relative flex-1 overflow-y-auto max-w-md w-full mx-auto px-4 pb-40">
-                        <div className="pointer-events-none absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white to-transparent z-10" />
-                        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent z-10" />
-
-                        {cartItems.length === 0 ? (
-                            <div className="text-gray-500 text-center mt-20 relative z-20">
-                                Je winkelwagen is leeg.
-                            </div>
-                        ) : (
-                            <div className="space-y-4 relative z-20">
+                    <main className="flex-1 overflow-y-auto px-4 py-6">
+                        <div className="max-w-sm mx-auto space-y-4">
+                            {cartItems.length === 0 ? (
+                                <div className="text-center mt-20">
+                                    <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <span className="text-4xl">🛒</span>
+                                    </div>
+                                    <p className="text-gray-500 text-lg">Je winkelwagen is leeg.</p>
+                                </div>
+                            ) : (
                                 <AnimatePresence>
-                                    {cartItems.map((item: any) => (
+                                    {cartItems.map((item: any, index: number) => (
                                         <motion.div
                                             key={item.id}
                                             initial={{ opacity: 0, y: -10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, y: 10 }}
                                             transition={{ duration: 0.2 }}
-                                            className="bg-gray-100 rounded-xl p-4 shadow-md w-full"
+                                            className={`${getItemCardColor(index)} rounded-2xl p-4 border-2 shadow-sm`}
                                         >
-                                            <div className="flex justify-between items-center mb-2">
-                                                <h2 className="text-lg font-semibold">{item.name}</h2>
-                                                <p className="text-lg font-bold">
-                                                    €
-                                                    {(
-                                                        item.price *
-                                                        (isNaN(item.quantity) ? 0 : item.quantity)
-                                                    ).toFixed(2)}
-                                                </p>
-                                            </div>
-                                            <p className="text-sm text-gray-600 mb-2">
-                                                €{Number(item.price).toFixed(2)} ×{" "}
-                                                {isNaN(item.quantity) ? 0 : item.quantity}
-                                            </p>
-                                            <div className="flex gap-2 items-center">
-                                                <input
-                                                    type="number"
-                                                    min={1}
-                                                    inputMode="numeric"
-                                                    value={
-                                                        item.quantity === 0 || isNaN(item.quantity)
-                                                            ? ""
-                                                            : String(item.quantity)
-                                                    }
-                                                    onChange={(e) =>
-                                                        updateQuantity(item.id, e.target.value)
-                                                    }
-                                                    className="w-16 text-center px-2 py-1 border border-gray-300 rounded-lg bg-white shadow-sm"
-                                                />
-                                                <button
-                                                    onClick={() => removeItem(item.id)}
-                                                    className="bg-red-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-red-600 transition"
-                                                >
-                                                    Verwijder
-                                                </button>
+                                            <div className="flex items-center space-x-4">
+                                                {/* Product Image */}
+                                                <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                                                    <span className="text-3xl">{getProductImage(item.name)}</span>
+                                                </div>
+                                                
+                                                {/* Product Info */}
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div>
+                                                            <h3 className={`font-bold text-lg ${getItemTextColor(index)}`}>
+                                                                {item.quantity}x {item.name}
+                                                            </h3>
+                                                            {item.modifiers && item.modifiers.length > 0 && (
+                                                                <p className="text-sm text-gray-600">
+                                                                    {item.modifiers.join(', ')}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        <span className={`font-bold text-xl ${getItemTextColor(index)}`}>
+                                                            €{(item.price * (isNaN(item.quantity) ? 0 : item.quantity)).toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    {/* Quantity Controls */}
+                                                    <div className="flex items-center space-x-3">
+                                                        <div className="flex items-center space-x-2">
+                                                            <button
+                                                                onClick={() => updateQuantity(item.id, String(Math.max(1, item.quantity - 1)))}
+                                                                className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-200 text-gray-600 hover:bg-gray-50"
+                                                            >
+                                                                -
+                                                            </button>
+                                                            <input
+                                                                type="number"
+                                                                min={1}
+                                                                inputMode="numeric"
+                                                                value={item.quantity === 0 || isNaN(item.quantity) ? "" : String(item.quantity)}
+                                                                onChange={(e) => updateQuantity(item.id, e.target.value)}
+                                                                className="w-12 text-center py-1 border border-gray-300 rounded-lg bg-white shadow-sm text-sm"
+                                                            />
+                                                            <button
+                                                                onClick={() => updateQuantity(item.id, String(item.quantity + 1))}
+                                                                className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-200 text-gray-600 hover:bg-gray-50"
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </div>
+                                                        
+                                                        <button
+                                                            onClick={() => removeItem(item.id)}
+                                                            className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors"
+                                                        >
+                                                            Verwijder
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </motion.div>
                                     ))}
                                 </AnimatePresence>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </main>
 
+                    {/* Footer with Totals and Order Button */}
                     <motion.footer
                         initial={{ y: 100 }}
                         animate={{ y: 0 }}
                         transition={{ duration: 0.5, ease: "easeOut", delay: 0.6 }}
-                        className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-40 px-4 py-4"
+                        className="bg-white border-t border-gray-200 px-4 py-6"
                     >
-                        <div className="max-w-md mx-auto">
+                        <div className="max-w-sm mx-auto">
+                            {/* Totals */}
+                            <div className="bg-gray-50 rounded-2xl p-4 mb-4">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-gray-600">Subtotaal:</span>
+                                    <span className="font-semibold">€{total.toFixed(2)}</span>
+                                </div>
+                                <div className="border-t border-gray-200 pt-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-lg font-bold text-gray-800">Totaal:</span>
+                                        <span className="text-xl font-bold text-gray-800">€{total.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Order Button */}
                             <button
-                                className="w-full bg-black text-white py-3 rounded-xl hover:bg-gray-800 transition text-center text-lg mb-2"
+                                className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-2xl text-lg font-bold transition-all duration-300 transform hover:scale-[1.02] shadow-lg mb-3"
                                 onClick={handlePlaceOrder}
+                                disabled={cartItems.length === 0}
                             >
-                                ✅ Plaats bestelling
+                                Bestelling Plaatsen
                             </button>
+
+                            {/* Back Button */}
                             <button
-                                className="w-full text-sm text-gray-600 underline text-center"
+                                className="w-full text-gray-600 text-center py-2"
                                 onClick={() => {
                                     setStartExitTransition(true);
                                     setTimeout(() => {
@@ -268,6 +344,7 @@ export default function CartPage() {
                         </div>
                     </motion.footer>
 
+                    {/* Error Message */}
                     <AnimatePresence>
                         {error && (
                             <motion.div
@@ -275,9 +352,9 @@ export default function CartPage() {
                                 animate={{ y: 0, opacity: 1 }}
                                 exit={{ y: 100, opacity: 0 }}
                                 transition={{ type: "spring", stiffness: 300, damping: 24 }}
-                                className="fixed bottom-[107px] left-0 right-0 px-4 z-30 pointer-events-none"
+                                className="fixed bottom-32 left-0 right-0 px-4 z-30 pointer-events-none"
                             >
-                                <div className="bg-red-500 text-white text-center py-3 rounded-xl shadow-md max-w-md mx-auto text-sm font-medium pointer-events-auto">
+                                <div className="bg-red-500 text-white text-center py-3 rounded-xl shadow-md max-w-sm mx-auto text-sm font-medium pointer-events-auto">
                                     {error}
                                 </div>
                             </motion.div>
@@ -286,6 +363,7 @@ export default function CartPage() {
                 </motion.div>
             )}
 
+            {/* Exit Transition */}
             <AnimatePresence>
                 {startExitTransition && (
                     <motion.div
