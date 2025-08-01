@@ -62,11 +62,15 @@ export class MolliePaymentService {
    * Production-ready with fraud detection and idempotency
    */
   public async createPayment(options: CreatePaymentOptions): Promise<PaymentResult> {
+    console.log('💳 DEBUG: MollieService.createPayment called with options:', JSON.stringify(options, null, 2));
+    
     try {
       // Generate idempotency key if not provided
       const idempotencyKey = options.idempotencyKey || generateIdempotencyKey(options.orderId, options.amount);
+      console.log('💳 DEBUG: Generated idempotency key:', idempotencyKey);
 
       // Check for duplicate payment attempts
+      console.log('💳 DEBUG: Checking for existing payments...');
       const existingPayment = await this.prisma.payment.findFirst({
         where: {
           orderId: options.orderId,
@@ -74,7 +78,10 @@ export class MolliePaymentService {
         }
       });
 
+      console.log('💳 DEBUG: Existing payment check result:', existingPayment ? 'found' : 'none');
+
       if (existingPayment) {
+        console.log('💳 DEBUG: Duplicate payment detected, throwing error');
         logger.security.paymentFraudAttempt(existingPayment.id, 'Duplicate payment attempt', {
           orderId: options.orderId,
           existingPaymentId: existingPayment.id,
@@ -84,6 +91,7 @@ export class MolliePaymentService {
       }
 
       // Validate order exists and is payable
+      console.log('💳 DEBUG: Validating order exists and is payable...');
       const order = await this.prisma.order.findUnique({
         where: { 
           id: options.orderId,
@@ -95,20 +103,40 @@ export class MolliePaymentService {
         }
       });
 
+      console.log('💳 DEBUG: Order lookup result:', order ? {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        totalAmount: order.totalAmount,
+        paymentStatus: order.paymentStatus,
+        status: order.status
+      } : 'null');
+
       if (!order) {
+        console.log('💳 DEBUG: Order not found, throwing error');
         throw new ApiError(404, 'ORDER_NOT_FOUND', 'Order not found');
       }
 
       if (order.paymentStatus === 'COMPLETED') {
+        console.log('💳 DEBUG: Order already paid, throwing error');
         throw new ApiError(400, 'ORDER_ALREADY_PAID', 'Order is already paid');
       }
 
       if (order.status === 'CANCELLED') {
+        console.log('💳 DEBUG: Order cancelled, throwing error');
         throw new ApiError(400, 'ORDER_CANCELLED', 'Cannot pay for cancelled order');
       }
 
       // Fraud detection: Check if amount matches order
-      if (Math.abs(parseFloat(order.totalAmount.toString()) - options.amount) > 0.01) {
+      const orderAmount = parseFloat(order.totalAmount.toString());
+      const amountDiff = Math.abs(orderAmount - options.amount);
+      console.log('💳 DEBUG: Amount validation:', { 
+        orderAmount, 
+        requestedAmount: options.amount, 
+        difference: amountDiff 
+      });
+
+      if (amountDiff > 0.01) {
+        console.log('💳 DEBUG: Amount mismatch detected, throwing error');
         logger.security.paymentFraudAttempt('amount_mismatch', 'Payment amount does not match order', {
           orderId: options.orderId,
           orderAmount: order.totalAmount,
@@ -118,14 +146,14 @@ export class MolliePaymentService {
       }
 
       // Create payment with Mollie
-      const molliePayment = await this.mollieClient.payments.create({
+      console.log('💳 DEBUG: Creating Mollie payment...');
+      const molliePaymentData: any = {
         amount: {
           currency: 'EUR',
           value: options.amount.toFixed(2)
         },
         description: options.description || `Order #${order.orderNumber} - ${order.restaurant.name}`,
         redirectUrl: this.getRedirectUrl(options.orderId),
-        webhookUrl: this.getWebhookUrl(),
         metadata: {
           orderId: options.orderId,
           restaurantId: options.restaurantId,
@@ -139,9 +167,38 @@ export class MolliePaymentService {
           PaymentMethod.creditcard,
           PaymentMethod.bancontact
         ]
+      };
+
+      // Only add webhook URL in production or if explicitly set
+      const webhookUrl = this.getWebhookUrl();
+      if (process.env.NODE_ENV === 'production' || process.env.FORCE_WEBHOOK_URL === 'true') {
+        molliePaymentData.webhookUrl = webhookUrl;
+        console.log('💳 DEBUG: Added webhook URL:', webhookUrl);
+      } else {
+        console.log('💳 DEBUG: Skipping webhook URL for development environment');
+      }
+
+      console.log('💳 DEBUG: Mollie payment data:', JSON.stringify(molliePaymentData, null, 2));
+
+      const molliePayment = await this.mollieClient.payments.create(molliePaymentData);
+
+      console.log('💳 DEBUG: Mollie payment created:', {
+        id: molliePayment.id,
+        status: molliePayment.status,
+        amount: molliePayment.amount,
+        checkoutUrl: molliePayment.getCheckoutUrl()
       });
 
+      // Update redirect URL with payment ID for development
+      if (process.env.NODE_ENV !== 'production') {
+        const updatedRedirectUrl = this.getRedirectUrl(options.orderId, molliePayment.id);
+        console.log('💳 DEBUG: Updated redirect URL with payment ID:', updatedRedirectUrl);
+        // Note: Mollie doesn't allow updating the redirect URL after creation,
+        // so we'll pass the payment ID in the response instead
+      }
+
       // Store payment in database
+      console.log('💳 DEBUG: Storing payment in database...');
       await this.prisma.payment.create({
         data: {
           id: molliePayment.id,
@@ -152,8 +209,10 @@ export class MolliePaymentService {
           orderId: options.orderId
         }
       });
+      console.log('💳 DEBUG: Payment stored in database');
 
       // Update order with Mollie payment ID
+      console.log('💳 DEBUG: Updating order with payment ID...');
       await this.prisma.order.update({
         where: { id: options.orderId },
         data: { 
@@ -161,6 +220,7 @@ export class MolliePaymentService {
           paymentStatus: 'PENDING'
         }
       });
+      console.log('💳 DEBUG: Order updated with payment ID');
 
       logger.payment.initiated(
         molliePayment.id,
@@ -168,13 +228,30 @@ export class MolliePaymentService {
         options.orderId
       );
 
-      return {
+      let checkoutUrl = molliePayment.getCheckoutUrl()!;
+      
+      // For development, we'll modify the checkout URL to include payment ID in redirect
+      if (process.env.NODE_ENV !== 'production') {
+        const updatedRedirectUrl = encodeURIComponent(this.getRedirectUrl(options.orderId, molliePayment.id));
+        // Replace the redirect URL in the checkout URL
+        const originalRedirectUrl = encodeURIComponent(this.getRedirectUrl(options.orderId));
+        checkoutUrl = checkoutUrl.replace(originalRedirectUrl, updatedRedirectUrl);
+        console.log('💳 DEBUG: Modified checkout URL for development:', checkoutUrl);
+      }
+
+      const result = {
         paymentId: molliePayment.id,
-        checkoutUrl: molliePayment.getCheckoutUrl()!,
+        checkoutUrl: checkoutUrl,
         status: molliePayment.status
       };
 
+      console.log('💳 DEBUG: Returning payment result:', result);
+      return result;
+
     } catch (error) {
+      console.error('💳 DEBUG: Error in createPayment:', error);
+      console.error('💳 DEBUG: Error stack:', (error as Error).stack);
+      
       logger.error.log(error as Error, { 
         service: 'mollie',
         operation: 'createPayment',
@@ -182,9 +259,11 @@ export class MolliePaymentService {
       });
       
       if (error instanceof ApiError) {
+        console.log('💳 DEBUG: Rethrowing ApiError');
         throw error;
       }
       
+      console.log('💳 DEBUG: Throwing generic payment creation failed error');
       throw new ApiError(500, 'PAYMENT_CREATION_FAILED', 'Failed to create payment');
     }
   }
@@ -426,9 +505,14 @@ export class MolliePaymentService {
     }
   }
 
-  private getRedirectUrl(orderId: string): string {
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    return `${baseUrl}/payment/result?orderId=${orderId}`;
+  private getRedirectUrl(orderId: string, paymentId?: string): string {
+    const baseUrl = process.env.FRONTEND_URL?.split(',')[0] || 'http://localhost:3000';
+    let url = `${baseUrl}/client/thankyou?orderId=${orderId}`;
+    if (paymentId) {
+      url += `&paymentId=${paymentId}`;
+    }
+    console.log('💳 DEBUG: Generated redirect URL:', url);
+    return url;
   }
 
   private getWebhookUrl(): string {

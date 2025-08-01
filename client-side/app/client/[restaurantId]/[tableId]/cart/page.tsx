@@ -65,64 +65,97 @@ export default function CartPage() {
         }
 
         try {
-            console.log("🛒 Cart items:", cartItems);
+            console.log("🛒 DEBUG: Starting handlePlaceOrder");
+            console.log("🛒 DEBUG: Cart items:", cartItems);
 
             // Get the table code from localStorage (set by table redirect page)
             const tableCode = localStorage.getItem('tableCode') || String(tableId);
+            console.log("🛒 DEBUG: Table code:", tableCode);
+            console.log("🛒 DEBUG: Table ID from params:", tableId);
+            console.log("🛒 DEBUG: Restaurant ID from params:", restaurantId);
 
-            const orderPayload = {
+            // Single API call to create order and payment together
+            const paymentPayload = {
                 tableCode: tableCode,
                 items: cartItems.map((item) => ({
                     menuId: String(item.id),
                     quantity: parseInt(item.quantity),
                     modifiers: item.modifiers ? item.modifiers.map((mod: string) => String(mod)) : [],
+                    notes: item.notes || undefined
                 })),
+                description: `Order via Table ${tableCode}`,
+                notes: undefined // Add customer notes if needed
             };
 
-            console.log("🔍 Order payload:", JSON.stringify(orderPayload, null, 2));
+            console.log("🛒 DEBUG: Payment payload:", JSON.stringify(paymentPayload, null, 2));
 
-            const orderRes = await fetch(
-                "http://localhost:3001/api/orders/customer/orders",
+            // Call the new combined endpoint
+            console.log("🛒 DEBUG: Making API call to create-with-order...");
+            const paymentRes = await fetch(
+                "http://localhost:3001/api/payments/create-with-order",
                 {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                     },
-                    body: JSON.stringify(orderPayload),
+                    body: JSON.stringify(paymentPayload),
                 }
             );
 
-            console.log("📡 orderRes status:", orderRes.status);
+            console.log("🛒 DEBUG: Payment response status:", paymentRes.status);
+            console.log("🛒 DEBUG: Payment response ok:", paymentRes.ok);
+            console.log("🛒 DEBUG: Payment response headers:", Object.fromEntries(paymentRes.headers.entries()));
 
-            if (!orderRes.ok) {
-                const errorText = await orderRes.text();
-                console.log("📦 orderRes error:", errorText);
-                throw new Error("Bestelling opslaan mislukt");
+            if (!paymentRes.ok) {
+                console.log("🛒 DEBUG: Payment response not ok, handling error...");
+                let errorMessage = "Er ging iets mis tijdens het plaatsen van de bestelling.";
+                let errorDetails = null;
+                
+                try {
+                    const errorData = await paymentRes.json();
+                    console.log("🛒 DEBUG: Error data from API:", errorData);
+                    errorDetails = errorData;
+                    if (errorData.error) {
+                        errorMessage = errorData.error;
+                    }
+                } catch (parseError) {
+                    console.log("🛒 DEBUG: Could not parse error as JSON, trying text...");
+                    try {
+                        const errorText = await paymentRes.text();
+                        console.log("🛒 DEBUG: Error text from API:", errorText);
+                        errorDetails = errorText;
+                    } catch (textError) {
+                        console.log("🛒 DEBUG: Could not get error text either:", textError);
+                    }
+                }
+                
+                console.log("🛒 DEBUG: Final error message:", errorMessage);
+                console.log("🛒 DEBUG: Error details:", errorDetails);
+                throw new Error(errorMessage);
             }
 
-            const orderData = await orderRes.json();
-
-            const paymentRes = await fetch("/api/create-payment", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    totalAmount: total,
-                    tableId,
-                    restaurantId,
-                }),
-            });
-
+            console.log("🛒 DEBUG: Payment response ok, parsing JSON...");
             const paymentData = await paymentRes.json();
+            console.log("🛒 DEBUG: Payment data received:", paymentData);
 
-            if (paymentData.url) {
+            if (paymentData.success && paymentData.checkoutUrl) {
+                console.log("🛒 DEBUG: Payment successful, redirecting to:", paymentData.checkoutUrl);
+                // Clear cart and redirect to Mollie checkout
                 localStorage.removeItem("cart");
-                window.location.href = paymentData.url;
+                window.location.href = paymentData.checkoutUrl;
             } else {
+                console.log("🛒 DEBUG: Payment data invalid:", { success: paymentData.success, hasCheckoutUrl: !!paymentData.checkoutUrl });
                 setError("Kon geen betaling starten.");
             }
         } catch (err) {
-            console.error(err);
-            setError("Er ging iets mis tijdens het plaatsen van de bestelling.");
+            console.error("🛒 DEBUG: Caught error in handlePlaceOrder:", err);
+            console.error("🛒 DEBUG: Error type:", typeof err);
+            console.error("🛒 DEBUG: Error constructor:", err?.constructor?.name);
+            if (err instanceof Error) {
+                console.error("🛒 DEBUG: Error message:", err.message);
+                console.error("🛒 DEBUG: Error stack:", err.stack);
+            }
+            setError(err instanceof Error ? err.message : "Er ging iets mis tijdens het plaatsen van de bestelling.");
         }
     };
 
