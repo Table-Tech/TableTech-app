@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { OrderController } from "../../controllers/order.controller.js";
+import { OrderService } from "../../services/order.service.js";
 import { 
   CreateOrderSchema,
   CreateCustomerOrderSchema,
@@ -15,9 +16,12 @@ import {
   rateLimit
 } from "../../middleware/validation.middleware.js";
 import { requireUser, requireRole, requireRestaurantAccess } from "../../middleware/auth.middleware.js";
+import { ApiError } from "../../types/errors.js";
+import { z } from 'zod';
 
 export default async function orderRoutes(server: FastifyInstance) {
   const controller = new OrderController();
+  const orderService = new OrderService();
 
   // =================== STAFF ROUTES ===================
   server.register(async function staffOrderRoutes(server) {
@@ -96,5 +100,46 @@ export default async function orderRoutes(server: FastifyInstance) {
     server.get("/orders/table/:tableCode",
       (req, reply) => controller.getTableOrders(req as any, reply)
     );
+
+    // GET /api/customer/orders/id/:orderId - Get order details for thank you page
+    server.get("/orders/id/:orderId", {
+      preHandler: [validateParams(z.object({ orderId: z.string().uuid() }))]
+    }, async (request, reply) => {
+      const { orderId } = request.params as { orderId: string };
+      
+      try {
+        const order = await orderService.findById(orderId);
+        if (!order) {
+          throw new ApiError(404, 'ORDER_NOT_FOUND', 'Order not found');
+        }
+
+        // Return minimal order info for customers
+        return reply.send({
+          success: true,
+          data: {
+            id: order.id,
+            orderNumber: order.orderNumber,
+            status: order.status,
+            totalAmount: order.totalAmount,
+            createdAt: order.createdAt,
+            table: order.table ? {
+              number: order.table.number
+            } : null
+          }
+        });
+      } catch (error) {
+        if (error instanceof ApiError) {
+          return reply.status(error.statusCode).send({ 
+            error: error.message, 
+            code: error.code 
+          });
+        }
+        
+        return reply.status(500).send({ 
+          error: 'Failed to fetch order',
+          code: 'INTERNAL_ERROR' 
+        });
+      }
+    });
   }, { prefix: '/customer' });
 }
