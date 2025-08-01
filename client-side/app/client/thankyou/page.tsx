@@ -82,10 +82,13 @@ export default function ThankYouPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-white px-4">
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto mb-4"></div>
-                    <p className="text-gray-600">Laden...</p>
+                    <div className="relative mb-6">
+                        <div className="w-12 h-12 border-4 border-green-200 rounded-full animate-spin border-t-green-500 mx-auto"></div>
+                        <div className="absolute inset-0 w-12 h-12 border-4 border-transparent rounded-full animate-ping border-t-green-300"></div>
+                    </div>
+                    <p className="text-gray-600 text-lg font-medium">Laden...</p>
                 </div>
             </div>
         );
@@ -93,37 +96,112 @@ export default function ThankYouPage() {
 
     if (error) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-white px-4">
-                <div className="bg-white p-6 rounded-xl shadow-md max-w-sm text-center">
-                    <h1 className="text-xl font-bold mb-2 text-red-600">Oeps!</h1>
-                    <p className="text-sm text-gray-600 mb-4">
-                        {error}
-                    </p>
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+                <div className="bg-white rounded-2xl p-8 shadow-lg max-w-sm w-full">
+                    <div className="text-center">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <span className="text-3xl">❌</span>
+                        </div>
+                        <h1 className="text-2xl font-bold text-red-600 mb-4">Oeps!</h1>
+                        <p className="text-gray-600 mb-6">{error}</p>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="w-full bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-semibold transition-all duration-300"
+                        >
+                            Probeer opnieuw
+                        </button>
+                    </div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-white px-4">
-            <div className="bg-white p-6 rounded-xl shadow-md max-w-sm text-center">
-                <div className="text-6xl mb-4">✅</div>
-                <h1 className="text-xl font-bold mb-2">Bedankt voor uw bestelling!</h1>
-                <p className="text-sm text-gray-600 mb-4">
-                    Uw betaling is succesvol verwerkt.<br />
-                    Wij hebben uw bestelling ontvangen en zullen deze spoedig voorbereiden.
-                </p>
+        <div className="min-h-screen bg-gray-50 px-4 py-6">
 
+            <div className="max-w-sm mx-auto">
+                {/* Header */}
+                <div className="text-center mb-8 pt-4">
+                    <h1 className="text-3xl font-bold text-green-600 mb-2">TableTech</h1>
+                    <p className="text-gray-600 text-lg">
+                        Bestelling Status {orderData?.table ? `• Tafel ${orderData.table.number}` : ''}
+                    </p>
+                </div>
+
+                {/* Success Card */}
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-4 mb-4 border border-green-200 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-green-100 rounded-full -translate-y-16 translate-x-16 opacity-30"></div>
+                    <div className="relative text-center">
+                        <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                            <span className="text-white text-3xl font-bold">✓</span>
+                        </div>
+                        <h2 className="text-2xl font-bold text-green-800 mb-3">Bestelling Bevestigd!</h2>
+                        <p className="text-green-600 font-medium text-lg">Je eten wordt nu bereid</p>
+                    </div>
+                </div>
+
+                {/* Progress Section */}
+                <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100">
+                    <h3 className="text-xl font-bold text-gray-800 text-center mb-6">Voortgang</h3>
+                    
+                    <div className="space-y-4">
+                        {/* Order Received */}
+                        <div className="flex items-center">
+                            <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mr-4 shadow-md">
+                                <span className="text-white font-bold text-lg">✓</span>
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-semibold text-gray-800 text-lg">Bestelling Ontvangen</h4>
+                                <p className="text-sm text-gray-600">
+                                    {new Date().toLocaleTimeString('nl-NL', {hour: '2-digit', minute: '2-digit'})} - Betaling verwerkt
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* In Kitchen */}
+                        <div className="flex items-center">
+                            <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center mr-4 shadow-md">
+                                <span className="text-white text-xl">🔍</span>
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-semibold text-gray-800 text-lg">In de Keuken</h4>
+                                <p className="text-sm text-gray-600">Nu bezig - geschatte tijd: 8 min</p>
+                            </div>
+                        </div>
+
+                        {/* On the way */}
+                        <div className="flex items-center opacity-50">
+                            <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center mr-4">
+                                <span className="text-gray-600 text-xl">👥</span>
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-semibold text-gray-600 text-lg">Onderweg naar Tafel</h4>
+                                <p className="text-sm text-gray-500">Volgt snel...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Order Summary */}
                 {orderData && (
-                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                        <p className="text-sm font-medium">Bestelling: #{orderData.orderNumber}</p>
-                        <p className="text-sm text-gray-600">Totaal: €{Number(orderData.totalAmount).toFixed(2)}</p>
-                        {orderData.table && (
-                            <p className="text-sm text-gray-600">Tafel: {orderData.table.number}</p>
-                        )}
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-4 mb-4     border border-blue-200">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold text-blue-800">Bestellingsoverzicht</h3>
+                            <span className="text-2xl font-bold text-blue-800">
+                                €{Number(orderData.totalAmount).toFixed(2)}
+                            </span>
+                        </div>
+                        
+                        <div className="bg-white rounded-xl p-4">
+                            <div className="text-center">
+                                <p className="text-sm text-gray-600 mb-1">Bestelling:</p>
+                                <p className="font-semibold text-gray-800 text-lg">#{orderData.orderNumber}</p>
+                            </div>
+                        </div>
                     </div>
                 )}
 
+                {/* Back Button */}
                 <button
                     onClick={() => {
                         console.log('🎉 DEBUG: Sluiten button clicked');
@@ -142,7 +220,7 @@ export default function ThankYouPage() {
                             window.close();
                         }
                     }}
-                    className="w-full bg-black hover:bg-gray-800 text-white py-3 rounded-lg font-semibold text-sm"
+                    className="w-full bg-gray-800 hover:bg-gray-900 text-white py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-[1.02] shadow-lg mb-6"
                 >
                     Terug naar menu
                 </button>
