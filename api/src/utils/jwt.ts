@@ -9,7 +9,7 @@ const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m'; // Short-lived access token
 const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '7d'; // Long-lived refresh token
 
-// Validate required secrets
+// Validate required secrets, to be updated!!!!!!!
 if (!JWT_SECRET || JWT_SECRET === 'your-super-secret-jwt-key-change-in-production') {
   throw new Error('JWT_SECRET must be set in production');
 }

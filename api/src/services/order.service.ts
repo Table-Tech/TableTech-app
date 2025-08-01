@@ -163,6 +163,9 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
    * Create customer order (via QR)
   */
   async createCustomerOrder(data: CreateCustomerOrderDTO, sessionToken?: string, req?: FastifyRequest): Promise<Order> {
+    console.log('🍕 DEBUG: OrderService.createCustomerOrder called with data:', JSON.stringify(data, null, 2));
+    console.log('🍕 DEBUG: SessionToken:', sessionToken ? 'present' : 'none');
+    
     const timer = Date.now();
     const reqLogger = req ? createRequestLogger(req) : logger.base;
     
@@ -175,37 +178,64 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
       sessionToken: sessionToken ? 'present' : 'none'
     }, 'Creating customer order');
 
+    console.log('🍕 DEBUG: Validating customer order...');
     validateCustomerOrder(data);
+    console.log('🍕 DEBUG: Customer order validation passed');
 
     return await this.prisma.$transaction(async (tx) => {
+      console.log('🍕 DEBUG: Starting database transaction');
+      
       // ── 1. Look up table & restaurant ───────────────────────────
+      console.log('🍕 DEBUG: Looking up table with code:', data.tableCode);
       const table = await tx.table.findUnique({
         where:   { code: data.tableCode },
         include: { restaurant: true },
       });
 
+      console.log('🍕 DEBUG: Table lookup result:', table ? { 
+        id: table.id, 
+        number: table.number, 
+        status: table.status, 
+        restaurantId: table.restaurantId 
+      } : 'null');
+
       if (!table) {
+        console.log('🍕 DEBUG: Table not found, throwing error');
         throw new ApiError(404, "INVALID_TABLE_CODE", "Invalid table code");
       }
 
+      console.log('🍕 DEBUG: Validating table availability...');
       validateTableAvailability(table.status, false);
+      console.log('🍕 DEBUG: Table availability validation passed');
 
       // ── 2. Process items & totals ───────────────────────────────
+      console.log('🍕 DEBUG: Processing order items...');
       const { orderItems, financials } = await this.processOrderItems(
         tx,
         data.items,
         table.restaurantId
       );
 
+      console.log('🍕 DEBUG: Order items processed:', { 
+        itemCount: orderItems.length, 
+        financials 
+      });
+
       validateOrderAmount(financials.totalAmount);
+      console.log('🍕 DEBUG: Order amount validation passed');
 
       // ── 3. Create order with duplicate-key retry ────────────────
       let order: Order | null = null;
 
+      console.log('🍕 DEBUG: Starting order creation with retry logic...');
       for (let attempt = 0; attempt < 3; attempt++) {
+        console.log(`🍕 DEBUG: Order creation attempt ${attempt + 1}/3`);
+        
         const orderNumber = await this.generateOrderNumber(tx, table.restaurantId);
+        console.log('🍕 DEBUG: Generated order number:', orderNumber);
 
         try {
+          console.log('🍕 DEBUG: Creating order in database...');
           order = await tx.order.create({
             data: {
               orderNumber,
@@ -222,14 +252,22 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
             },
             include: this.getOrderIncludes(),
           });
+          console.log('🍕 DEBUG: Order created successfully on attempt', attempt + 1);
           break; // ✅ success – exit loop
         } catch (err: any) {
-          if (err.code !== "P2002") throw err; // other DB error
+          console.log(`🍕 DEBUG: Order creation attempt ${attempt + 1} failed:`, err.message);
+          console.log('🍕 DEBUG: Error code:', err.code);
+          if (err.code !== "P2002") {
+            console.log('🍕 DEBUG: Non-duplicate error, rethrowing');
+            throw err; // other DB error
+          }
+          console.log('🍕 DEBUG: Duplicate orderNumber detected, retrying...');
           // else duplicate orderNumber – loop to try again
         }
       }
 
       if (!order) {
+        console.log('🍕 DEBUG: All order creation attempts failed, throwing error');
         throw new ApiError(
           500,
           "ORDER_NUMBER_RACE",
@@ -237,16 +275,27 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
         );
       }
 
+      console.log('🍕 DEBUG: Order created successfully:', {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        totalAmount: order.totalAmount,
+        status: order.status,
+        paymentStatus: order.paymentStatus
+      });
+
       // ── 4. Update table status if it was AVAILABLE ──────────────
       if (table.status === "AVAILABLE") {
+        console.log('🍕 DEBUG: Updating table status to OCCUPIED');
         await tx.table.update({
           where: { id: table.id },
           data:  { status: "OCCUPIED" },
         });
+        console.log('🍕 DEBUG: Table status updated');
       }
 
       // Emit WebSocket event for new order
       if (global.wsService && order) {
+        console.log('🍕 DEBUG: Emitting WebSocket event for new order');
         await global.wsService.emitNewOrder(order);
       }
 
@@ -289,6 +338,13 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
         duration,
         tableCode: data.tableCode
       }, 'Customer order created successfully');
+
+      console.log('🍕 DEBUG: Order service returning order:', {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        totalAmount: Number(order.totalAmount),
+        restaurantId: order.restaurantId
+      });
 
       return order;
     });

@@ -44,11 +44,11 @@ export function validateOrderItems(items: CreateOrderDTO['items'], isCustomer = 
   for (const item of items) {
     const count = itemCounts.get(item.menuId) || 0;
     itemCounts.set(item.menuId, count + item.quantity);
-    
+
     if (itemCounts.get(item.menuId)! > ORDER_LIMITS.maxQuantityPerItem) {
       throw new ApiError(
-        400, 
-        'QUANTITY_LIMIT_EXCEEDED', 
+        400,
+        'QUANTITY_LIMIT_EXCEEDED',
         `Total quantity for an item cannot exceed ${ORDER_LIMITS.maxQuantityPerItem}`
       );
     }
@@ -105,8 +105,8 @@ export function validateStatusTransition(currentStatus: string, newStatus: strin
 
   if (!validTransitions[currentStatus]?.includes(newStatus)) {
     throw new ApiError(
-      400, 
-      'INVALID_STATUS_TRANSITION', 
+      400,
+      'INVALID_STATUS_TRANSITION',
       `Cannot change status from ${currentStatus} to ${newStatus}`
     );
   }
@@ -130,7 +130,7 @@ export function validateModifierGroups(
 
   // Count selections per group
   for (const group of modifierGroups) {
-    const count = group.modifiers.filter(m => 
+    const count = group.modifiers.filter(m =>
       selectedModifiers.includes(m.id)
     ).length;
     selectedByGroup.set(group.id, count);
@@ -143,16 +143,16 @@ export function validateModifierGroups(
     // Validate min/max selection
     if (count < group.minSelect) {
       throw new ApiError(
-        400, 
-        'MIN_MODIFIER_NOT_MET', 
+        400,
+        'MIN_MODIFIER_NOT_MET',
         `Select at least ${group.minSelect} option(s)`
       );
     }
 
     if (group.maxSelect && count > group.maxSelect) {
       throw new ApiError(
-        400, 
-        'MAX_MODIFIER_EXCEEDED', 
+        400,
+        'MAX_MODIFIER_EXCEEDED',
         `Select maximum ${group.maxSelect} option(s)`
       );
     }
@@ -211,6 +211,6 @@ export function getOrderExpiryMinutes(status: string): number {
     READY: 30,        // 30 minutes to deliver
     DELIVERED: 60     // 1 hour to complete
   };
-  
+
   return expiryMap[status] || 60;
 }
