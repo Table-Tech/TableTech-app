@@ -1,11 +1,7 @@
 "use client";
 
-// client-side/app/client/[restaurantId]/[tableId]/page.tsx
-
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import MenuItem from "./components/MenuItem";
 
 export default function ClientPage() {
     const router = useRouter();
@@ -16,9 +12,7 @@ export default function ClientPage() {
 
     const [restaurantName, setRestaurantName] = useState<string | null>(null);
     const [cart, setCart] = useState<any[]>([]);
-    const [openCategories, setOpenCategories] = useState<{ [key: string]: boolean }>({});
-    const [startTransition, setStartTransition] = useState(false);
-    const [startEntryTransition, setStartEntryTransition] = useState(true);
+    const [activeCategory, setActiveCategory] = useState<string>("Populair");
     const [showPopup, setShowPopup] = useState(false);
     const [menuData, setMenuData] = useState<Record<string, any[]> | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -26,7 +20,7 @@ export default function ClientPage() {
     const total = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
     const totalItems = cart.reduce((sum, i) => sum + i.quantity, 0);
 
-    // ⏱️ Cart uit localStorage ophalen
+    // Cart uit localStorage ophalen
     useEffect(() => {
         const stored = localStorage.getItem("cart");
         if (stored) {
@@ -35,81 +29,55 @@ export default function ClientPage() {
             setCart(filtered);
             localStorage.setItem("cart", JSON.stringify(filtered));
         }
-
-        const timeout = setTimeout(() => setStartEntryTransition(false), 600);
-        return () => clearTimeout(timeout);
     }, []);
 
-    // 📦 Menu en restaurant ophalen
+    // Menu en restaurant ophalen
     useEffect(() => {
         if (!restaurantId || !tableId) return;
 
         const fetchMenu = async () => {
             try {
-                // Get the table code from localStorage (set by table redirect page)
                 const tableCode = localStorage.getItem('tableCode') || tableId;
-
-                console.log("👉 tableCode:", tableCode);
-                console.log("👉 restaurantId:", restaurantId);
-
-                // Use customer endpoints for menu data - correct endpoint structure
                 const menuRes = await fetch(`http://localhost:3001/api/menu/customer/${tableCode}/${restaurantId}`);
                 const menuRaw = await menuRes.json();
 
-                console.log("🍽️ MENU RESPONSE:", menuRaw);
-                console.log("🔍 Response status:", menuRes.status);
-                console.log("🔍 Response OK:", menuRes.ok);
-
-                // ✅ FIX restaurantnaam ophalen - extract from menu response
-                const restaurantName = menuRaw?.data?.restaurant?.name || "Onbekend";
+                const restaurantName = menuRaw?.data?.restaurant?.name || "Restaurant Menu";
                 setRestaurantName(restaurantName);
 
                 const categories = menuRaw?.data?.menu || [];
-
-                // ✅ Groepeer menuItems per categorie
-                const grouped: Record<string, any[]> = {};
-                categories.forEach((category: any, index: number) => {
-                    console.log(`🔍 Categorie #${index}:`, category);
-
+                const grouped: Record<string, any[]> = { "Populair": [] };
+                let allItems: any[] = [];
+                
+                categories.forEach((category: any) => {
                     const catName = category.name || "Overig";
-                    if (!Array.isArray(category.menuItems)) {
-                        console.warn("⚠️ Geen geldige menuItems array:", category);
-                        return;
+                    if (Array.isArray(category.menuItems)) {
+                        grouped[catName] = category.menuItems;
+                        allItems = [...allItems, ...category.menuItems];
                     }
-
-                    grouped[catName] = category.menuItems;
                 });
 
+                // Eerste 4 items als populair
+                grouped["Populair"] = allItems.slice(0, 4);
                 setMenuData(grouped);
             } catch (err) {
-                console.error("❌ Fout bij ophalen data:", err);
-                setError("Kan menu of restaurantgegevens niet laden.");
+                setError("Kan menu niet laden.");
             }
         };
 
         fetchMenu();
     }, [restaurantId, tableId]);
 
-    const handleAddToCart = (item: any, quantity: number) => {
+    const handleAddToCart = (item: any) => {
         const existing = cart.find((i) => i.id === item.id);
         const newCart = existing
-            ? cart.map((i) =>
-                i.id === item.id ? { ...i, quantity: i.quantity + quantity } : i
-            )
-            : [...cart, { ...item, quantity }];
+            ? cart.map((i) => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i)
+            : [...cart, { ...item, quantity: 1 }];
         setCart(newCart);
         localStorage.setItem("cart", JSON.stringify(newCart));
     };
 
-    const toggleCategory = (category: string) => {
-        setOpenCategories((prev) => ({ ...prev, [category]: !prev[category] }));
-    };
-
     const handleGoToCart = () => {
-        setStartTransition(true);
-        setTimeout(() => {
-            router.push(`/client/${restaurantId}/${tableId}/cart`);
-        }, 400);
+        router.push(`/client/${restaurantId}/${tableId}/cart`);
     };
 
     if (!restaurantId || !tableId) {
@@ -120,19 +88,30 @@ export default function ClientPage() {
         );
     }
 
+    const categories = menuData ? Object.keys(menuData) : [];
+    const currentItems = menuData ? menuData[activeCategory] || [] : [];
+
     return (
-        <>
-            {/* Pop-up knop rechtsboven */}
+        <div className="min-h-screen bg-gray-50">
+            {/* Header */}
+            <div className="bg-white px-4 py-6">
+                <div className="max-w-sm mx-auto text-center">
+                    <h1 className="text-3xl font-bold text-gray-800 mb-2">TableTech</h1>
+                    <p className="text-gray-600">Tafel {tableId} • {restaurantName}</p>
+                </div>
+            </div>
+
+            {/* Popup knop */}
             <div className="fixed top-5 right-5 z-50">
                 <button
                     onClick={() => setShowPopup(true)}
-                    className="bg-gray-100 text-black p-3 rounded-full shadow text-xl"
+                    className="bg-white text-black p-3 rounded-full shadow-lg border"
                 >
                     🧍
                 </button>
             </div>
 
-            {/* Pop-up */}
+            {/* Popup */}
             {showPopup && (
                 <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
                     <div className="bg-white rounded-xl shadow-lg p-6 w-[90%] max-w-sm">
@@ -165,106 +144,108 @@ export default function ClientPage() {
                 </div>
             )}
 
-            {/* Hoofdinhoud */}
-            {!startEntryTransition && (
-                <motion.main
-                    key="clientMain"
-                    initial={{ y: "-100%", opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ x: "-100%" }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
-                    className="p-4 max-w-md mx-auto pb-40 space-y-4 bg-white min-h-screen"
-                >
-                    <h1 className="text-2xl font-bold mb-6 text-center">Menu Kaart</h1>
-                    <h2 className="text-center text-sm text-gray-600 mt-2 mb-1">
-                        {restaurantName ?? "Laden..."}
-                    </h2>
+            {/* Category Pills */}
+            <div className="bg-white px-4 py-4 shadow-sm">
+                <div className="max-w-sm mx-auto">
+                    <div className="flex flex-wrap gap-2 justify-center">
+                        {categories.map((category) => (
+                            <button
+                                key={category}
+                                onClick={() => setActiveCategory(category)}
+                                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                                    activeCategory === category
+                                        ? "bg-red-100 text-red-700"
+                                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                }`}
+                            >
+                                {category}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
 
+            {/* Menu Items Grid */}
+            <div className="px-4 py-6 pb-32">
+                <div className="max-w-sm mx-auto">
                     {error && (
-                        <p className="text-red-600 text-center text-sm">{error}</p>
+                        <p className="text-red-600 text-center text-sm mb-4">{error}</p>
                     )}
 
-                    {menuData &&
-                        Object.entries(menuData).map(([category, items]) => (
-                            <div key={category} className="border-b-2 border-gray-300 pb-3">
-                                <button
-                                    onClick={() => toggleCategory(category)}
-                                    className="w-full text-left text-xl font-bold py-3 flex justify-between items-center"
-                                >
-                                    {category}
-                                    <span className="text-sm">
-                                        {openCategories[category] ? "▲" : "▼"}
-                                    </span>
-                                </button>
-
-                                <AnimatePresence initial={false}>
-                                    {openCategories[category] && (
-                                        <motion.div
-                                            className="overflow-hidden"
-                                            initial={{ height: 0, opacity: 0 }}
-                                            animate={{ height: "auto", opacity: 1 }}
-                                            exit={{ height: 0, opacity: 0 }}
-                                            transition={{ duration: 0.4, ease: "easeInOut" }}
-                                        >
-                                            <div className="space-y-4 mt-2">
-                                                {items.map((item, index) => (
-                                                    <motion.div
-                                                        key={item.id}
-                                                        initial={{ opacity: 0, y: -10 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        exit={{ opacity: 0, y: -10 }}
-                                                        transition={{
-                                                            delay: index * 0.05,
-                                                            duration: 0.3,
-                                                            ease: "easeOut",
-                                                        }}
-                                                    >
-                                                        <MenuItem item={item} onAdd={handleAddToCart} />
-                                                    </motion.div>
-                                                ))}
-                                            </div>
-                                        </motion.div>
+                    <div className="grid grid-cols-2 gap-4">
+                        {currentItems.map((item) => (
+                            <div
+                                key={item.id}
+                                className="bg-white rounded-2xl shadow-sm overflow-hidden"
+                            >
+                                {/* Product Image */}
+                                <div className="aspect-square w-full bg-gray-100">
+                                    {item.imageUrl ? (
+                                        <img
+                                            src={item.imageUrl}
+                                            alt={item.name}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                            <span className="text-4xl text-gray-300">🍽️</span>
+                                        </div>
                                     )}
-                                </AnimatePresence>
+                                </div>
+
+                                {/* Content */}
+                                <div className="p-4">
+                                    <h3 className="font-bold text-gray-800 mb-1 text-sm">
+                                        {item.name}
+                                    </h3>
+                                    {item.description && (
+                                        <p className="text-xs text-gray-600 mb-3">
+                                            {item.description}
+                                        </p>
+                                    )}
+
+                                    {/* Price and Add Button */}
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-lg font-bold text-gray-800">
+                                            €{Number(item.price).toFixed(2)}
+                                        </span>
+                                        
+                                        <button
+                                            onClick={() => handleAddToCart(item)}
+                                            className="w-10 h-10 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-lg transition-all"
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         ))}
-                </motion.main>
-            )}
+                    </div>
 
-            {/* Winkelwagen footer */}
-            {cart.length > 0 && !startEntryTransition && (
-                <motion.footer
-                    initial={{ y: 100, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 100, opacity: 0 }}
-                    transition={{ duration: 0.6, ease: "easeOut", delay: 0.6 }}
-                    className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-40 px-4 py-4"
-                >
-                    <div className="max-w-md mx-auto">
+                    {currentItems.length === 0 && !error && (
+                        <div className="text-center py-8">
+                            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <span className="text-4xl text-gray-400">🍽️</span>
+                            </div>
+                            <p className="text-gray-500">Geen items in deze categorie</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Cart Footer */}
+            {cart.length > 0 && (
+                <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-40 px-4 py-4">
+                    <div className="max-w-sm mx-auto">
                         <button
                             onClick={handleGoToCart}
-                            className="w-full bg-black text-white py-3 rounded-xl hover:bg-gray-800 transition text-center text-lg"
+                            className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg transition-all shadow-lg"
                         >
                             🛍️ Bekijk bestelling ({totalItems} items – €{total.toFixed(2)})
                         </button>
                     </div>
-                </motion.footer>
+                </div>
             )}
-
-            {/* Overgang naar cart */}
-            {startTransition && (
-                <motion.div
-                    initial={{ y: "100%", opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: "-100%", opacity: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="fixed inset-0 z-50 bg-white"
-                >
-                    <div className="h-full flex items-center justify-center">
-                        <p className="text-xl font-bold animate-pulse">Laden...</p>
-                    </div>
-                </motion.div>
-            )}
-        </>
+        </div>
     );
 }

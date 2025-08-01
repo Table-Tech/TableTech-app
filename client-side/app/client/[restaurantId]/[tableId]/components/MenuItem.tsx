@@ -1,7 +1,5 @@
 "use client";
 
-// client-side/app/client/[restaurantId]/[tableId]/components/MenuItem.tsx
-
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -10,7 +8,7 @@ interface MenuItemType {
     name: string;
     price: number;
     description?: string;
-    image?: string;
+    imageUrl?: string;
 }
 
 export default function MenuItem({
@@ -29,90 +27,93 @@ export default function MenuItem({
 
         onAdd(item, quantity);
 
-        // Toon tijdelijke "+x" feedback
+        // Toon tijdelijke feedback
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         setShowMessage(true);
         timeoutRef.current = setTimeout(() => setShowMessage(false), 1000);
     };
 
     return (
-        <div className="bg-gray-100 rounded-2xl shadow-md p-4 space-y-3 pb-6">
-            <div className="flex gap-4 items-center">
-                {item.image && (
-                    <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
-                        <img
-                            src={item.image}
-                            alt={item.name || "Gerecht"}
-                            loading="lazy"
-                            className="w-full h-full object-cover"
-                        />
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 h-full flex flex-col">
+            {/* Product Image */}
+            <div className="aspect-square w-full bg-gray-100 overflow-hidden">
+                {item.imageUrl ? (
+                    <img
+                        src={item.imageUrl}
+                        alt={item.name || "Product"}
+                        loading="lazy"
+                        className="w-full h-full object-cover"
+                    />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-4xl text-gray-300">🍽️</span>
                     </div>
                 )}
-
-                <div className="flex-1">
-                    <h2 className="text-lg font-semibold">{item.name}</h2>
-                    {item.description && (
-                        <p className="text-sm text-gray-600">{item.description}</p>
-                    )}
-                    <p className="text-base font-bold mt-1">€ {Number(item.price).toFixed(2)}</p>
-
-                </div>
             </div>
 
-            <div className="flex items-center justify-between relative -mt-4">
-                {/* Aantal invoer */}
-                <input
-                    type="number"
-                    min={1}
-                    value={quantity}
-                    onChange={(e) => {
-                        const val = parseInt(e.target.value);
-                        setQuantity(isNaN(val) || val < 1 ? 1 : val);
-                    }}
-                    className="w-16 border rounded px-2 py-1 text-center bg-white"
-                />
-
-                {/* Animatie: "+X" */}
-                <div className="absolute left-[85%] transform -translate-x-1/2 top-7">
-                    <AnimatePresence>
-                        {showMessage && (
-                            <motion.div
-                                initial={{ y: -20, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                exit={{ y: -20, opacity: 0 }}
-                                transition={{ duration: 0.4 }}
-                                className="bg-black text-white text-sm px-6 py-1 rounded-xl shadow"
-                            >
-                                +{quantity}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+            {/* Content */}
+            <div className="p-4 flex-1 flex flex-col">
+                <div className="flex-1">
+                    <h3 className="font-bold text-gray-800 mb-1 text-sm leading-tight">
+                        {item.name}
+                    </h3>
+                    {item.description && (
+                        <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                            {item.description}
+                        </p>
+                    )}
                 </div>
 
-                {/* Toevoegen knop */}
-                <motion.button
-                    onClick={handleAddClick}
-                    disabled={showMessage}
-                    className={`relative px-4 py-2 rounded-xl overflow-hidden transition ${showMessage
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-black hover:bg-gray-800"
-                        }`}
-                >
-                    <div className="relative h-5 overflow-hidden z-10">
-                        <motion.span
-                            animate={{ y: showMessage ? "100%" : "0%" }}
-                            transition={{ duration: 0.4, ease: "easeInOut" }}
-                            className="block text-white text-sm font-medium"
+                {/* Price and Add Button */}
+                <div className="flex items-center justify-between mt-3">
+                    <span className="text-lg font-bold text-gray-800">
+                        €{Number(item.price).toFixed(2)}
+                    </span>
+                    
+                    <div className="relative">
+                        {/* Add Button */}
+                        <motion.button
+                            onClick={handleAddClick}
+                            disabled={showMessage}
+                            whileTap={{ scale: 0.95 }}
+                            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                                showMessage
+                                    ? "bg-green-500"
+                                    : "bg-blue-500 hover:bg-blue-600"
+                            }`}
                         >
-                            Voeg toe
-                        </motion.span>
+                            <motion.span
+                                animate={{ 
+                                    rotate: showMessage ? 360 : 0,
+                                    scale: showMessage ? [1, 1.2, 1] : 1
+                                }}
+                                transition={{ 
+                                    duration: showMessage ? 0.6 : 0,
+                                    ease: "easeInOut"
+                                }}
+                                className="text-white text-lg font-bold"
+                            >
+                                {showMessage ? "✓" : "+"}
+                            </motion.span>
+                        </motion.button>
+
+                        {/* Success Animation */}
+                        <AnimatePresence>
+                            {showMessage && (
+                                <motion.div
+                                    initial={{ scale: 0, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ scale: 0, opacity: 0 }}
+                                    className="absolute -top-8 left-1/2 transform -translate-x-1/2"
+                                >
+                                    <div className="bg-green-500 text-white text-xs px-2 py-1 rounded-full shadow-lg">
+                                        +{quantity}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
-                    <motion.div
-                        animate={{ y: showMessage ? "0%" : "-100%" }}
-                        transition={{ duration: 0.4, ease: "easeInOut" }}
-                        className="absolute inset-0 bg-black z-0"
-                    />
-                </motion.button>
+                </div>
             </div>
         </div>
     );
