@@ -1,5 +1,7 @@
 "use client";
 
+//client-side/app/client/[restaurantId]/[tableId]/cart/page.tsx
+
 import { useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
