@@ -34,7 +34,7 @@ export class MolliePaymentService {
 
   private constructor(prisma: PrismaClient) {
     this.prisma = prisma;
-    
+
     const apiKey = process.env.MOLLIE_API_KEY;
     if (!apiKey) {
       throw new Error('MOLLIE_API_KEY environment variable is required');
@@ -63,7 +63,7 @@ export class MolliePaymentService {
    */
   public async createPayment(options: CreatePaymentOptions): Promise<PaymentResult> {
     console.log('💳 DEBUG: MollieService.createPayment called with options:', JSON.stringify(options, null, 2));
-    
+
     try {
       // Generate idempotency key if not provided
       const idempotencyKey = options.idempotencyKey || generateIdempotencyKey(options.orderId, options.amount);
@@ -93,7 +93,7 @@ export class MolliePaymentService {
       // Validate order exists and is payable
       console.log('💳 DEBUG: Validating order exists and is payable...');
       const order = await this.prisma.order.findUnique({
-        where: { 
+        where: {
           id: options.orderId,
           restaurantId: options.restaurantId
         },
@@ -129,10 +129,10 @@ export class MolliePaymentService {
       // Fraud detection: Check if amount matches order
       const orderAmount = parseFloat(order.totalAmount.toString());
       const amountDiff = Math.abs(orderAmount - options.amount);
-      console.log('💳 DEBUG: Amount validation:', { 
-        orderAmount, 
-        requestedAmount: options.amount, 
-        difference: amountDiff 
+      console.log('💳 DEBUG: Amount validation:', {
+        orderAmount,
+        requestedAmount: options.amount,
+        difference: amountDiff
       });
 
       if (amountDiff > 0.01) {
@@ -197,6 +197,17 @@ export class MolliePaymentService {
         // so we'll pass the payment ID in the response instead
       }
 
+      let checkoutUrl = molliePayment.getCheckoutUrl()!;
+
+      // For development, we'll modify the checkout URL to include payment ID in redirect
+      if (process.env.NODE_ENV !== 'production') {
+        const updatedRedirectUrl = encodeURIComponent(this.getRedirectUrl(options.orderId, molliePayment.id));
+        // Replace the redirect URL in the checkout URL
+        const originalRedirectUrl = encodeURIComponent(this.getRedirectUrl(options.orderId));
+        checkoutUrl = checkoutUrl.replace(originalRedirectUrl, updatedRedirectUrl);
+        console.log('💳 DEBUG: Modified checkout URL for development:', checkoutUrl);
+      }
+
       // Store payment in database
       console.log('💳 DEBUG: Storing payment in database...');
       await this.prisma.payment.create({
@@ -211,33 +222,11 @@ export class MolliePaymentService {
       });
       console.log('💳 DEBUG: Payment stored in database');
 
-      // Update order with Mollie payment ID
-      console.log('💳 DEBUG: Updating order with payment ID...');
-      await this.prisma.order.update({
-        where: { id: options.orderId },
-        data: { 
-          molliePaymentId: molliePayment.id,
-          paymentStatus: 'PENDING'
-        }
-      });
-      console.log('💳 DEBUG: Order updated with payment ID');
-
       logger.payment.initiated(
         molliePayment.id,
         options.amount,
         options.orderId
       );
-
-      let checkoutUrl = molliePayment.getCheckoutUrl()!;
-      
-      // For development, we'll modify the checkout URL to include payment ID in redirect
-      if (process.env.NODE_ENV !== 'production') {
-        const updatedRedirectUrl = encodeURIComponent(this.getRedirectUrl(options.orderId, molliePayment.id));
-        // Replace the redirect URL in the checkout URL
-        const originalRedirectUrl = encodeURIComponent(this.getRedirectUrl(options.orderId));
-        checkoutUrl = checkoutUrl.replace(originalRedirectUrl, updatedRedirectUrl);
-        console.log('💳 DEBUG: Modified checkout URL for development:', checkoutUrl);
-      }
 
       const result = {
         paymentId: molliePayment.id,
@@ -251,18 +240,18 @@ export class MolliePaymentService {
     } catch (error) {
       console.error('💳 DEBUG: Error in createPayment:', error);
       console.error('💳 DEBUG: Error stack:', (error as Error).stack);
-      
-      logger.error.log(error as Error, { 
+
+      logger.error.log(error as Error, {
         service: 'mollie',
         operation: 'createPayment',
         orderId: options.orderId
       });
-      
+
       if (error instanceof ApiError) {
         console.log('💳 DEBUG: Rethrowing ApiError');
         throw error;
       }
-      
+
       console.log('💳 DEBUG: Throwing generic payment creation failed error');
       throw new ApiError(500, 'PAYMENT_CREATION_FAILED', 'Failed to create payment');
     }
@@ -275,7 +264,7 @@ export class MolliePaymentService {
     try {
       // Fetch payment from Mollie
       const molliePayment = await this.mollieClient.payments.get(paymentId);
-      
+
       if (!molliePayment) {
         throw new ApiError(404, 'PAYMENT_NOT_FOUND', 'Payment not found');
       }
@@ -287,12 +276,12 @@ export class MolliePaymentService {
 
       // Update payment status in database
       const paymentStatus = this.mapMollieStatus(molliePayment.status);
-      
+
       await this.prisma.$transaction(async (tx) => {
         // Update payment record
         await tx.payment.update({
           where: { id: paymentId },
-          data: { 
+          data: {
             status: paymentStatus,
             updatedAt: new Date()
           }
@@ -301,7 +290,7 @@ export class MolliePaymentService {
         // Update order payment status
         await tx.order.update({
           where: { id: orderId },
-          data: { 
+          data: {
             paymentStatus,
             webhookReceived: true,
             updatedAt: new Date()
@@ -312,7 +301,7 @@ export class MolliePaymentService {
         if (paymentStatus === 'COMPLETED') {
           await tx.order.update({
             where: { id: orderId },
-            data: { 
+            data: {
               status: 'CONFIRMED' // Payment confirmed, can start preparing
             }
           });
@@ -369,7 +358,7 @@ export class MolliePaymentService {
   }> {
     try {
       const molliePayment = await this.mollieClient.payments.get(paymentId);
-      
+
       return {
         status: molliePayment.status,
         isPaid: molliePayment.isPaid(),
@@ -382,7 +371,7 @@ export class MolliePaymentService {
         operation: 'getPaymentStatus',
         paymentId
       });
-      
+
       throw new ApiError(500, 'PAYMENT_STATUS_FETCH_FAILED', 'Failed to fetch payment status');
     }
   }
@@ -393,10 +382,10 @@ export class MolliePaymentService {
   public async cancelPayment(paymentId: string): Promise<void> {
     try {
       const molliePayment = await this.mollieClient.payments.get(paymentId);
-      
+
       if (molliePayment.isCancelable()) {
         await molliePayment.cancel();
-        
+
         // Update database
         await this.prisma.payment.update({
           where: { id: paymentId },
@@ -418,7 +407,7 @@ export class MolliePaymentService {
         operation: 'cancelPayment',
         paymentId
       });
-      
+
       throw new ApiError(500, 'PAYMENT_CANCELLATION_FAILED', 'Failed to cancel payment');
     }
   }
@@ -460,7 +449,7 @@ export class MolliePaymentService {
         paymentId,
         amount
       });
-      
+
       throw new ApiError(500, 'REFUND_CREATION_FAILED', 'Failed to create refund');
     }
   }
@@ -482,7 +471,7 @@ export class MolliePaymentService {
         service: 'mollie',
         operation: 'getPaymentMethods'
       });
-      
+
       return []; // Return empty array on error
     }
   }

@@ -126,16 +126,25 @@ export default function ThankYouPage() {
 
                 <button
                     onClick={() => {
-                        // Try to go back to the original menu or just close the window
-                        if (window.history.length > 1) {
-                            window.history.back();
+                        console.log('🎉 DEBUG: Sluiten button clicked');
+                        
+                        // Get table code from localStorage (which we know exists)
+                        const tableCode = localStorage.getItem('tableCode');
+                        console.log('🎉 DEBUG: Table code from localStorage:', tableCode);
+                        
+                        if (tableCode) {
+                            // Go back to the table's menu page
+                            const menuUrl = `/table/${tableCode}`;
+                            console.log('🎉 DEBUG: Redirecting to:', menuUrl);
+                            window.location.href = menuUrl;
                         } else {
+                            console.log('🎉 DEBUG: No table code found, trying to close window');
                             window.close();
                         }
                     }}
                     className="w-full bg-black hover:bg-gray-800 text-white py-3 rounded-lg font-semibold text-sm"
                 >
-                    Sluiten
+                    Terug naar menu
                 </button>
             </div>
         </div>
