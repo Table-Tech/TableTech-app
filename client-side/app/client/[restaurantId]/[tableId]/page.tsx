@@ -199,7 +199,7 @@ export default function ClientPage() {
                                         {menuData![category].map((item) => (
                                             <div
                                                 key={item.id}
-                                                className="bg-white rounded-2xl shadow-sm overflow-hidden"
+                                                className="bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden"
                                             >
                                                 <div className="aspect-[4/3] w-full bg-gray-100">
                                                     {item.imageUrl ? (
