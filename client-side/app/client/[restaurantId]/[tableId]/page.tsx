@@ -201,7 +201,7 @@ export default function ClientPage() {
                                                 key={item.id}
                                                 className="bg-white rounded-2xl shadow-sm overflow-hidden"
                                             >
-                                                <div className="aspect-square w-full bg-gray-100">
+                                                <div className="aspect-[4/3] w-full bg-gray-100">
                                                     {item.imageUrl ? (
                                                         <img
                                                             src={item.imageUrl}
@@ -210,30 +210,30 @@ export default function ClientPage() {
                                                         />
                                                     ) : (
                                                         <div className="w-full h-full flex items-center justify-center">
-                                                            <span className="text-4xl text-gray-300">🍽️</span>
+                                                            <span className="text-3xl text-gray-300">🍽️</span>
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div className="p-4">
-                                                    <h3 className="font-bold text-gray-800 mb-1 text-sm">
+                                                <div className="p-3">
+                                                    <h3 className="font-semibold text-gray-800 mb-1 text-xs">
                                                         {item.name}
                                                     </h3>
                                                     {item.description && (
-                                                        <p className="text-xs text-gray-600 mb-3">
+                                                        <p className="text-xs text-gray-600 mb-2 line-clamp-2">
                                                             {item.description}
                                                         </p>
                                                     )}
                                                     <div className="flex items-center justify-between">
-                                                        <span className="text-lg font-bold text-gray-800">
+                                                        <span className="text-sm font-bold text-gray-800">
                                                             €{Number(item.price).toFixed(2)}
                                                         </span>
                                                         <button
                                                             onClick={() => handleAddToCart(item)}
-                                                            className="w-10 h-10 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center shadow-lg transition-all"
+                                                            className="w-8 h-8 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center shadow-lg transition-all"
                                                         >
                                                             <svg
                                                                 xmlns="http://www.w3.org/2000/svg"
-                                                                className="w-4 h-4 text-white"
+                                                                className="w-3 h-3 text-white"
                                                                 fill="none"
                                                                 viewBox="0 0 24 24"
                                                                 stroke="currentColor"
