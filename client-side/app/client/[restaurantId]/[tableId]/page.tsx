@@ -229,9 +229,18 @@ export default function ClientPage() {
                                                         </span>
                                                         <button
                                                             onClick={() => handleAddToCart(item)}
-                                                            className="w-10 h-10 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-lg transition-all"
+                                                            className="w-10 h-10 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center shadow-lg transition-all"
                                                         >
-                                                            +
+                                                            <svg
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                className="w-4 h-4 text-white"
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                                stroke="currentColor"
+                                                                strokeWidth={3}
+                                                            >
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14" />
+                                                            </svg>
                                                         </button>
                                                     </div>
                                                 </div>
