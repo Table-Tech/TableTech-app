@@ -107,6 +107,8 @@ const en: Translations = {
   // Tables
   tables: {
     title: 'Tables',
+    loading: 'Loading tables...',
+    retry: 'Try Again',
     addTable: 'Add Table',
     tableNumber: 'Table Number',
     capacity: 'Capacity',

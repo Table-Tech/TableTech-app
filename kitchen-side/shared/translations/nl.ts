@@ -107,6 +107,8 @@ const nl: Translations = {
   // Tables
   tables: {
     title: 'Tafels',
+    loading: 'Tafels laden...',
+    retry: 'Opnieuw Proberen',
     addTable: 'Tafel Toevoegen',
     tableNumber: 'Tafelnummer',
     capacity: 'Capaciteit',
