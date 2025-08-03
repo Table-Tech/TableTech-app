@@ -269,6 +269,31 @@ class ApiClient {
     }>(`/restaurants/${id}`);
   }
 
+  // Create restaurant (SUPER_ADMIN and ADMIN only)
+  async createRestaurant(data: {
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    logoUrl?: string;
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+      logoUrl?: string;
+      taxRate: number;
+      currency: string;
+      timezone: string;
+      isActive: boolean;
+    }>('/restaurants/staff/restaurants', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Menu endpoints
   async getMenuItems(restaurantId: string) {
     return this.request<Array<{

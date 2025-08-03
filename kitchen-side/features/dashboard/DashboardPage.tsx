@@ -6,13 +6,12 @@ import {
   Clock,
   DollarSign,
   Users,
-  ArrowUpRight,
-  ArrowDownRight,
   MoreVertical,
 } from "lucide-react";
 import { apiClient } from "@/shared/services/api-client";
 import { useWebSocket } from "@/shared/services/websocket-client";
 import { LoadingSpinner } from "@/shared/components/ui";
+import { useTranslation } from "@/shared/contexts/LanguageContext";
 
 interface DashboardPageProps {
   restaurantId: string;
@@ -21,13 +20,12 @@ interface DashboardPageProps {
 interface StatCardProps {
   title: string;
   value: string;
-  change: string;
-  changeType: "increase" | "decrease";
   icon: React.ElementType;
 }
 
 interface RecentOrderProps {
   id: string;
+  displayId: string;
   table: string;
   items: number;
   total: string;
@@ -38,8 +36,6 @@ interface RecentOrderProps {
 const StatCard = ({
   title,
   value,
-  change,
-  changeType,
   icon: Icon,
 }: StatCardProps) => (
   <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-sm transition-shadow">
@@ -55,33 +51,21 @@ const StatCard = ({
     <div className="space-y-2">
       <h3 className="text-sm font-medium text-gray-600">{title}</h3>
       <p className="text-2xl font-bold text-gray-900">{value}</p>
-      <div className="flex items-center space-x-1">
-        {changeType === "increase" ? (
-          <ArrowUpRight className="w-4 h-4 text-green-500" />
-        ) : (
-          <ArrowDownRight className="w-4 h-4 text-red-500" />
-        )}
-        <span
-          className={`text-sm font-medium ${
-            changeType === "increase" ? "text-green-600" : "text-red-600"
-          }`}
-        >
-          {change}
-        </span>
-        <span className="text-sm text-gray-500">vs last week</span>
-      </div>
     </div>
   </div>
 );
 
 const RecentOrderRow = ({
   id,
+  displayId,
   table,
   items,
   total,
   status,
   time,
 }: RecentOrderProps) => {
+  const t = useTranslation();
+  
   const statusColors = {
     pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
     preparing: "bg-blue-100 text-blue-800 border-blue-200",
@@ -89,16 +73,26 @@ const RecentOrderRow = ({
     completed: "bg-gray-100 text-gray-800 border-gray-200",
   };
 
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'pending': return t.orders.pending;
+      case 'preparing': return t.orders.preparing;
+      case 'ready': return t.orders.ready;
+      case 'completed': return t.orders.completed;
+      default: return status.charAt(0).toUpperCase() + status.slice(1);
+    }
+  };
+
   return (
     <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
       <div className="flex items-center space-x-4">
         <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-          <span className="text-sm font-medium text-gray-700">#{id}</span>
+          <span className="text-sm font-medium text-gray-700">#{displayId}</span>
         </div>
         <div>
-          <p className="font-medium text-gray-900">Table {table}</p>
+          <p className="font-medium text-gray-900">{t.orders.table} {table}</p>
           <p className="text-sm text-gray-500">
-            {items} items • {time}
+            {items} {t.dashboard.items} • {time}
           </p>
         </div>
       </div>
@@ -108,7 +102,7 @@ const RecentOrderRow = ({
         <span
           className={`px-2.5 py-1 rounded-md text-xs font-medium border ${statusColors[status]}`}
         >
-          {status.charAt(0).toUpperCase() + status.slice(1)}
+          {getStatusText(status)}
         </span>
       </div>
     </div>
@@ -116,6 +110,7 @@ const RecentOrderRow = ({
 };
 
 export const DashboardPage = ({ restaurantId }: DashboardPageProps) => {
+  const t = useTranslation();
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -257,38 +252,31 @@ export const DashboardPage = ({ restaurantId }: DashboardPageProps) => {
 
   const statsData = [
     {
-      title: "Today's Revenue",
+      title: t.dashboard.todayRevenue,
       value: `€${stats.todayRevenue.toFixed(2)}`,
-      change: "+12.5%", // You could calculate this from historical data
-      changeType: "increase" as const,
       icon: DollarSign,
     },
     {
-      title: "Active Orders",
+      title: t.dashboard.activeOrders,
       value: stats.activeOrders.toString(),
-      change: "+5.2%",
-      changeType: "increase" as const,
       icon: Clock,
     },
     {
-      title: "Orders Today",
+      title: t.dashboard.ordersToday,
       value: stats.todayOrders.toString(),
-      change: "-2.1%",
-      changeType: "decrease" as const,
       icon: Users,
     },
     {
-      title: "Avg Order Value",
+      title: t.dashboard.avgOrderValue,
       value: `€${stats.avgOrderValue.toFixed(2)}`,
-      change: "+8.3%",
-      changeType: "increase" as const,
       icon: TrendingUp,
     },
   ];
 
   // Map real orders to RecentOrderProps format
   const formattedRecentOrders: RecentOrderProps[] = recentOrders.map(order => ({
-    id: order.orderNumber?.split('-').pop() || order.id.slice(0, 4),
+    id: order.id, // Unique key for React
+    displayId: order.orderNumber?.split('-').pop() || order.id.slice(0, 4), // For display
     table: order.table?.number?.toString() || 'N/A',
     items: order.orderItems?.length || 0,
     total: `€${Number(order.totalAmount).toFixed(2)}`,
@@ -307,11 +295,13 @@ export const DashboardPage = ({ restaurantId }: DashboardPageProps) => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-1">
-          Welcome back! Here's what's happening today.
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{t.dashboard.title}</h1>
+          <p className="text-gray-600 mt-1">
+            {t.dashboard.welcomeBack}
+          </p>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -326,13 +316,13 @@ export const DashboardPage = ({ restaurantId }: DashboardPageProps) => {
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">
-              Recent Orders
+              {t.dashboard.recentOrders}
             </h2>
             <button 
               onClick={() => window.location.href = '/dashboard/orders'}
               className="text-sm font-medium text-blue-600 hover:text-blue-700"
             >
-              View all
+              {t.dashboard.viewAllOrders}
             </button>
           </div>
         </div>
@@ -347,7 +337,7 @@ export const DashboardPage = ({ restaurantId }: DashboardPageProps) => {
           ) : (
             <div className="text-center py-12">
               <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No recent orders</p>
+              <p className="text-gray-500">{t.dashboard.noRecentOrders}</p>
             </div>
           )}
         </div>
@@ -356,53 +346,53 @@ export const DashboardPage = ({ restaurantId }: DashboardPageProps) => {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Quick Actions</h3>
+          <h3 className="font-semibold text-gray-900 mb-4">{t.dashboard.quickActions}</h3>
           <div className="space-y-3">
             <button className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-              <p className="font-medium text-gray-900">Add Menu Item</p>
-              <p className="text-sm text-gray-500">Create a new dish</p>
+              <p className="font-medium text-gray-900">{t.dashboard.addMenuItem}</p>
+              <p className="text-sm text-gray-500">{t.dashboard.createNewDish}</p>
             </button>
             <button className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-              <p className="font-medium text-gray-900">Manage Tables</p>
-              <p className="text-sm text-gray-500">Update table layout</p>
+              <p className="font-medium text-gray-900">{t.dashboard.manageTables}</p>
+              <p className="text-sm text-gray-500">{t.dashboard.updateTableLayout}</p>
             </button>
           </div>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h3 className="font-semibold text-gray-900 mb-4">
-            Today's Performance
+            {t.dashboard.todayPerformance}
           </h3>
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Orders</span>
-              <span className="font-semibold">47</span>
+              <span className="text-sm text-gray-600">{t.dashboard.ordersToday}</span>
+              <span className="font-semibold">{stats.todayOrders}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Peak Hour</span>
-              <span className="font-semibold">7:30 PM</span>
+              <span className="text-sm text-gray-600">{t.dashboard.activeOrders}</span>
+              <span className="font-semibold">{stats.activeOrders}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Busy Tables</span>
-              <span className="font-semibold">12/20</span>
+              <span className="text-sm text-gray-600">{t.dashboard.revenueToday}</span>
+              <span className="font-semibold">€{stats.todayRevenue.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">System Status</h3>
+          <h3 className="font-semibold text-gray-900 mb-4">{t.dashboard.systemStatus}</h3>
           <div className="space-y-3">
             <div className="flex items-center space-x-3">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-gray-600">Kitchen Display</span>
+              <span className="text-sm text-gray-600">{t.dashboard.kitchenDisplay}</span>
             </div>
             <div className="flex items-center space-x-3">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-gray-600">Payment System</span>
+              <span className="text-sm text-gray-600">{t.dashboard.paymentSystem}</span>
             </div>
             <div className="flex items-center space-x-3">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-gray-600">QR Ordering</span>
+              <span className="text-sm text-gray-600">{t.dashboard.qrOrdering}</span>
             </div>
           </div>
         </div>

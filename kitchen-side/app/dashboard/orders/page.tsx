@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { apiClient } from '@/shared/services/api-client';
 import { useWebSocket } from '@/shared/services/websocket-client';
+import { useTranslation } from '@/shared/contexts/LanguageContext';
 import { Clock, Users, ShoppingCart, RefreshCw, Wifi, WifiOff, TestTube } from 'lucide-react';
 
 
@@ -41,6 +42,7 @@ interface Order {
 export default function OrdersPage() {
   const { currentRestaurantId } = useAuth();
   const { connectionStatus, subscribe, updateOrderStatus: wsUpdateOrderStatus } = useWebSocket(currentRestaurantId || undefined);
+  const t = useTranslation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -159,6 +161,18 @@ export default function OrdersPage() {
     }
   };
 
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'PENDING': return t.orders.pending;
+      case 'CONFIRMED': return t.orders.confirmed;
+      case 'PREPARING': return t.orders.preparing;
+      case 'READY': return t.orders.ready;
+      case 'COMPLETED': return t.orders.completed;
+      case 'CANCELLED': return t.orders.cancelled;
+      default: return status;
+    }
+  };
+
   const getNextStatus = (currentStatus: string) => {
     switch (currentStatus) {
       case 'PENDING': return 'CONFIRMED';
@@ -248,7 +262,7 @@ export default function OrdersPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading orders...</p>
+          <p className="mt-4 text-gray-600">{t.orders.loadingOrders}</p>
         </div>
       </div>
     );
@@ -257,13 +271,13 @@ export default function OrdersPage() {
   if (error) {
     return (
       <div className="text-center py-12">
-        <div className="text-red-600 text-xl mb-4">⚠️ Error</div>
+        <div className="text-red-600 text-xl mb-4">⚠️ {t.orders.error}</div>
         <p className="text-gray-600 mb-4">{error}</p>
         <button
           onClick={fetchOrders}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
-          Try Again
+          {t.orders.tryAgain}
         </button>
       </div>
     );
@@ -274,8 +288,8 @@ export default function OrdersPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Live Orders</h1>
-          <p className="text-gray-600 mt-1">Manage active restaurant orders</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t.orders.liveOrders}</h1>
+          <p className="text-gray-600 mt-1">{t.orders.manageActiveOrders}</p>
         </div>
         <div className="flex items-center space-x-4">
           {/* Connection Status Indicator */}
@@ -287,12 +301,12 @@ export default function OrdersPage() {
             {connectionStatus === 'connected' ? (
               <>
                 <Wifi className="w-4 h-4" />
-                <span className="text-sm font-medium">Live</span>
+                <span className="text-sm font-medium">{t.orders.live}</span>
               </>
             ) : (
               <>
                 <WifiOff className="w-4 h-4" />
-                <span className="text-sm font-medium">Offline</span>
+                <span className="text-sm font-medium">{t.orders.offline}</span>
               </>
             )}
           </div>
@@ -302,14 +316,14 @@ export default function OrdersPage() {
             className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <TestTube className="w-4 h-4" />
-            <span>{testOrderLoading ? 'Creating...' : 'Test Order'}</span>
+            <span>{testOrderLoading ? t.orders.creating : t.orders.testOrder}</span>
           </button>
           <button
             onClick={fetchOrders}
             className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
-            <span>Refresh</span>
+            <span>{t.orders.refresh}</span>
           </button>
         </div>
       </div>
@@ -319,10 +333,10 @@ export default function OrdersPage() {
         <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
           <ShoppingCart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-600 mb-2">
-            No active orders
+            {t.orders.noActiveOrders}
           </h3>
           <p className="text-gray-500">
-            New orders will appear here when customers place them.
+            {t.orders.newOrdersWillAppear}
           </p>
         </div>
       ) : (
@@ -341,14 +355,14 @@ export default function OrdersPage() {
                     <div>
                       <h3 className="text-xl font-bold text-gray-900 flex items-center">
                         <Users className="w-5 h-5 mr-2 text-blue-600" />
-                        Table {order.table.number}
+                        {t.orders.table} {order.table.number}
                       </h3>
                       <p className="text-sm text-gray-500">
-                        Order #{order.orderNumber}
+                        {t.orders.orderNumber} #{order.orderNumber}
                       </p>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
-                      {order.status}
+                      {getStatusText(order.status)}
                     </span>
                   </div>
                   
@@ -359,7 +373,7 @@ export default function OrdersPage() {
                     </div>
                     <div className="flex items-center">
                       <ShoppingCart className="w-4 h-4 mr-1" />
-                      {calculateTotalItems(order.orderItems)} items
+                      {calculateTotalItems(order.orderItems)} {t.orders.items}
                     </div>
                   </div>
                 </div>
@@ -389,7 +403,7 @@ export default function OrdersPage() {
                           
                           {item.notes && (
                             <p className="text-sm text-orange-600 mt-1 font-medium">
-                              Note: {item.notes}
+                              {t.orders.note}: {item.notes}
                             </p>
                           )}
                         </div>
@@ -406,7 +420,7 @@ export default function OrdersPage() {
                       onClick={() => updateOrderStatus(order.id, nextStatus)}
                       className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
                     >
-                      Mark as {nextStatus}
+                      {t.orders.markAs} {getStatusText(nextStatus)}
                     </button>
                   </div>
                 )}

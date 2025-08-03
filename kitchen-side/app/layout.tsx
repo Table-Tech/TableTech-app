@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/shared/contexts/AuthContext";
+import { LanguageProvider } from "@/shared/contexts/LanguageContext";
 import { AuthGuard } from "@/shared/components/protection";
 import { ErrorBoundary } from "@/shared/components/error";
+import { LanguageKeyboardShortcut } from "@/shared/components/ui/LanguageToggle";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,16 +36,19 @@ export default function RootLayout({
           level="page"
           name="RootLayout"
         >
-          <AuthProvider>
-            <ErrorBoundary
-              level="section"
-              name="AuthGuard"
-            >
-              <AuthGuard>
-                {children}
-              </AuthGuard>
-            </ErrorBoundary>
-          </AuthProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <ErrorBoundary
+                level="section"
+                name="AuthGuard"
+              >
+                <AuthGuard>
+                  <LanguageKeyboardShortcut />
+                  {children}
+                </AuthGuard>
+              </ErrorBoundary>
+            </AuthProvider>
+          </LanguageProvider>
         </ErrorBoundary>
       </body>
     </html>

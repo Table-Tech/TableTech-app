@@ -14,18 +14,21 @@ import {
   Menu,
   X,
   ChevronRight,
-  ShoppingCart
+  ShoppingCart,
+  Languages
 } from 'lucide-react'
 import { useAuth } from '@/shared/hooks/useAuth'
+import { useTranslation, useLanguage } from '@/shared/contexts/LanguageContext'
 import { ErrorBoundary } from '@/shared/components/error'
 
-const navItems = [
-  { label: 'Dashboard', icon: Home, path: '/dashboard' },
-  { label: 'Orders', icon: ShoppingCart, path: '/dashboard/orders' },
-  { label: 'Tables', icon: Table2, path: '/dashboard/tables' },
-  { label: 'Menu', icon: Utensils, path: '/dashboard/menu' },
-  { label: 'Analytics', icon: BarChart, path: '/dashboard/statistics' },
-  { label: 'Settings', icon: Settings, path: '/dashboard/beheer' },
+// Navigation items with translation keys
+const getNavItems = (t: any) => [
+  { labelKey: 'dashboard', icon: Home, path: '/dashboard' },
+  { labelKey: 'orders', icon: ShoppingCart, path: '/dashboard/orders' },
+  { labelKey: 'tables', icon: Table2, path: '/dashboard/tables' },
+  { labelKey: 'menu', icon: Utensils, path: '/dashboard/menu' },
+  { labelKey: 'analytics', icon: BarChart, path: '/dashboard/statistics' },
+  { labelKey: 'settings', icon: Settings, path: '/dashboard/beheer' },
 ]
 
 interface DashboardLayoutProps {
@@ -37,6 +40,8 @@ export const DashboardLayout = React.memo(({ children }: DashboardLayoutProps) =
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout, isLoading, selectedRestaurant, clearRestaurantSelection } = useAuth()
+  const t = useTranslation()
+  const navItems = getNavItems(t)
 
   const handleLogout = () => {
     logout()
@@ -146,6 +151,9 @@ const SidebarContent = ({
   onBackToSelect,
   onNavigate
 }: SidebarContentProps) => {
+  const t = useTranslation()
+  const { language, setLanguage } = useLanguage()
+  
   return (
     <>
       {/* Logo Section */}
@@ -159,7 +167,7 @@ const SidebarContent = ({
             {(user?.restaurant?.name || selectedRestaurant?.name) ? (
               <p className="text-sm text-gray-500 mt-1">{user?.restaurant?.name || selectedRestaurant?.name}</p>
             ) : user?.role === 'SUPER_ADMIN' ? (
-              <p className="text-sm text-orange-500 mt-1">Select restaurant</p>
+              <p className="text-sm text-orange-500 mt-1">{t.nav.selectRestaurant}</p>
             ) : null}
           </div>
         </div>
@@ -167,13 +175,14 @@ const SidebarContent = ({
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1">
-        {navItems.map(({ label, icon: Icon, path }) => {
+        {navItems.map(({ labelKey, icon: Icon, path }) => {
           const href = path
           const isActive = pathname === href
+          const label = t.nav[labelKey as keyof typeof t.nav]
 
           return (
             <Link
-              key={label}
+              key={labelKey}
               href={href}
               onClick={onNavigate}
               className={`
@@ -211,6 +220,38 @@ const SidebarContent = ({
           </div>
         )}
 
+        {/* Language Settings */}
+        <div className="px-3 py-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-2">
+              <Languages className="w-4 h-4 text-gray-600" />
+              <span className="text-sm font-medium text-gray-700">{t.nav.language}</span>
+            </div>
+          </div>
+          <div className="flex bg-white rounded-md p-1 border border-gray-200">
+            <button
+              onClick={() => setLanguage('en')}
+              className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                language === 'en'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => setLanguage('nl')}
+              className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                language === 'nl'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              NL
+            </button>
+          </div>
+        </div>
+
         {/* Action Buttons */}
         <div className="space-y-2">
           {user?.role === 'SUPER_ADMIN' && (
@@ -219,7 +260,7 @@ const SidebarContent = ({
               className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
               <Building2 className="w-4 h-4" />
-              <span>Switch Restaurant</span>
+              <span>{t.nav.switchRestaurant}</span>
             </button>
           )}
           
@@ -228,7 +269,7 @@ const SidebarContent = ({
             className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
           >
             <LogOut className="w-4 h-4" />
-            <span>Sign Out</span>
+            <span>{t.nav.signOut}</span>
           </button>
         </div>
       </div>

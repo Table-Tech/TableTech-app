@@ -17,6 +17,7 @@ import { Modal } from "@/shared/components/ui/Modal";
 import { ErrorBoundary } from "@/shared/components/error";
 import { useMenu } from "../hooks/useMenu";
 import { useCategories } from "../hooks/useCategories";
+import { useTranslation } from "@/shared/contexts/LanguageContext";
 import { MenuItem } from "@/shared/types";
 import { Plus, FolderPlus, Eye, EyeOff } from "lucide-react";
 
@@ -25,6 +26,7 @@ interface MenuPageProps {
 }
 
 export function MenuPage({ restaurantId }: MenuPageProps) {
+  const t = useTranslation();
   const {
     menu,
     isLoading,
@@ -105,7 +107,7 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <LoadingSpinner size="lg" className="mx-auto mb-4" />
-            <p className="text-gray-600">Loading menu...</p>
+            <p className="text-gray-600">{t.menu.loading}</p>
           </div>
         </div>
       </div>
@@ -116,9 +118,9 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
     return (
       <div className="p-8 bg-gray-50 min-h-screen">
         <div className="text-center text-red-600">
-          <p>Error: {error}</p>
+          <p>{t.menu.error}: {error}</p>
           <Button onClick={fetchMenu} className="mt-4">
-            Retry
+            {t.menu.retry}
           </Button>
         </div>
       </div>
@@ -128,18 +130,18 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-[#0a3c6e]">Menu Management</h1>
+        <h1 className="text-2xl font-bold text-[#0a3c6e]">{t.menu.menuManagement}</h1>
         <div className="flex space-x-3">
           <Button 
             variant="outline"
             onClick={() => setIsCategoryModalOpen(true)}
           >
             <FolderPlus className="w-4 h-4 mr-2" />
-            Add Category
+            {t.menu.addCategory}
           </Button>
           <Button onClick={() => setIsCreateModalOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Add Menu Item
+            {t.menu.addMenuItem}
           </Button>
         </div>
       </div>
@@ -171,12 +173,12 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
               {showHiddenItems ? (
                 <>
                   <Eye className="w-4 h-4 mr-1" />
-                  Show Hidden
+                  {t.menu.showHidden}
                 </>
               ) : (
                 <>
                   <EyeOff className="w-4 h-4 mr-1" />
-                  Hide Unavailable
+                  {t.menu.hideUnavailable}
                 </>
               )}
             </span>
@@ -187,11 +189,11 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
       {filteredMenu.length === 0 ? (
         <EmptyState
           icon="🍽️"
-          title="No menu items found"
-          description="Start by adding your first menu item."
+          title={t.menu.noMenuItemsFound}
+          description={t.menu.startByAddingFirstItem}
           action={
             <Button onClick={() => setIsCreateModalOpen(true)}>
-              Add Menu Item
+              {t.menu.addMenuItem}
             </Button>
           }
         />
@@ -266,7 +268,7 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
       <Modal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        title="Add New Menu Item"
+        title={t.menu.addNewMenuItem}
       >
         <MenuForm
           onSubmit={async (data) => {
@@ -282,7 +284,7 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
       <Modal
         isOpen={!!editingItem}
         onClose={() => setEditingItem(null)}
-        title="Edit Menu Item"
+        title={t.menu.editMenuItem}
       >
         {editingItem && (
           <MenuForm
@@ -301,7 +303,7 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
       <Modal
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
-        title="Create New Category"
+        title={t.menu.createNewCategory}
       >
         <CategoryForm
           onSubmit={handleCreateCategory}

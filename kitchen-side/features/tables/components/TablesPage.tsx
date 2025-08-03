@@ -7,9 +7,11 @@ import { Wifi, WifiOff, RefreshCw, Plus, QrCode, Download, Eye } from 'lucide-re
 import { ErrorBoundary } from '@/shared/components/error';
 import { AddTableModal } from './AddTableModal';
 import { Modal } from '@/shared/components/ui/Modal';
+import { useTranslation } from '@/shared/contexts/LanguageContext';
 import type { TableFilters, Table } from '../types';
 
 const TablesPage = React.memo(() => {
+  const t = useTranslation();
   const [filters, setFilters] = useState<TableFilters>({});
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTableForQR, setSelectedTableForQR] = useState<Table | null>(null);
@@ -23,6 +25,17 @@ const TablesPage = React.memo(() => {
     outOfOrder: tables.filter(t => t.status === 'OUT_OF_ORDER').length,
   }), [tables]);
 
+  // Helper function to get translated status
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'AVAILABLE': return t.tables.available;
+      case 'OCCUPIED': return t.tables.occupied;
+      case 'RESERVED': return t.tables.reserved;
+      case 'OUT_OF_ORDER': return t.tables.outOfOrder;
+      default: return status.replace('_', ' ');
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -30,7 +43,7 @@ const TablesPage = React.memo(() => {
   if (error) {
     return (
       <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-        <p className="text-red-800">Error: {error}</p>
+        <p className="text-red-800">{t.common.error}: {error}</p>
       </div>
     );
   }
@@ -39,8 +52,8 @@ const TablesPage = React.memo(() => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tables</h1>
-          <p className="text-gray-600 mt-1">Manage restaurant tables and real-time status</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t.tables.title}</h1>
+          <p className="text-gray-600 mt-1">{t.tables.manageTablesDescription}</p>
         </div>
         <div className="flex items-center space-x-4">
           {/* Connection Status */}
@@ -52,12 +65,12 @@ const TablesPage = React.memo(() => {
             {connectionStatus === 'connected' ? (
               <>
                 <Wifi className="w-4 h-4" />
-                <span className="text-sm font-medium">Live</span>
+                <span className="text-sm font-medium">{t.tables.live}</span>
               </>
             ) : (
               <>
                 <WifiOff className="w-4 h-4" />
-                <span className="text-sm font-medium">Offline</span>
+                <span className="text-sm font-medium">{t.tables.offline}</span>
               </>
             )}
           </div>
@@ -67,11 +80,11 @@ const TablesPage = React.memo(() => {
             size="sm"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
+            {t.tables.refresh}
           </Button>
           <Button onClick={() => setIsAddModalOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Add Table
+            {t.tables.addTable}
           </Button>
         </div>
       </div>
@@ -79,23 +92,23 @@ const TablesPage = React.memo(() => {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-white p-4 rounded-lg border">
-          <p className="text-sm text-gray-600">Total</p>
+          <p className="text-sm text-gray-600">{t.tables.total}</p>
           <p className="text-2xl font-bold">{tableStats.total}</p>
         </div>
         <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-          <p className="text-sm text-green-600">Available</p>
+          <p className="text-sm text-green-600">{t.tables.available}</p>
           <p className="text-2xl font-bold text-green-700">{tableStats.available}</p>
         </div>
         <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-          <p className="text-sm text-red-600">Occupied</p>
+          <p className="text-sm text-red-600">{t.tables.occupied}</p>
           <p className="text-2xl font-bold text-red-700">{tableStats.occupied}</p>
         </div>
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-          <p className="text-sm text-yellow-600">Reserved</p>
+          <p className="text-sm text-yellow-600">{t.tables.reserved}</p>
           <p className="text-2xl font-bold text-yellow-700">{tableStats.reserved}</p>
         </div>
         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-          <p className="text-sm text-gray-600">Out of Order</p>
+          <p className="text-sm text-gray-600">{t.tables.outOfOrder}</p>
           <p className="text-2xl font-bold text-gray-700">{tableStats.outOfOrder}</p>
         </div>
       </div>
@@ -103,7 +116,7 @@ const TablesPage = React.memo(() => {
       {/* Filters */}
       <div className="flex flex-wrap gap-4">
         <Input
-          placeholder="Search tables..."
+          placeholder={t.tables.searchTables}
           value={filters.search || ''}
           onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
           className="max-w-xs"
@@ -114,13 +127,13 @@ const TablesPage = React.memo(() => {
             ...prev, 
             status: value as 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'OUT_OF_ORDER' | undefined || undefined 
           }))}
-          placeholder="All Statuses"
+          placeholder={t.tables.allStatuses}
           options={[
-            { label: 'All Statuses', value: '' },
-            { label: 'Available', value: 'AVAILABLE' },
-            { label: 'Occupied', value: 'OCCUPIED' },
-            { label: 'Reserved', value: 'RESERVED' },
-            { label: 'Out of Order', value: 'OUT_OF_ORDER' },
+            { label: t.tables.allStatuses, value: '' },
+            { label: t.tables.available, value: 'AVAILABLE' },
+            { label: t.tables.occupied, value: 'OCCUPIED' },
+            { label: t.tables.reserved, value: 'RESERVED' },
+            { label: t.tables.outOfOrder, value: 'OUT_OF_ORDER' },
           ]}
         />
       </div>
@@ -128,8 +141,8 @@ const TablesPage = React.memo(() => {
       {/* Tables Grid */}
       {tables.length === 0 ? (
         <EmptyState 
-          title="No tables found"
-          description="Create your first table to get started."
+          title={t.tables.noTablesFound}
+          description={t.tables.createFirstTable}
         />
       ) : (
         <ErrorBoundary 
@@ -152,13 +165,13 @@ const TablesPage = React.memo(() => {
                   }`}
                 >
                   <div className="text-center">
-                    <h3 className="text-lg font-semibold">Table {table.number}</h3>
-                    <p className="text-sm text-gray-600">{table.capacity} seats</p>
+                    <h3 className="text-lg font-semibold">{t.tables.table} {table.number}</h3>
+                    <p className="text-sm text-gray-600">{table.capacity} {t.tables.seats}</p>
                     
                     {/* Table Code */}
                     {table.code && (
                       <p className="text-xs text-gray-500 mt-1 font-mono">
-                        Code: {table.code}
+                        {t.tables.code}: {table.code}
                       </p>
                     )}
                     
@@ -169,7 +182,7 @@ const TablesPage = React.memo(() => {
                       table.status === 'RESERVED' ? 'bg-yellow-100 text-yellow-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
-                      {table.status.replace('_', ' ')}
+                      {getStatusText(table.status)}
                     </div>
 
                     {/* QR Code Button */}
@@ -182,7 +195,7 @@ const TablesPage = React.memo(() => {
                           className="w-full flex items-center justify-center"
                         >
                           <QrCode className="w-3 h-3 mr-1" />
-                          View QR
+                          {t.tables.viewQr}
                         </Button>
                       </div>
                     )}
@@ -212,7 +225,7 @@ const TablesPage = React.memo(() => {
       <Modal
         isOpen={!!selectedTableForQR}
         onClose={() => setSelectedTableForQR(null)}
-        title={`QR Code - Table ${selectedTableForQR?.number}`}
+        title={`${t.tables.qrCodeFor} ${selectedTableForQR?.number}`}
       >
         {selectedTableForQR && (
           <ErrorBoundary level="component" name="QRCodeModal">
@@ -222,10 +235,10 @@ const TablesPage = React.memo(() => {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold text-blue-900">
-                      Table {selectedTableForQR.number}
+                      {t.tables.table} {selectedTableForQR.number}
                     </h3>
                     <p className="text-sm text-blue-700">
-                      {selectedTableForQR.capacity} seats • Code: {selectedTableForQR.code}
+                      {selectedTableForQR.capacity} {t.tables.seats} • {t.tables.code}: {selectedTableForQR.code}
                     </p>
                   </div>
                   <div className={`px-2 py-1 text-xs rounded-full ${
@@ -234,7 +247,7 @@ const TablesPage = React.memo(() => {
                     selectedTableForQR.status === 'RESERVED' ? 'bg-yellow-100 text-yellow-800' :
                     'bg-gray-100 text-gray-800'
                   }`}>
-                    {selectedTableForQR.status.replace('_', ' ')}
+                    {getStatusText(selectedTableForQR.status)}
                   </div>
                 </div>
               </div>
@@ -245,7 +258,7 @@ const TablesPage = React.memo(() => {
                   <div className="inline-block p-4 bg-white border-2 border-gray-200 rounded-lg shadow-sm">
                     <img
                       src={selectedTableForQR.qrCodeUrl}
-                      alt={`QR Code for Table ${selectedTableForQR.number}`}
+                      alt={`${t.tables.qrCode} ${t.tables.table} ${selectedTableForQR.number}`}
                       className="w-64 h-64 mx-auto"
                       onError={(e) => {
                         console.error('QR code image failed to load:', selectedTableForQR.qrCodeUrl);
@@ -266,33 +279,57 @@ const TablesPage = React.memo(() => {
                       className="flex items-center"
                     >
                       <Eye className="w-4 h-4 mr-2" />
-                      View Full Size
+                      {t.tables.viewFullSize}
                     </Button>
                     
                     <Button
-                      onClick={() => {
+                      onClick={async () => {
                         if (selectedTableForQR.qrCodeUrl) {
-                          const link = document.createElement('a');
-                          link.href = selectedTableForQR.qrCodeUrl;
-                          link.download = `table-${selectedTableForQR.number}-qr-code.png`;
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
+                          try {
+                            // Generate QR URL without background for transparent PNG
+                            const tableUrl = `${window.location.origin.replace(':3002', ':3000')}/table/${selectedTableForQR.code}`;
+                            const qrUrlNoBackground = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(tableUrl)}&color=000000&margin=10&format=png`;
+                            
+                            // Fetch the QR code as blob to avoid redirect
+                            const response = await fetch(qrUrlNoBackground);
+                            const blob = await response.blob();
+                            
+                            // Create download link
+                            const url = window.URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = `table-${selectedTableForQR.number}-qr-code.png`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            
+                            // Clean up
+                            window.URL.revokeObjectURL(url);
+                          } catch (error) {
+                            console.error('Failed to download QR code:', error);
+                            // Fallback to original method
+                            const link = document.createElement('a');
+                            link.href = selectedTableForQR.qrCodeUrl;
+                            link.download = `table-${selectedTableForQR.number}-qr-code.png`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }
                         }
                       }}
                       className="flex items-center"
                     >
                       <Download className="w-4 h-4 mr-2" />
-                      Download QR
+                      {t.tables.downloadQr}
                     </Button>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-8">
                   <QrCode className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">QR code not available</p>
+                  <p className="text-gray-500">{t.tables.qrCodeNotAvailable}</p>
                   <p className="text-sm text-gray-400 mt-1">
-                    QR codes are generated automatically when tables are created
+                    {t.tables.qrCodesGenerated}
                   </p>
                 </div>
               )}
@@ -302,10 +339,9 @@ const TablesPage = React.memo(() => {
                 <div className="flex items-start space-x-3">
                   <QrCode className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <h4 className="font-medium text-yellow-900">Permanent QR Code</h4>
+                    <h4 className="font-medium text-yellow-900">{t.tables.permanentQrCode}</h4>
                     <p className="text-sm text-yellow-700 mt-1">
-                      This QR code is permanent and safe for printing on physical materials. 
-                      It will never change unless manually regenerated by an admin.
+                      {t.tables.permanentQrDescription}
                     </p>
                   </div>
                 </div>
@@ -314,12 +350,12 @@ const TablesPage = React.memo(() => {
               {/* Customer URL */}
               {selectedTableForQR.code && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-medium text-gray-900 mb-2">Customer URL</h4>
+                  <h4 className="font-medium text-gray-900 mb-2">{t.tables.customerUrl}</h4>
                   <code className="text-sm bg-white border border-gray-300 rounded px-2 py-1 block">
                     {process.env.NEXT_PUBLIC_CLIENT_URL || 'https://your-app.com'}/table/{selectedTableForQR.code}
                   </code>
                   <p className="text-xs text-gray-500 mt-2">
-                    Customers will be redirected to this URL when they scan the QR code
+                    {t.tables.customerUrlDescription}
                   </p>
                 </div>
               )}
