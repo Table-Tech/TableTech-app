@@ -15,10 +15,9 @@ import {
   X,
   ChevronRight,
   ShoppingCart,
-  Languages
 } from 'lucide-react'
 import { useAuth } from '@/shared/hooks/useAuth'
-import { useTranslation, useLanguage } from '@/shared/contexts/LanguageContext'
+import { useTranslation } from '@/shared/contexts/LanguageContext'
 import { ErrorBoundary } from '@/shared/components/error'
 
 // Navigation items with translation keys
@@ -152,7 +151,6 @@ const SidebarContent = ({
   onNavigate
 }: SidebarContentProps) => {
   const t = useTranslation()
-  const { language, setLanguage } = useLanguage()
   
   return (
     <>
@@ -220,37 +218,6 @@ const SidebarContent = ({
           </div>
         )}
 
-        {/* Language Settings */}
-        <div className="px-3 py-3 bg-gray-50 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center space-x-2">
-              <Languages className="w-4 h-4 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">{t.nav.language}</span>
-            </div>
-          </div>
-          <div className="flex bg-white rounded-md p-1 border border-gray-200">
-            <button
-              onClick={() => setLanguage('en')}
-              className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
-                language === 'en'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              EN
-            </button>
-            <button
-              onClick={() => setLanguage('nl')}
-              className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
-                language === 'nl'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              NL
-            </button>
-          </div>
-        </div>
 
         {/* Action Buttons */}
         <div className="space-y-2">
@@ -264,13 +231,6 @@ const SidebarContent = ({
             </button>
           )}
           
-          <button
-            onClick={onLogout}
-            className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>{t.nav.signOut}</span>
-          </button>
         </div>
       </div>
     </>

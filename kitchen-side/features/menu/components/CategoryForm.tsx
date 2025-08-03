@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
+import { useTranslation } from '@/shared/contexts/LanguageContext';
 
 interface CategoryFormProps {
   onSubmit: (data: CategoryFormData) => Promise<void>;
@@ -23,6 +24,7 @@ export interface CategoryFormData {
 }
 
 export function CategoryForm({ onSubmit, onCancel, initialData, isLoading }: CategoryFormProps) {
+  const t = useTranslation();
   const [formData, setFormData] = useState<CategoryFormData>({
     name: initialData?.name || '',
     description: initialData?.description || '',
@@ -37,10 +39,10 @@ export function CategoryForm({ onSubmit, onCancel, initialData, isLoading }: Cat
     // Basic validation
     const newErrors: Record<string, string> = {};
     if (!formData.name.trim()) {
-      newErrors.name = 'Category name is required';
+      newErrors.name = t.menu.categoryNameRequired;
     }
     if (!formData.description.trim()) {
-      newErrors.description = 'Description is required';
+      newErrors.description = t.menu.descriptionRequired;
     }
     
     setErrors(newErrors);
@@ -74,13 +76,13 @@ export function CategoryForm({ onSubmit, onCancel, initialData, isLoading }: Cat
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Category Name
+          {t.menu.categoryName}
         </label>
         <Input
           type="text"
           value={formData.name}
           onChange={(e) => handleChange('name', e.target.value)}
-          placeholder="e.g., Burgers, Pizza, Drinks"
+          placeholder={t.menu.categoryNamePlaceholder}
           className={errors.name ? 'border-red-500' : ''}
         />
         {errors.name && (
@@ -90,13 +92,13 @@ export function CategoryForm({ onSubmit, onCancel, initialData, isLoading }: Cat
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Description
+          {t.menu.description}
         </label>
         <Input
           type="text"
           value={formData.description}
           onChange={(e) => handleChange('description', e.target.value)}
-          placeholder="Brief description of this category"
+          placeholder={t.menu.briefDescription}
           className={errors.description ? 'border-red-500' : ''}
         />
         {errors.description && (
@@ -106,7 +108,7 @@ export function CategoryForm({ onSubmit, onCancel, initialData, isLoading }: Cat
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Sort Order
+          {t.menu.sortOrder}
         </label>
         <Input
           type="number"
@@ -116,7 +118,7 @@ export function CategoryForm({ onSubmit, onCancel, initialData, isLoading }: Cat
           placeholder="1"
         />
         <p className="text-gray-500 text-xs mt-1">
-          Lower numbers appear first in the menu
+          {t.menu.lowerNumbersAppearFirst}
         </p>
       </div>
 
@@ -127,13 +129,13 @@ export function CategoryForm({ onSubmit, onCancel, initialData, isLoading }: Cat
           onClick={onCancel}
           disabled={isLoading}
         >
-          Cancel
+          {t.common.cancel}
         </Button>
         <Button
           type="submit"
           disabled={isLoading}
         >
-          {isLoading ? 'Creating...' : (initialData ? 'Update Category' : 'Create Category')}
+          {isLoading ? t.menu.creating : (initialData ? t.menu.updateCategory : t.menu.createCategory)}
         </Button>
       </div>
     </form>

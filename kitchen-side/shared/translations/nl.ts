@@ -138,6 +138,36 @@ const nl: Translations = {
     permanentQrDescription: 'Deze QR code is permanent en veilig voor afdrukken op fysieke materialen. Deze zal nooit veranderen tenzij handmatig opnieuw gegenereerd door een beheerder.',
     customerUrl: 'Klant URL',
     customerUrlDescription: 'Klanten worden doorgestuurd naar deze URL wanneer ze de QR code scannen',
+    
+    // Add Table Form
+    addNewTable: 'Nieuwe Tafel Toevoegen',
+    seatingCapacity: 'Zitcapaciteit',
+    enterTableNumber: 'Voer tafelnummer in (1-999)',
+    numberOfSeats: 'Aantal zitplaatsen',
+    chooseUniqueNumber: 'Kies een uniek nummer voor deze tafel (1-999)',
+    maxCustomersDescription: 'Maximum aantal klanten dat aan deze tafel kan zitten (1-20)',
+    qrCodeWillBeGenerated: 'QR Code wordt gegenereerd',
+    customersWillScan: 'Klanten scannen deze code om toegang te krijgen tot Tafel',
+    tableSummary: 'Tafel Overzicht',
+    person: 'persoon',
+    people: 'personen',
+    willBeAutomaticallyGenerated: 'Wordt automatisch gegenereerd',
+    statusAvailableDefault: 'Beschikbaar (standaard)',
+    creating: 'Aanmaken...',
+    createTable: 'Tafel Aanmaken',
+    
+    // Validation messages
+    tableNumberRequired: 'Tafelnummer is verplicht',
+    tableNumberMustBeValid: 'Tafelnummer moet een geldig nummer zijn',
+    tableNumberRange: 'Tafelnummer moet tussen 1 en 999 zijn',
+    tableNumberWhole: 'Tafelnummer moet een heel getal zijn',
+    tableAlreadyExists: 'Tafel {number} bestaat al',
+    capacityRequired: 'Capaciteit is verplicht',
+    capacityMustBeValid: 'Capaciteit moet een geldig nummer zijn',
+    capacityRange: 'Capaciteit moet tussen 1 en 20 zitplaatsen zijn',
+    capacityWhole: 'Capaciteit moet een heel getal zijn',
+    selectRestaurantFirst: 'Selecteer eerst een restaurant',
+    failedToCreateTable: 'Aanmaken van tafel mislukt',
   },
   
   // Menu
@@ -183,6 +213,39 @@ const nl: Translations = {
     
     // Error states
     error: 'Fout',
+    
+    // Form fields and labels
+    name: 'Naam',
+    description: 'Beschrijving',
+    price: 'Prijs',
+    imageUrl: 'Afbeelding URL',
+    sortOrder: 'Sorteervolgorde',
+    required: '*',
+    optional: 'Optioneel',
+    
+    // Menu Item Form
+    menuItemName: 'Menu item naam',
+    describeMenuItem: 'Beschrijf het menu item',
+    priceInDollars: 'Prijs * (€)',
+    selectCategory: 'Selecteer een categorie',
+    imageUrlPlaceholder: 'https://voorbeeld.com/afbeelding.jpg',
+    availableForOrdering: 'Beschikbaar voor bestellen',
+    saving: 'Opslaan...',
+    updateItem: 'Item Bijwerken',
+    createItem: 'Item Aanmaken',
+    
+    // Category Form
+    categoryName: 'Categorie Naam',
+    categoryNamePlaceholder: 'bijv., Burgers, Pizza, Drankjes',
+    briefDescription: 'Korte beschrijving van deze categorie',
+    lowerNumbersAppearFirst: 'Lagere nummers verschijnen eerst in het menu',
+    creating: 'Aanmaken...',
+    updateCategory: 'Categorie Bijwerken',
+    createCategory: 'Categorie Aanmaken',
+    
+    // Validation messages
+    categoryNameRequired: 'Categorie naam is verplicht',
+    descriptionRequired: 'Beschrijving is verplicht',
   },
   
   // Restaurant
@@ -231,6 +294,80 @@ const nl: Translations = {
     daysAgo: 'dagen geleden',
     weeksAgo: 'weken geleden',
     monthsAgo: 'maanden geleden',
+  },
+  
+  // Settings
+  settings: {
+    title: 'Instellingen',
+    tabs: {
+      general: 'Algemene Instellingen',
+      payment: 'Betaalinstellingen',
+      staff: 'Personeelsbeheer',
+    },
+    
+    general: {
+      title: 'Algemene Instellingen',
+      description: 'Beheer basisinformatie en instellingen van het restaurant',
+      languageSettings: 'Taalinstellingen',
+      language: 'Taal',
+      accountSettings: 'Accountinstellingen',
+      signOutDescription: 'Meld je af van je account en keer terug naar het inlogscherm',
+      restaurantInfo: 'Restaurantinformatie',
+      contactAdminNote: 'Neem contact op met uw systeembeheerder om deze informatie bij te werken',
+      restaurantName: 'Restaurantnaam',
+      restaurantNamePlaceholder: 'Voer restaurantnaam in',
+      address: 'Adres',
+      addressPlaceholder: 'Voer restaurantadres in',
+      phone: 'Telefoonnummer',
+      phonePlaceholder: '+31 6 12345678',
+      openingHours: 'Openingstijden',
+      days: {
+        monday: 'Maandag',
+        tuesday: 'Dinsdag',
+        wednesday: 'Woensdag',
+        thursday: 'Donderdag',
+        friday: 'Vrijdag',
+        saturday: 'Zaterdag',
+        sunday: 'Zondag',
+      },
+      closed: 'Gesloten',
+      saving: 'Opslaan...',
+    },
+    
+    payment: {
+      title: 'Betaalinstellingen',
+      description: 'Configureer betaalproviders en opties',
+      providers: 'Betaalproviders',
+      active: 'Actief',
+      inactive: 'Inactief',
+      apiKey: 'API Sleutel',
+      publishableKey: 'Publieke Sleutel',
+      secretKey: 'Geheime Sleutel',
+      options: 'Betaalopties',
+      acceptCash: 'Accepteer contante betalingen',
+      acceptCard: 'Accepteer kaartbetalingen',
+      acceptOnline: 'Accepteer online betalingen',
+    },
+    
+    staff: {
+      title: 'Personeelsbeheer',
+      description: 'Beheer restaurantpersoneel en machtigingen',
+      addStaff: 'Personeel Toevoegen',
+      addNewStaff: 'Nieuw Personeelslid Toevoegen',
+      inviteStaff: 'Personeel Uitnodigen',
+      name: 'Naam',
+      email: 'E-mail',
+      role: 'Rol',
+      status: 'Status',
+      active: 'Actief',
+      inactive: 'Inactief',
+      roles: {
+        ADMIN: 'Beheerder',
+        MANAGER: 'Manager',
+        CHEF: 'Kok',
+        WAITER: 'Ober',
+      },
+    },
   },
 };
 

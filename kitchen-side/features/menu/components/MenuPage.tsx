@@ -103,11 +103,13 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
 
   if (isLoading) {
     return (
-      <div className="p-8 bg-gray-50 min-h-screen">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <LoadingSpinner size="lg" className="mx-auto mb-4" />
-            <p className="text-gray-600">{t.menu.loading}</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-12 shadow-sm">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <LoadingSpinner size="lg" />
+            </div>
+            <p className="text-gray-700 font-medium">{t.menu.loading}</p>
           </div>
         </div>
       </div>
@@ -116,153 +118,196 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
 
   if (error) {
     return (
-      <div className="p-8 bg-gray-50 min-h-screen">
-        <div className="text-center text-red-600">
-          <p>{t.menu.error}: {error}</p>
-          <Button onClick={fetchMenu} className="mt-4">
-            {t.menu.retry}
-          </Button>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center bg-white/60 backdrop-blur-sm rounded-2xl border border-red-200/50 p-12 shadow-sm">
+            <div className="w-16 h-16 bg-gradient-to-br from-red-100 to-red-200 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <p className="text-red-600 font-medium mb-4">{t.menu.error}: {error}</p>
+            <Button 
+              onClick={fetchMenu} 
+              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              {t.menu.retry}
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-[#0a3c6e]">{t.menu.menuManagement}</h1>
-        <div className="flex space-x-3">
-          <Button 
-            variant="outline"
-            onClick={() => setIsCategoryModalOpen(true)}
-          >
-            <FolderPlus className="w-4 h-4 mr-2" />
-            {t.menu.addCategory}
-          </Button>
-          <Button onClick={() => setIsCreateModalOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            {t.menu.addMenuItem}
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between mb-6">
-        <CategoryFilter
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-          restaurantId={restaurantId}
-        />
-        
-        {/* Show Hidden Items Toggle */}
-        <div className="flex items-center space-x-3">
-          <label className="flex items-center space-x-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showHiddenItems}
-              onChange={(e) => setShowHiddenItems(e.target.checked)}
-              className="sr-only"
-            />
-            <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              showHiddenItems ? 'bg-blue-600' : 'bg-gray-300'
-            }`}>
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                showHiddenItems ? 'translate-x-6' : 'translate-x-1'
-              }`} />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+      {/* Header Section */}
+      <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="space-y-1">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-700 bg-clip-text text-transparent">
+                {t.menu.menuManagement}
+              </h1>
+              <p className="text-gray-600 text-sm">Manage your restaurant's menu items and categories</p>
             </div>
-            <span className="text-sm font-medium text-gray-700 flex items-center">
-              {showHiddenItems ? (
-                <>
-                  <Eye className="w-4 h-4 mr-1" />
-                  {t.menu.showHidden}
-                </>
-              ) : (
-                <>
-                  <EyeOff className="w-4 h-4 mr-1" />
-                  {t.menu.hideUnavailable}
-                </>
-              )}
-            </span>
-          </label>
+            <div className="flex flex-wrap gap-3">
+              <Button 
+                variant="outline"
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="bg-white/50 backdrop-blur-sm hover:bg-white/80 border-gray-200/50 text-gray-700 hover:text-gray-900 shadow-sm hover:shadow-md transition-all duration-200"
+              >
+                <FolderPlus className="w-4 h-4 mr-2" />
+                {t.menu.addCategory}
+              </Button>
+              <Button 
+                onClick={() => setIsCreateModalOpen(true)}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                {t.menu.addMenuItem}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {filteredMenu.length === 0 ? (
-        <EmptyState
-          icon="🍽️"
-          title={t.menu.noMenuItemsFound}
-          description={t.menu.startByAddingFirstItem}
-          action={
-            <Button onClick={() => setIsCreateModalOpen(true)}>
+      {/* Filters Section */}
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex-1">
+              <CategoryFilter
+                selectedCategory={selectedCategory}
+                onCategoryChange={setSelectedCategory}
+                restaurantId={restaurantId}
+              />
+            </div>
+            
+            {/* Show Hidden Items Toggle */}
+            <div className="flex items-center space-x-3">
+              <label className="flex items-center space-x-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={showHiddenItems}
+                  onChange={(e) => setShowHiddenItems(e.target.checked)}
+                  className="sr-only"
+                />
+                <div className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 shadow-inner ${
+                  showHiddenItems 
+                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 shadow-blue-200' 
+                    : 'bg-gray-300 shadow-gray-200'
+                }`}>
+                  <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-all duration-300 shadow-sm ${
+                    showHiddenItems ? 'translate-x-6 shadow-lg' : 'translate-x-1'
+                  }`} />
+                </div>
+                <span className="text-sm font-medium text-gray-700 flex items-center group-hover:text-gray-900 transition-colors">
+                  {showHiddenItems ? (
+                    <>
+                      <Eye className="w-4 h-4 mr-2 text-blue-600" />
+                      {t.menu.showHidden}
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-4 h-4 mr-2 text-gray-500" />
+                      {t.menu.hideUnavailable}
+                    </>
+                  )}
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content Section */}
+      <div className="max-w-7xl mx-auto px-6 pb-8">
+        {filteredMenu.length === 0 ? (
+          <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-12 text-center shadow-sm">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-3xl">🍽️</span>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">{t.menu.noMenuItemsFound}</h3>
+            <p className="text-gray-600 mb-6">{t.menu.startByAddingFirstItem}</p>
+            <Button 
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+            >
+              <Plus className="w-4 h-4 mr-2" />
               {t.menu.addMenuItem}
             </Button>
-          }
-        />
-      ) : selectedCategory === "all" ? (
-        // Display grouped items with category headers
-        <ErrorBoundary 
-          level="section" 
-          name="MenuCategoryGroups"
-        >
-          <div className="space-y-8">
-            {groupedMenu.map(({ category, items }) => (
-              <ErrorBoundary 
-                key={category.id}
-                level="component" 
-                name={`MenuCategory-${category.name}`}
-              >
-                <div className="space-y-4">
-                  {/* Category Header */}
-                  <div className="relative mb-6">
-                    <div className="flex items-center">
-                      <div className="bg-gradient-to-r from-blue-50 to-white rounded-lg px-6 py-3 shadow-sm border border-blue-100">
-                        <h2 className="text-xl font-semibold text-gray-800">
-                          {category.name}
-                        </h2>
-                        {category.description && (
-                          <p className="text-sm text-gray-500 mt-0.5">
-                            {category.description}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex-1 ml-4">
-                        <div className="h-[1px] bg-gradient-to-r from-gray-200 via-gray-200 to-transparent"></div>
+          </div>
+        ) : selectedCategory === "all" ? (
+          // Display grouped items with category headers
+          <ErrorBoundary 
+            level="section" 
+            name="MenuCategoryGroups"
+          >
+            <div className="space-y-8">
+              {groupedMenu.map(({ category, items }, index) => (
+                <ErrorBoundary 
+                  key={category.id}
+                  level="component" 
+                  name={`MenuCategory-${category.name}`}
+                >
+                  <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm hover:shadow-md transition-all duration-300">
+                    {/* Category Header */}
+                    <div className="p-6 border-b border-gray-200/50">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center space-x-3">
+                            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+                            <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                              {category.name}
+                            </h2>
+                          </div>
+                          {category.description && (
+                            <p className="text-gray-600 mt-2 ml-6">
+                              {category.description}
+                            </p>
+                          )}
+                        </div>
+                        <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+                          {items.length} {items.length === 1 ? 'item' : 'items'}
+                        </div>
                       </div>
                     </div>
+                    
+                    {/* Items Grid */}
+                    <div className="p-6">
+                      <ErrorBoundary 
+                        level="component" 
+                        name={`MenuGrid-${category.name}`}
+                      >
+                        <MenuGrid
+                          items={items}
+                          onEdit={setEditingItem}
+                          onToggleAvailability={toggleMenuItemAvailability}
+                          showHiddenItems={showHiddenItems}
+                        />
+                      </ErrorBoundary>
+                    </div>
                   </div>
-                  
-                  {/* Items Grid */}
-                  <div className="pl-4">
-                    <ErrorBoundary 
-                      level="component" 
-                      name={`MenuGrid-${category.name}`}
-                    >
-                      <MenuGrid
-                        items={items}
-                        onEdit={setEditingItem}
-                        onToggleAvailability={toggleMenuItemAvailability}
-                        showHiddenItems={showHiddenItems}
-                      />
-                    </ErrorBoundary>
-                  </div>
-                </div>
-              </ErrorBoundary>
-            ))}
+                </ErrorBoundary>
+              ))}
+            </div>
+          </ErrorBoundary>
+        ) : (
+          // Single category view
+          <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm p-6">
+            <ErrorBoundary 
+              level="section" 
+              name="MenuSingleCategory"
+            >
+              <MenuGrid
+                items={filteredMenu}
+                onEdit={setEditingItem}
+                onToggleAvailability={toggleMenuItemAvailability}
+                showHiddenItems={showHiddenItems}
+              />
+            </ErrorBoundary>
           </div>
-        </ErrorBoundary>
-      ) : (
-        // Single category view
-        <ErrorBoundary 
-          level="section" 
-          name="MenuSingleCategory"
-        >
-          <MenuGrid
-            items={filteredMenu}
-            onEdit={setEditingItem}
-            onToggleAvailability={toggleMenuItemAvailability}
-            showHiddenItems={showHiddenItems}
-          />
-        </ErrorBoundary>
-      )}
+        )}
+      </div>
 
       {/* Create Modal */}
       <Modal

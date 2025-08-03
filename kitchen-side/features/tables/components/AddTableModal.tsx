@@ -6,6 +6,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Label } from '@/shared/components/ui/Label';
 import { ErrorBoundary } from '@/shared/components/error';
+import { useTranslation } from '@/shared/contexts/LanguageContext';
 import { AlertTriangle, Users, Hash, QrCode } from 'lucide-react';
 import type { Table } from '../types';
 
@@ -29,6 +30,7 @@ interface FormErrors {
 }
 
 export function AddTableModal({ isOpen, onClose, onSuccess, existingTables, createTable }: AddTableModalProps) {
+  const t = useTranslation();
   const [formData, setFormData] = useState<TableFormData>({
     number: '',
     capacity: '4'
@@ -53,31 +55,31 @@ export function AddTableModal({ isOpen, onClose, onSuccess, existingTables, crea
     // Validate table number
     const tableNumber = parseInt(formData.number);
     if (!formData.number.trim()) {
-      newErrors.number = 'Table number is required';
+      newErrors.number = t.tables.tableNumberRequired;
     } else if (isNaN(tableNumber)) {
-      newErrors.number = 'Table number must be a valid number';
+      newErrors.number = t.tables.tableNumberMustBeValid;
     } else if (tableNumber < 1 || tableNumber > 999) {
-      newErrors.number = 'Table number must be between 1 and 999';
+      newErrors.number = t.tables.tableNumberRange;
     } else if (!Number.isInteger(tableNumber)) {
-      newErrors.number = 'Table number must be a whole number';
+      newErrors.number = t.tables.tableNumberWhole;
     } else {
       // Check if table number already exists
       const existingTable = existingTables.find(table => table.number === tableNumber);
       if (existingTable) {
-        newErrors.number = `Table ${tableNumber} already exists`;
+        newErrors.number = t.tables.tableAlreadyExists.replace('{number}', tableNumber.toString());
       }
     }
 
     // Validate capacity
     const capacity = parseInt(formData.capacity);
     if (!formData.capacity.trim()) {
-      newErrors.capacity = 'Capacity is required';
+      newErrors.capacity = t.tables.capacityRequired;
     } else if (isNaN(capacity)) {
-      newErrors.capacity = 'Capacity must be a valid number';
+      newErrors.capacity = t.tables.capacityMustBeValid;
     } else if (capacity < 1 || capacity > 20) {
-      newErrors.capacity = 'Capacity must be between 1 and 20 seats';
+      newErrors.capacity = t.tables.capacityRange;
     } else if (!Number.isInteger(capacity)) {
-      newErrors.capacity = 'Capacity must be a whole number';
+      newErrors.capacity = t.tables.capacityWhole;
     }
 
     setErrors(newErrors);
@@ -108,9 +110,9 @@ export function AddTableModal({ isOpen, onClose, onSuccess, existingTables, crea
       
       // Check for specific error types
       if (errorMessage.includes('already exists') || errorMessage.includes('duplicate')) {
-        setErrors({ number: `Table ${formData.number} already exists` });
+        setErrors({ number: t.tables.tableAlreadyExists.replace('{number}', formData.number) });
       } else if (errorMessage.includes('restaurant')) {
-        setErrors({ submit: 'Please select a restaurant first' });
+        setErrors({ submit: t.tables.selectRestaurantFirst });
       } else {
         setErrors({ submit: errorMessage });
       }
@@ -135,10 +137,10 @@ export function AddTableModal({ isOpen, onClose, onSuccess, existingTables, crea
       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
         <div className="flex items-center space-x-2 text-blue-700">
           <QrCode className="w-4 h-4" />
-          <span className="text-sm font-medium">QR Code will be generated</span>
+          <span className="text-sm font-medium">{t.tables.qrCodeWillBeGenerated}</span>
         </div>
         <p className="text-xs text-blue-600 mt-1">
-          Customers will scan this code to access Table {tableNumber}
+          {t.tables.customersWillScan} {tableNumber}
         </p>
       </div>
     );
@@ -148,7 +150,7 @@ export function AddTableModal({ isOpen, onClose, onSuccess, existingTables, crea
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Add New Table"
+      title={t.tables.addNewTable}
     >
       <ErrorBoundary level="component" name="AddTableModal">
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -156,7 +158,7 @@ export function AddTableModal({ isOpen, onClose, onSuccess, existingTables, crea
           <div>
             <Label htmlFor="tableNumber" className="flex items-center space-x-2">
               <Hash className="w-4 h-4" />
-              <span>Table Number</span>
+              <span>{t.tables.tableNumber}</span>
             </Label>
             <Input
               id="tableNumber"
@@ -165,7 +167,7 @@ export function AddTableModal({ isOpen, onClose, onSuccess, existingTables, crea
               max="999"
               value={formData.number}
               onChange={(e) => handleInputChange('number', e.target.value)}
-              placeholder="Enter table number (1-999)"
+              placeholder={t.tables.enterTableNumber}
               className={`mt-1 ${errors.number ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
               disabled={isLoading}
             />
@@ -176,7 +178,7 @@ export function AddTableModal({ isOpen, onClose, onSuccess, existingTables, crea
               </div>
             )}
             <p className="mt-1 text-xs text-gray-500">
-              Choose a unique number for this table (1-999)
+              {t.tables.chooseUniqueNumber}
             </p>
           </div>
 
@@ -184,7 +186,7 @@ export function AddTableModal({ isOpen, onClose, onSuccess, existingTables, crea
           <div>
             <Label htmlFor="capacity" className="flex items-center space-x-2">
               <Users className="w-4 h-4" />
-              <span>Seating Capacity</span>
+              <span>{t.tables.seatingCapacity}</span>
             </Label>
             <Input
               id="capacity"
@@ -193,7 +195,7 @@ export function AddTableModal({ isOpen, onClose, onSuccess, existingTables, crea
               max="20"
               value={formData.capacity}
               onChange={(e) => handleInputChange('capacity', e.target.value)}
-              placeholder="Number of seats"
+              placeholder={t.tables.numberOfSeats}
               className={`mt-1 ${errors.capacity ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
               disabled={isLoading}
             />
@@ -204,7 +206,7 @@ export function AddTableModal({ isOpen, onClose, onSuccess, existingTables, crea
               </div>
             )}
             <p className="mt-1 text-xs text-gray-500">
-              Maximum number of customers that can sit at this table (1-20)
+              {t.tables.maxCustomersDescription}
             </p>
           </div>
 
@@ -216,7 +218,7 @@ export function AddTableModal({ isOpen, onClose, onSuccess, existingTables, crea
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
               <div className="flex items-center space-x-2 text-red-700">
                 <AlertTriangle className="w-5 h-5" />
-                <span className="text-sm font-medium">Error</span>
+                <span className="text-sm font-medium">{t.common.error}</span>
               </div>
               <p className="text-sm text-red-600 mt-1">{errors.submit}</p>
             </div>
@@ -225,12 +227,12 @@ export function AddTableModal({ isOpen, onClose, onSuccess, existingTables, crea
           {/* Table Summary */}
           {formData.number && formData.capacity && !errors.number && !errors.capacity && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <h4 className="text-sm font-medium text-green-800 mb-2">Table Summary</h4>
+              <h4 className="text-sm font-medium text-green-800 mb-2">{t.tables.tableSummary}</h4>
               <div className="space-y-1 text-sm text-green-700">
-                <p>• Table Number: <strong>{formData.number}</strong></p>
-                <p>• Seating Capacity: <strong>{formData.capacity} {parseInt(formData.capacity) === 1 ? 'person' : 'people'}</strong></p>
-                <p>• QR Code: Will be automatically generated</p>
-                <p>• Status: Available (default)</p>
+                <p>• {t.tables.tableNumber}: <strong>{formData.number}</strong></p>
+                <p>• {t.tables.seatingCapacity}: <strong>{formData.capacity} {parseInt(formData.capacity) === 1 ? t.tables.person : t.tables.people}</strong></p>
+                <p>• {t.tables.qrCode}: {t.tables.willBeAutomaticallyGenerated}</p>
+                <p>• {t.common.status}: {t.tables.statusAvailableDefault}</p>
               </div>
             </div>
           )}
@@ -243,7 +245,7 @@ export function AddTableModal({ isOpen, onClose, onSuccess, existingTables, crea
               onClick={handleClose}
               disabled={isLoading}
             >
-              Cancel
+              {t.common.cancel}
             </Button>
             <Button
               type="submit"
@@ -253,10 +255,10 @@ export function AddTableModal({ isOpen, onClose, onSuccess, existingTables, crea
               {isLoading ? (
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Creating...</span>
+                  <span>{t.tables.creating}</span>
                 </div>
               ) : (
-                'Create Table'
+                t.tables.createTable
               )}
             </Button>
           </div>

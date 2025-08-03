@@ -144,6 +144,36 @@ export interface Translations {
     permanentQrDescription: string;
     customerUrl: string;
     customerUrlDescription: string;
+    
+    // Add Table Form
+    addNewTable: string;
+    seatingCapacity: string;
+    enterTableNumber: string;
+    numberOfSeats: string;
+    chooseUniqueNumber: string;
+    maxCustomersDescription: string;
+    qrCodeWillBeGenerated: string;
+    customersWillScan: string;
+    tableSummary: string;
+    person: string;
+    people: string;
+    willBeAutomaticallyGenerated: string;
+    statusAvailableDefault: string;
+    creating: string;
+    createTable: string;
+    
+    // Validation messages
+    tableNumberRequired: string;
+    tableNumberMustBeValid: string;
+    tableNumberRange: string;
+    tableNumberWhole: string;
+    tableAlreadyExists: string;
+    capacityRequired: string;
+    capacityMustBeValid: string;
+    capacityRange: string;
+    capacityWhole: string;
+    selectRestaurantFirst: string;
+    failedToCreateTable: string;
   };
   
   // Menu
@@ -189,6 +219,39 @@ export interface Translations {
     
     // Error states
     error: string;
+    
+    // Form fields and labels
+    name: string;
+    description: string;
+    price: string;
+    imageUrl: string;
+    sortOrder: string;
+    required: string;
+    optional: string;
+    
+    // Menu Item Form
+    menuItemName: string;
+    describeMenuItem: string;
+    priceInDollars: string;
+    selectCategory: string;
+    imageUrlPlaceholder: string;
+    availableForOrdering: string;
+    saving: string;
+    updateItem: string;
+    createItem: string;
+    
+    // Category Form
+    categoryName: string;
+    categoryNamePlaceholder: string;
+    briefDescription: string;
+    lowerNumbersAppearFirst: string;
+    creating: string;
+    updateCategory: string;
+    createCategory: string;
+    
+    // Validation messages
+    categoryNameRequired: string;
+    descriptionRequired: string;
   };
   
   // Restaurant
@@ -237,6 +300,80 @@ export interface Translations {
     daysAgo: string;
     weeksAgo: string;
     monthsAgo: string;
+  };
+  
+  // Settings
+  settings: {
+    title: string;
+    tabs: {
+      general: string;
+      payment: string;
+      staff: string;
+    };
+    
+    general: {
+      title: string;
+      description: string;
+      languageSettings: string;
+      language: string;
+      accountSettings: string;
+      signOutDescription: string;
+      restaurantInfo: string;
+      contactAdminNote: string;
+      restaurantName: string;
+      restaurantNamePlaceholder: string;
+      address: string;
+      addressPlaceholder: string;
+      phone: string;
+      phonePlaceholder: string;
+      openingHours: string;
+      days: {
+        monday: string;
+        tuesday: string;
+        wednesday: string;
+        thursday: string;
+        friday: string;
+        saturday: string;
+        sunday: string;
+      };
+      closed: string;
+      saving: string;
+    };
+    
+    payment: {
+      title: string;
+      description: string;
+      providers: string;
+      active: string;
+      inactive: string;
+      apiKey: string;
+      publishableKey: string;
+      secretKey: string;
+      options: string;
+      acceptCash: string;
+      acceptCard: string;
+      acceptOnline: string;
+    };
+    
+    staff: {
+      title: string;
+      description: string;
+      addStaff: string;
+      addNewStaff: string;
+      inviteStaff: string;
+      name: string;
+      email: string;
+      role: string;
+      status: string;
+      active: string;
+      inactive: string;
+      roles: {
+        ADMIN: string;
+        MANAGER: string;
+        CHEF: string;
+        WAITER: string;
+      };
+    };
   };
 }
 
@@ -299,12 +436,13 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
     nav: { dashboard: 'Dashboard', orders: 'Orders', menu: 'Menu', tables: 'Tables', staff: 'Staff', settings: 'Settings', analytics: 'Analytics', logout: 'Logout', switchRestaurant: 'Switch Restaurant', signOut: 'Sign Out', selectRestaurant: 'Select restaurant', language: 'Language', languageSettings: 'Language Settings' },
     dashboard: { title: 'Dashboard', welcomeBack: 'Welcome back! Here\'s what\'s happening today.', todayRevenue: "Today's Revenue", activeOrders: 'Active Orders', ordersToday: 'Orders Today', avgOrderValue: 'Avg Order Value', recentOrders: 'Recent Orders', todayPerformance: "Today's Performance", revenueToday: 'Revenue Today', systemStatus: 'System Status', kitchenDisplay: 'Kitchen Display', paymentSystem: 'Payment System', qrOrdering: 'QR Ordering', quickActions: 'Quick Actions', viewMenu: 'View Menu', manageTables: 'Manage Tables', updateTableLayout: 'Update table layout', viewAllOrders: 'View all', noRecentOrders: 'No recent orders', items: 'items', viewOrders: 'View Orders', manageMenu: 'Manage Menu', addNewItems: 'Add new items to your menu', addMenuItem: 'Add Menu Item', createNewDish: 'Create a new dish' },
     orders: { title: 'Orders', liveOrders: 'Live Orders', manageActiveOrders: 'Manage active restaurant orders', newOrder: 'New Order', pending: 'Pending', confirmed: 'Confirmed', preparing: 'Preparing', ready: 'Ready', delivered: 'Delivered', completed: 'Completed', cancelled: 'Cancelled', table: 'Table', orderNumber: 'Order', total: 'Total', time: 'Time', loadingOrders: 'Loading orders...', error: 'Error', tryAgain: 'Try Again', live: 'Live', offline: 'Offline', creating: 'Creating...', testOrder: 'Test Order', refresh: 'Refresh', noActiveOrders: 'No active orders', newOrdersWillAppear: 'New orders will appear here when customers place them.', items: 'items', markAs: 'Mark as', note: 'Note' },
-    tables: { title: 'Tables', addTable: 'Add Table', tableNumber: 'Table Number', capacity: 'Capacity', qrCode: 'QR Code', downloadQr: 'Download QR', viewFullSize: 'View Full Size', available: 'Available', occupied: 'Occupied', reserved: 'Reserved', maintenance: 'Maintenance', qrCodeNotAvailable: 'QR code not available', qrCodesGenerated: 'QR codes are generated automatically when tables are created', manageTablesDescription: 'Manage restaurant tables and real-time status', live: 'Live', offline: 'Offline', refresh: 'Refresh', total: 'Total', outOfOrder: 'Out of Order', searchTables: 'Search tables...', allStatuses: 'All Statuses', noTablesFound: 'No tables found', createFirstTable: 'Create your first table to get started.', table: 'Table', seats: 'seats', code: 'Code', viewQr: 'View QR', qrCodeFor: 'QR Code - Table', permanentQrCode: 'Permanent QR Code', permanentQrDescription: 'This QR code is permanent and safe for printing on physical materials. It will never change unless manually regenerated by an admin.', customerUrl: 'Customer URL', customerUrlDescription: 'Customers will be redirected to this URL when they scan the QR code' },
-    menu: { title: 'Menu', menuManagement: 'Menu Management', loading: 'Loading menu...', retry: 'Retry', pleaseSelectRestaurant: 'Please select a restaurant to manage menu.', addMenuItem: 'Add Menu Item', addCategory: 'Add Category', edit: 'Edit', hide: 'Hide', show: 'Show', category: 'Category', categories: 'Categories', filterByCategory: 'Filter by Category', allItems: 'All Items', createNewCategory: 'Create New Category', available: 'Available', unavailable: 'Unavailable', hidden: 'Hidden', notVisibleToCustomers: 'Not visible to customers', showHidden: 'Show Hidden', hideUnavailable: 'Hide Unavailable', noMenuItemsFound: 'No menu items found', startByAddingFirstItem: 'Start by adding your first menu item.', addNewMenuItem: 'Add New Menu Item', editMenuItem: 'Edit Menu Item', error: 'Error' },
+    tables: { title: 'Tables', addTable: 'Add Table', tableNumber: 'Table Number', capacity: 'Capacity', qrCode: 'QR Code', downloadQr: 'Download QR', viewFullSize: 'View Full Size', available: 'Available', occupied: 'Occupied', reserved: 'Reserved', maintenance: 'Maintenance', qrCodeNotAvailable: 'QR code not available', qrCodesGenerated: 'QR codes are generated automatically when tables are created', manageTablesDescription: 'Manage restaurant tables and real-time status', live: 'Live', offline: 'Offline', refresh: 'Refresh', total: 'Total', outOfOrder: 'Out of Order', searchTables: 'Search tables...', allStatuses: 'All Statuses', noTablesFound: 'No tables found', createFirstTable: 'Create your first table to get started.', table: 'Table', seats: 'seats', code: 'Code', viewQr: 'View QR', qrCodeFor: 'QR Code - Table', permanentQrCode: 'Permanent QR Code', permanentQrDescription: 'This QR code is permanent and safe for printing on physical materials. It will never change unless manually regenerated by an admin.', customerUrl: 'Customer URL', customerUrlDescription: 'Customers will be redirected to this URL when they scan the QR code', addNewTable: 'Add New Table', seatingCapacity: 'Seating Capacity', enterTableNumber: 'Enter table number (1-999)', numberOfSeats: 'Number of seats', chooseUniqueNumber: 'Choose a unique number for this table (1-999)', maxCustomersDescription: 'Maximum number of customers that can sit at this table (1-20)', qrCodeWillBeGenerated: 'QR Code will be generated', customersWillScan: 'Customers will scan this code to access Table', tableSummary: 'Table Summary', person: 'person', people: 'people', willBeAutomaticallyGenerated: 'Will be automatically generated', statusAvailableDefault: 'Available (default)', creating: 'Creating...', createTable: 'Create Table', tableNumberRequired: 'Table number is required', tableNumberMustBeValid: 'Table number must be a valid number', tableNumberRange: 'Table number must be between 1 and 999', tableNumberWhole: 'Table number must be a whole number', tableAlreadyExists: 'Table {number} already exists', capacityRequired: 'Capacity is required', capacityMustBeValid: 'Capacity must be a valid number', capacityRange: 'Capacity must be between 1 and 20 seats', capacityWhole: 'Capacity must be a whole number', selectRestaurantFirst: 'Please select a restaurant first', failedToCreateTable: 'Failed to create table' },
+    menu: { title: 'Menu', menuManagement: 'Menu Management', loading: 'Loading menu...', retry: 'Retry', pleaseSelectRestaurant: 'Please select a restaurant to manage menu.', addMenuItem: 'Add Menu Item', addCategory: 'Add Category', edit: 'Edit', hide: 'Hide', show: 'Show', category: 'Category', categories: 'Categories', filterByCategory: 'Filter by Category', allItems: 'All Items', createNewCategory: 'Create New Category', available: 'Available', unavailable: 'Unavailable', hidden: 'Hidden', notVisibleToCustomers: 'Not visible to customers', showHidden: 'Show Hidden', hideUnavailable: 'Hide Unavailable', noMenuItemsFound: 'No menu items found', startByAddingFirstItem: 'Start by adding your first menu item.', addNewMenuItem: 'Add New Menu Item', editMenuItem: 'Edit Menu Item', error: 'Error', name: 'Name', description: 'Description', price: 'Price', imageUrl: 'Image URL', sortOrder: 'Sort Order', required: '*', optional: 'Optional', menuItemName: 'Menu item name', describeMenuItem: 'Describe the menu item', priceInDollars: 'Price * ($)', selectCategory: 'Select a category', imageUrlPlaceholder: 'https://example.com/image.jpg', availableForOrdering: 'Available for ordering', saving: 'Saving...', updateItem: 'Update Item', createItem: 'Create Item', categoryName: 'Category Name', categoryNamePlaceholder: 'e.g., Burgers, Pizza, Drinks', briefDescription: 'Brief description of this category', lowerNumbersAppearFirst: 'Lower numbers appear first in the menu', creating: 'Creating...', updateCategory: 'Update Category', createCategory: 'Create Category', categoryNameRequired: 'Category name is required', descriptionRequired: 'Description is required' },
     restaurant: { selectRestaurant: 'Select Restaurant', addRestaurant: 'Add Restaurant', restaurantName: 'Restaurant Name', logoUrl: 'Logo URL', welcome: 'Welcome', chooseRestaurant: 'choose a restaurant to manage', noRestaurantsFound: 'No restaurants found', noRestaurantsAvailable: 'No restaurants available in the system', createRestaurant: 'Create Restaurant', creating: 'Creating...', requiredFields: 'Required fields', tryAgain: 'Try again' },
     auth: { login: 'Login', logout: 'Logout', email: 'Email', password: 'Password', forgotPassword: 'Forgot Password', rememberMe: 'Remember Me', signIn: 'Sign In' },
     validation: { required: 'Required', invalidEmail: 'Invalid email', passwordTooShort: 'Password too short', phoneInvalid: 'Invalid phone number', urlInvalid: 'Invalid URL', networkError: 'Network error', apiNotRunning: 'make sure API is running' },
-    time: { justNow: 'just now', minutesAgo: 'minutes ago', hoursAgo: 'hours ago', daysAgo: 'days ago', weeksAgo: 'weeks ago', monthsAgo: 'months ago' }
+    time: { justNow: 'just now', minutesAgo: 'minutes ago', hoursAgo: 'hours ago', daysAgo: 'days ago', weeksAgo: 'weeks ago', monthsAgo: 'months ago' },
+    settings: { title: 'Settings', tabs: { general: 'General Settings', payment: 'Payment Settings', staff: 'Staff Management' }, general: { title: 'General Settings', description: 'Manage basic restaurant information and settings', languageSettings: 'Language Settings', language: 'Language', accountSettings: 'Account Settings', signOutDescription: 'Sign out of your account and return to login screen', restaurantInfo: 'Restaurant Information', contactAdminNote: 'To update this information, please contact your system administrator', restaurantName: 'Restaurant Name', restaurantNamePlaceholder: 'Enter restaurant name', address: 'Address', addressPlaceholder: 'Enter restaurant address', phone: 'Phone Number', phonePlaceholder: '+1 (555) 123-4567', openingHours: 'Opening Hours', days: { monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday', sunday: 'Sunday' }, closed: 'Closed', saving: 'Saving...' }, payment: { title: 'Payment Settings', description: 'Configure payment providers and options', providers: 'Payment Providers', active: 'Active', inactive: 'Inactive', apiKey: 'API Key', publishableKey: 'Publishable Key', secretKey: 'Secret Key', options: 'Payment Options', acceptCash: 'Accept cash payments', acceptCard: 'Accept card payments', acceptOnline: 'Accept online payments' }, staff: { title: 'Staff Management', description: 'Manage restaurant staff and permissions', addStaff: 'Add Staff', addNewStaff: 'Add New Staff Member', inviteStaff: 'Invite Staff', name: 'Name', email: 'Email', role: 'Role', status: 'Status', active: 'Active', inactive: 'Inactive', roles: { ADMIN: 'Admin', MANAGER: 'Manager', CHEF: 'Chef', WAITER: 'Waiter' } } }
   };
 
   const value: LanguageContextType = {

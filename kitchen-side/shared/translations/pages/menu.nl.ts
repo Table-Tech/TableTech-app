@@ -41,5 +41,38 @@ export const menuNL = {
     
     // Error states
     error: 'Fout',
+    
+    // Form fields and labels
+    name: 'Naam',
+    description: 'Beschrijving',
+    price: 'Prijs',
+    imageUrl: 'Afbeelding URL',
+    sortOrder: 'Sorteervolgorde',
+    required: '*',
+    optional: 'Optioneel',
+    
+    // Menu Item Form
+    menuItemName: 'Menu item naam',
+    describeMenuItem: 'Beschrijf het menu item',
+    priceInDollars: 'Prijs * (€)',
+    selectCategory: 'Selecteer een categorie',
+    imageUrlPlaceholder: 'https://voorbeeld.com/afbeelding.jpg',
+    availableForOrdering: 'Beschikbaar voor bestellen',
+    saving: 'Opslaan...',
+    updateItem: 'Item Bijwerken',
+    createItem: 'Item Aanmaken',
+    
+    // Category Form
+    categoryName: 'Categorie Naam',
+    categoryNamePlaceholder: 'bijv., Burgers, Pizza, Drankjes',
+    briefDescription: 'Korte beschrijving van deze categorie',
+    lowerNumbersAppearFirst: 'Lagere nummers verschijnen eerst in het menu',
+    creating: 'Aanmaken...',
+    updateCategory: 'Categorie Bijwerken',
+    createCategory: 'Categorie Aanmaken',
+    
+    // Validation messages
+    categoryNameRequired: 'Categorie naam is verplicht',
+    descriptionRequired: 'Beschrijving is verplicht',
   },
 };

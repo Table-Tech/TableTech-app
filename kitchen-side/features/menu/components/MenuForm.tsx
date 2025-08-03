@@ -10,6 +10,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { MenuItem } from '@/shared/types';
 import { useCategories } from '../hooks/useCategories';
+import { useTranslation } from '@/shared/contexts/LanguageContext';
 
 interface MenuFormData {
   name: string;
@@ -28,6 +29,7 @@ interface MenuFormProps {
 }
 
 export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: MenuFormProps) {
+  const t = useTranslation();
   const { categories, fetchCategories } = useCategories(restaurantId);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<MenuFormData>({
@@ -70,24 +72,24 @@ export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: Menu
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Name *
+          {t.menu.name} {t.menu.required}
         </label>
         <Input
           value={formData.name}
           onChange={(e) => handleChange('name', e.target.value)}
-          placeholder="Menu item name"
+          placeholder={t.menu.menuItemName}
           required
         />
       </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Description
+          {t.menu.description}
         </label>
         <textarea
           value={formData.description}
           onChange={(e) => handleChange('description', e.target.value)}
-          placeholder="Describe the menu item"
+          placeholder={t.menu.describeMenuItem}
           rows={3}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
@@ -95,7 +97,7 @@ export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: Menu
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Price * ($)
+          {t.menu.priceInDollars}
         </label>
         <Input
           type="number"
@@ -110,7 +112,7 @@ export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: Menu
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Category *
+          {t.menu.category} {t.menu.required}
         </label>
         <select
           value={formData.categoryId}
@@ -118,7 +120,7 @@ export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: Menu
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           required
         >
-          <option value="">Select a category</option>
+          <option value="">{t.menu.selectCategory}</option>
           {categories.map((category) => (
             <option key={category.id} value={category.id}>
               {category.name}
@@ -129,13 +131,13 @@ export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: Menu
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Image URL
+          {t.menu.imageUrl}
         </label>
         <Input
           type="url"
           value={formData.imageUrl}
           onChange={(e) => handleChange('imageUrl', e.target.value)}
-          placeholder="https://example.com/image.jpg"
+          placeholder={t.menu.imageUrlPlaceholder}
         />
       </div>
 
@@ -148,16 +150,16 @@ export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: Menu
           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
         />
         <label htmlFor="available" className="ml-2 block text-sm text-gray-700">
-          Available for ordering
+          {t.menu.availableForOrdering}
         </label>
       </div>
 
       <div className="flex gap-2 pt-4">
         <Button type="submit" disabled={isLoading} className="flex-1">
-          {isLoading ? 'Saving...' : initialData ? 'Update Item' : 'Create Item'}
+          {isLoading ? t.menu.saving : initialData ? t.menu.updateItem : t.menu.createItem}
         </Button>
         <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
-          Cancel
+          {t.common.cancel}
         </Button>
       </div>
     </form>
