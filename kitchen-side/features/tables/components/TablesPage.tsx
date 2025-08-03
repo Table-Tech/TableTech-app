@@ -188,8 +188,8 @@ const TablesPage = React.memo(() => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
       {/* Header Section */}
-      <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="max-w-6xl mx-auto px-6 pt-6">
+        <div className="bg-gradient-to-br from-white/70 via-blue-50/60 to-indigo-50/40 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 shadow-sm mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="space-y-1">
               <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-700 bg-clip-text text-transparent">
@@ -237,7 +237,7 @@ const TablesPage = React.memo(() => {
       </div>
 
       {/* Stats Cards */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="max-w-6xl mx-auto px-6 py-6">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <StatsCard
             label={t.tables.total}
@@ -283,7 +283,7 @@ const TablesPage = React.memo(() => {
       </div>
 
       {/* Filters Section */}
-      <div className="max-w-7xl mx-auto px-6 relative z-20">
+      <div className="max-w-6xl mx-auto px-6 relative z-20">
         <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 shadow-sm mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center gap-4">
             <div className="flex-1">
@@ -316,7 +316,7 @@ const TablesPage = React.memo(() => {
       </div>
 
       {/* Content Section */}
-      <div className="max-w-7xl mx-auto px-6 pb-8">
+      <div className="max-w-6xl mx-auto px-6 pb-8">
         {tables.length === 0 ? (
           <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-12 text-center shadow-sm">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">

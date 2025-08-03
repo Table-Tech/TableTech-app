@@ -118,14 +118,41 @@ export default function OrdersPage() {
     
     setTestOrderLoading(true);
     try {
-      // Using Table #2 with specific ID
-      const tableId = "6fcf1085-876a-4755-8915-95a9c0fee02f";
-      const menuItemId = "b77c704d-fcfd-494e-a262-bb82fcf0bfcc";
+      // Fetch available tables
+      const tablesResponse = await apiClient.getTables(currentRestaurantId);
+      if (!tablesResponse.success || !tablesResponse.data || tablesResponse.data.length === 0) {
+        alert('No tables available. Please create a table first.');
+        return;
+      }
+
+      // Get the first available table (or any table if no available ones)
+      const availableTables = tablesResponse.data.filter(table => table.status === 'AVAILABLE');
+      const selectedTable = availableTables.length > 0 ? availableTables[0] : tablesResponse.data[0];
       
-      const response = await apiClient.createTestOrder(currentRestaurantId, tableId, menuItemId);
+      // Fetch available menu items
+      const menuResponse = await apiClient.getMenuItems(currentRestaurantId);
+      if (!menuResponse.success || !menuResponse.data || menuResponse.data.length === 0) {
+        alert('No menu items available. Please create menu items first.');
+        return;
+      }
+
+      // Get the first available menu item
+      const availableMenuItems = menuResponse.data.filter(item => item.isAvailable);
+      const selectedMenuItem = availableMenuItems.length > 0 ? availableMenuItems[0] : menuResponse.data[0];
+      
+      console.log('Creating test order with:', {
+        restaurantId: currentRestaurantId,
+        tableId: selectedTable.id,
+        tableNumber: selectedTable.number,
+        menuItemId: selectedMenuItem.id,
+        menuItemName: selectedMenuItem.name
+      });
+
+      const response = await apiClient.createTestOrder(currentRestaurantId, selectedTable.id, selectedMenuItem.id);
       
       if (response.success) {
         console.log('Test order created successfully:', response.data);
+        console.log(`Test order added to Table ${selectedTable.number} with ${selectedMenuItem.name}`);
         // The WebSocket should automatically update the UI
       } else {
         console.error('Failed to create test order:', response.error);
@@ -133,7 +160,7 @@ export default function OrdersPage() {
       }
     } catch (error) {
       console.error('Error creating test order:', error);
-      alert('Error creating test order');
+      alert('Error creating test order: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setTestOrderLoading(false);
     }
@@ -284,53 +311,60 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t.orders.liveOrders}</h1>
-          <p className="text-gray-600 mt-1">{t.orders.manageActiveOrders}</p>
-        </div>
-        <div className="flex items-center space-x-4">
-          {/* Connection Status Indicator */}
-          <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${
-            connectionStatus === 'connected' 
-              ? 'bg-green-100 text-green-700' 
-              : 'bg-red-100 text-red-700'
-          }`}>
-            {connectionStatus === 'connected' ? (
-              <>
-                <Wifi className="w-4 h-4" />
-                <span className="text-sm font-medium">{t.orders.live}</span>
-              </>
-            ) : (
-              <>
-                <WifiOff className="w-4 h-4" />
-                <span className="text-sm font-medium">{t.orders.offline}</span>
-              </>
-            )}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+      {/* Header Section */}
+      <div className="max-w-6xl mx-auto px-6 pt-6">
+        <div className="bg-gradient-to-br from-white/70 via-orange-50/60 to-red-50/40 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 shadow-sm mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="space-y-1">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-700 bg-clip-text text-transparent">{t.orders.liveOrders}</h1>
+              <p className="text-gray-600 text-sm">{t.orders.manageActiveOrders}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Connection Status Indicator */}
+              <div className={`flex items-center space-x-2 px-4 py-2 rounded-xl backdrop-blur-sm shadow-sm border transition-all duration-200 ${
+                connectionStatus === 'connected' 
+                  ? 'bg-green-50/80 border-green-200/50 text-green-700' 
+                  : 'bg-red-50/80 border-red-200/50 text-red-700'
+              }`}>
+                {connectionStatus === 'connected' ? (
+                  <>
+                    <Wifi className="w-4 h-4" />
+                    <span className="text-sm font-medium">{t.orders.live}</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-4 h-4" />
+                    <span className="text-sm font-medium">{t.orders.offline}</span>
+                  </>
+                )}
+              </div>
+              <button
+                onClick={createTestOrder}
+                disabled={testOrderLoading}
+                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                <TestTube className="w-4 h-4 mr-2" />
+                <span>{testOrderLoading ? t.orders.creating : t.orders.testOrder}</span>
+              </button>
+              <button
+                onClick={fetchOrders}
+                className="bg-white/50 backdrop-blur-sm hover:bg-white/80 border border-gray-200/50 text-gray-700 hover:text-gray-900 px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                <span>{t.orders.refresh}</span>
+              </button>
+            </div>
           </div>
-          <button
-            onClick={createTestOrder}
-            disabled={testOrderLoading}
-            className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <TestTube className="w-4 h-4" />
-            <span>{testOrderLoading ? t.orders.creating : t.orders.testOrder}</span>
-          </button>
-          <button
-            onClick={fetchOrders}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>{t.orders.refresh}</span>
-          </button>
         </div>
       </div>
 
-      {/* Orders Grid */}
-      {orders.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
+      {/* Content Section */}
+      <div className="max-w-6xl mx-auto px-6 pb-8">
+
+        {/* Orders Grid */}
+        {orders.length === 0 ? (
+          <div className="text-center py-12 bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm">
           <ShoppingCart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-600 mb-2">
             {t.orders.noActiveOrders}
@@ -429,6 +463,7 @@ export default function OrdersPage() {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -37,23 +37,42 @@ const StatCard = ({
   title,
   value,
   icon: Icon,
-}: StatCardProps) => (
-  <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-sm transition-shadow">
-    <div className="flex items-center justify-between mb-4">
-      <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-        <Icon className="w-6 h-6 text-blue-600" />
+}: StatCardProps) => {
+  // Different gradient combinations for variety
+  const gradients = [
+    'bg-gradient-to-br from-blue-50/80 to-indigo-100/60',
+    'bg-gradient-to-br from-green-50/80 to-emerald-100/60', 
+    'bg-gradient-to-br from-purple-50/80 to-violet-100/60',
+    'bg-gradient-to-br from-orange-50/80 to-amber-100/60'
+  ];
+  
+  const iconColors = [
+    'text-blue-600',
+    'text-green-600',
+    'text-purple-600', 
+    'text-orange-600'
+  ];
+  
+  const cardIndex = Math.abs(title.length) % gradients.length;
+  
+  return (
+    <div className={`${gradients[cardIndex]} backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 shadow-sm hover:shadow-lg transition-all duration-200 transform hover:scale-105`}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="w-14 h-14 bg-white/70 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-sm">
+          <Icon className={`w-7 h-7 ${iconColors[cardIndex]}`} />
+        </div>
+        <div className="w-8 h-8 bg-white/50 rounded-lg flex items-center justify-center opacity-40 hover:opacity-70 transition-opacity cursor-pointer">
+          <MoreVertical className="w-4 h-4 text-gray-600" />
+        </div>
       </div>
-      <button className="text-gray-400 hover:text-gray-600">
-        <MoreVertical className="w-5 h-5" />
-      </button>
-    </div>
 
-    <div className="space-y-2">
-      <h3 className="text-sm font-medium text-gray-600">{title}</h3>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
+      <div className="space-y-1">
+        <h3 className="text-sm font-medium text-gray-600">{title}</h3>
+        <p className="text-3xl font-bold text-gray-900">{value}</p>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const RecentOrderRow = ({
   id,
@@ -67,10 +86,17 @@ const RecentOrderRow = ({
   const t = useTranslation();
   
   const statusColors = {
-    pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    preparing: "bg-blue-100 text-blue-800 border-blue-200",
-    ready: "bg-green-100 text-green-800 border-green-200",
-    completed: "bg-gray-100 text-gray-800 border-gray-200",
+    pending: "bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-800 border-yellow-200/50",
+    preparing: "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border-blue-200/50",
+    ready: "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border-green-200/50",
+    completed: "bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border-gray-200/50",
+  };
+
+  const statusDots = {
+    pending: "bg-yellow-500",
+    preparing: "bg-blue-500", 
+    ready: "bg-green-500",
+    completed: "bg-gray-500",
   };
 
   const getStatusText = (status: string) => {
@@ -84,26 +110,29 @@ const RecentOrderRow = ({
   };
 
   return (
-    <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+    <div className="group flex items-center justify-between p-4 bg-white/50 backdrop-blur-sm rounded-xl border border-gray-200/50 hover:shadow-md hover:bg-white/70 transition-all duration-200 mb-3 hover:scale-[1.02]">
       <div className="flex items-center space-x-4">
-        <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-          <span className="text-sm font-medium text-gray-700">#{displayId}</span>
+        <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl flex items-center justify-center shadow-sm">
+          <span className="text-sm font-bold text-blue-700">#{displayId}</span>
         </div>
         <div>
-          <p className="font-medium text-gray-900">{t.orders.table} {table}</p>
-          <p className="text-sm text-gray-500">
+          <p className="font-semibold text-gray-900 flex items-center">
+            <Users className="w-4 h-4 mr-2 text-blue-600" />
+            {t.orders.table} {table}
+          </p>
+          <p className="text-sm text-gray-500 flex items-center mt-1">
+            <Clock className="w-3 h-3 mr-1" />
             {items} {t.dashboard.items} • {time}
           </p>
         </div>
       </div>
 
       <div className="flex items-center space-x-3">
-        <span className="font-semibold text-gray-900">{total}</span>
-        <span
-          className={`px-2.5 py-1 rounded-md text-xs font-medium border ${statusColors[status]}`}
-        >
+        <span className="font-bold text-lg text-gray-900 bg-white/60 px-3 py-1 rounded-lg">{total}</span>
+        <div className={`px-3 py-1.5 rounded-xl text-xs font-medium border backdrop-blur-sm ${statusColors[status]} flex items-center shadow-sm`}>
+          <div className={`w-2 h-2 rounded-full ${statusDots[status]} mr-2`}></div>
           {getStatusText(status)}
-        </span>
+        </div>
       </div>
     </div>
   );
@@ -293,16 +322,21 @@ export const DashboardPage = ({ restaurantId }: DashboardPageProps) => {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t.dashboard.title}</h1>
-          <p className="text-gray-600 mt-1">
-            {t.dashboard.welcomeBack}
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+      {/* Header Section */}
+      <div className="max-w-6xl mx-auto px-6 pt-6">
+        <div className="bg-gradient-to-br from-white/70 via-blue-50/60 to-cyan-50/40 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 shadow-sm mb-6">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-700 bg-clip-text text-transparent">{t.dashboard.title}</h1>
+            <p className="text-gray-600 text-sm">
+              {t.dashboard.welcomeBack}
+            </p>
+          </div>
         </div>
       </div>
+
+      {/* Content Section */}
+      <div className="max-w-6xl mx-auto px-6 pb-8 space-y-8">
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -312,15 +346,16 @@ export const DashboardPage = ({ restaurantId }: DashboardPageProps) => {
       </div>
 
       {/* Recent Orders */}
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
+      <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm">
+        <div className="p-6 border-b border-gray-200/50">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center">
+              <Clock className="w-5 h-5 mr-2 text-blue-600" />
               {t.dashboard.recentOrders}
             </h2>
             <button 
               onClick={() => window.location.href = '/dashboard/orders'}
-              className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
             >
               {t.dashboard.viewAllOrders}
             </button>
@@ -329,73 +364,117 @@ export const DashboardPage = ({ restaurantId }: DashboardPageProps) => {
 
         <div className="p-6">
           {formattedRecentOrders.length > 0 ? (
-            <div className="space-y-1">
+            <div className="space-y-0">
               {formattedRecentOrders.map((order) => (
                 <RecentOrderRow key={order.id} {...order} />
               ))}
             </div>
           ) : (
             <div className="text-center py-12">
-              <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">{t.dashboard.noRecentOrders}</p>
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Clock className="w-8 h-8 text-blue-600" />
+              </div>
+              <p className="text-gray-500 font-medium">{t.dashboard.noRecentOrders}</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions & Performance */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">{t.dashboard.quickActions}</h3>
-          <div className="space-y-3">
-            <button className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-              <p className="font-medium text-gray-900">{t.dashboard.addMenuItem}</p>
-              <p className="text-sm text-gray-500">{t.dashboard.createNewDish}</p>
+        {/* Quick Actions */}
+        <div className="bg-gradient-to-br from-white/70 via-blue-50/40 to-indigo-50/30 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 shadow-sm">
+          <h3 className="font-bold text-gray-900 mb-6 flex items-center text-lg">
+            <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
+            {t.dashboard.quickActions}
+          </h3>
+          <div className="space-y-4">
+            <button 
+              onClick={() => window.location.href = '/dashboard/menu'}
+              className="group w-full text-left p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 hover:bg-white/80 hover:shadow-md transition-all duration-200 transform hover:scale-105"
+            >
+              <div className="flex items-center">
+                <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg flex items-center justify-center mr-3">
+                  <span className="text-green-600 text-xl">🍽️</span>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">{t.dashboard.addMenuItem}</p>
+                  <p className="text-sm text-gray-500">{t.dashboard.createNewDish}</p>
+                </div>
+              </div>
             </button>
-            <button className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-              <p className="font-medium text-gray-900">{t.dashboard.manageTables}</p>
-              <p className="text-sm text-gray-500">{t.dashboard.updateTableLayout}</p>
+            <button 
+              onClick={() => window.location.href = '/dashboard/tables'}
+              className="group w-full text-left p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 hover:bg-white/80 hover:shadow-md transition-all duration-200 transform hover:scale-105"
+            >
+              <div className="flex items-center">
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-violet-100 rounded-lg flex items-center justify-center mr-3">
+                  <span className="text-purple-600 text-xl">🏪</span>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">{t.dashboard.manageTables}</p>
+                  <p className="text-sm text-gray-500">{t.dashboard.updateTableLayout}</p>
+                </div>
+              </div>
             </button>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">
+        {/* Today's Performance */}
+        <div className="bg-gradient-to-br from-white/70 via-green-50/40 to-emerald-50/30 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 shadow-sm">
+          <h3 className="font-bold text-gray-900 mb-6 flex items-center text-lg">
+            <DollarSign className="w-5 h-5 mr-2 text-green-600" />
             {t.dashboard.todayPerformance}
           </h3>
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">{t.dashboard.ordersToday}</span>
-              <span className="font-semibold">{stats.todayOrders}</span>
+            <div className="flex justify-between items-center p-3 bg-white/50 rounded-xl">
+              <span className="text-sm font-medium text-gray-600">{t.dashboard.ordersToday}</span>
+              <span className="font-bold text-lg text-gray-900">{stats.todayOrders}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">{t.dashboard.activeOrders}</span>
-              <span className="font-semibold">{stats.activeOrders}</span>
+            <div className="flex justify-between items-center p-3 bg-white/50 rounded-xl">
+              <span className="text-sm font-medium text-gray-600">{t.dashboard.activeOrders}</span>
+              <span className="font-bold text-lg text-blue-600">{stats.activeOrders}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">{t.dashboard.revenueToday}</span>
-              <span className="font-semibold">€{stats.todayRevenue.toFixed(2)}</span>
+            <div className="flex justify-between items-center p-3 bg-white/50 rounded-xl">
+              <span className="text-sm font-medium text-gray-600">{t.dashboard.revenueToday}</span>
+              <span className="font-bold text-lg text-green-600">€{stats.todayRevenue.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">{t.dashboard.systemStatus}</h3>
-          <div className="space-y-3">
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-gray-600">{t.dashboard.kitchenDisplay}</span>
+        {/* System Status */}
+        <div className="bg-gradient-to-br from-white/70 via-gray-50/40 to-slate-50/30 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 shadow-sm">
+          <h3 className="font-bold text-gray-900 mb-6 flex items-center text-lg">
+            <div className="w-5 h-5 mr-2 bg-green-500 rounded-full flex items-center justify-center">
+              <div className="w-2 h-2 bg-white rounded-full"></div>
             </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-gray-600">{t.dashboard.paymentSystem}</span>
+            {t.dashboard.systemStatus}
+          </h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-white/50 rounded-xl">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-green-500 rounded-full mr-3 animate-pulse"></div>
+                <span className="text-sm font-medium text-gray-700">{t.dashboard.kitchenDisplay}</span>
+              </div>
+              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">Online</span>
             </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-gray-600">{t.dashboard.qrOrdering}</span>
+            <div className="flex items-center justify-between p-3 bg-white/50 rounded-xl">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-green-500 rounded-full mr-3 animate-pulse"></div>
+                <span className="text-sm font-medium text-gray-700">{t.dashboard.paymentSystem}</span>
+              </div>
+              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">Active</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-white/50 rounded-xl">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-green-500 rounded-full mr-3 animate-pulse"></div>
+                <span className="text-sm font-medium text-gray-700">{t.dashboard.qrOrdering}</span>
+              </div>
+              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">Ready</span>
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
