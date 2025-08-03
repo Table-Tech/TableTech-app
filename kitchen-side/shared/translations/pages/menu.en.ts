@@ -13,6 +13,7 @@ export const menuEN = {
     edit: 'Edit',
     hide: 'Hide',
     show: 'Show',
+    changePosition: 'Change Position',
     
     // Categories
     category: 'Category',
@@ -38,6 +39,7 @@ export const menuEN = {
     // Modal titles
     addNewMenuItem: 'Add New Menu Item',
     editMenuItem: 'Edit Menu Item',
+    editCategory: 'Edit Category',
     
     // Error states
     error: 'Error',

@@ -13,6 +13,7 @@ export const menuNL = {
     edit: 'Bewerken',
     hide: 'Verbergen',
     show: 'Tonen',
+    changePosition: 'Positie Wijzigen',
     
     // Categories
     category: 'Categorie',
@@ -38,6 +39,7 @@ export const menuNL = {
     // Modal titles
     addNewMenuItem: 'Nieuw Menu Item Toevoegen',
     editMenuItem: 'Menu Item Bewerken',
+    editCategory: 'Categorie Bewerken',
     
     // Error states
     error: 'Fout',

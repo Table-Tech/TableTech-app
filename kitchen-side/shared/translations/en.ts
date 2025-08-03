@@ -187,6 +187,7 @@ const en: Translations = {
     edit: 'Edit',
     hide: 'Hide',
     show: 'Show',
+    changePosition: 'Change Position',
     
     // Categories
     category: 'Category',
@@ -212,6 +213,7 @@ const en: Translations = {
     // Modal titles
     addNewMenuItem: 'Add New Menu Item',
     editMenuItem: 'Edit Menu Item',
+    editCategory: 'Edit Category',
     
     // Error states
     error: 'Error',

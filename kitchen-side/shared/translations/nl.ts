@@ -187,6 +187,7 @@ const nl: Translations = {
     edit: 'Bewerken',
     hide: 'Verbergen',
     show: 'Tonen',
+    changePosition: 'Positie Wijzigen',
     
     // Categories
     category: 'Categorie',
@@ -212,6 +213,7 @@ const nl: Translations = {
     // Modal titles
     addNewMenuItem: 'Nieuw Menu Item Toevoegen',
     editMenuItem: 'Menu Item Bewerken',
+    editCategory: 'Categorie Bewerken',
     
     // Error states
     error: 'Fout',

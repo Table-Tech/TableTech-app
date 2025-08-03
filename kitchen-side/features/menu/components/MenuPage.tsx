@@ -19,7 +19,7 @@ import { useMenu } from "../hooks/useMenu";
 import { useCategories } from "../hooks/useCategories";
 import { useTranslation } from "@/shared/contexts/LanguageContext";
 import { MenuItem } from "@/shared/types";
-import { Plus, FolderPlus, Eye, EyeOff } from "lucide-react";
+import { Plus, FolderPlus, Eye, EyeOff, MoreVertical, Edit2, ArrowUpDown } from "lucide-react";
 
 interface MenuPageProps {
   restaurantId: string;
@@ -37,17 +37,33 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
     deleteMenuItem,
     toggleMenuItemAvailability,
   } = useMenu(restaurantId);
-  const { categories, fetchCategories, createCategory } = useCategories(restaurantId);
+  const { categories, fetchCategories, createCategory, updateCategory } = useCategories(restaurantId);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [showHiddenItems, setShowHiddenItems] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
+  const [categoryDropdown, setCategoryDropdown] = useState<string | null>(null);
   const [categoryLoading, setCategoryLoading] = useState(false);
 
   useEffect(() => {
     fetchCategories();
   }, [restaurantId]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (categoryDropdown) {
+        setCategoryDropdown(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [categoryDropdown]);
 
   // Filter menu based on category and availability
   const getFilteredItems = (items: MenuItem[]) => {
@@ -99,6 +115,37 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
     } finally {
       setCategoryLoading(false);
     }
+  };
+
+  const handleUpdateCategory = async (data: CategoryFormData) => {
+    if (!editingCategory) return;
+    
+    try {
+      setCategoryLoading(true);
+      await updateCategory(editingCategory.id, {
+        name: data.name,
+        description: data.description,
+        displayOrder: data.sortOrder
+      });
+      setEditingCategory(null);
+      // Refresh menu to update categories in CategoryFilter
+      await fetchMenu();
+    } catch (error) {
+      console.error('Failed to update category:', error);
+      // Error handling could be improved with toast notifications
+    } finally {
+      setCategoryLoading(false);
+    }
+  };
+
+  const handleEditCategory = (category: any) => {
+    setEditingCategory(category);
+    setCategoryDropdown(null);
+  };
+
+  const handleChangePosition = (category: any) => {
+    setEditingCategory(category);
+    setCategoryDropdown(null);
   };
 
   if (isLoading) {
@@ -266,8 +313,37 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
                             </p>
                           )}
                         </div>
-                        <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
-                          {items.length} {items.length === 1 ? 'item' : 'items'}
+                        <div className="flex items-center space-x-3">
+                          <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+                            {items.length} {items.length === 1 ? 'item' : 'items'}
+                          </div>
+                          <div className="relative">
+                            <button
+                              onClick={() => setCategoryDropdown(categoryDropdown === category.id ? null : category.id)}
+                              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                              <MoreVertical className="w-5 h-5" />
+                            </button>
+                            
+                            {categoryDropdown === category.id && (
+                              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                                <button
+                                  onClick={() => handleEditCategory(category)}
+                                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                >
+                                  <Edit2 className="w-4 h-4 mr-2" />
+                                  {t.common.edit} Category
+                                </button>
+                                <button
+                                  onClick={() => handleChangePosition(category)}
+                                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                >
+                                  <ArrowUpDown className="w-4 h-4 mr-2" />
+                                  {t.menu.changePosition}
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -355,6 +431,26 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
           onCancel={() => setIsCategoryModalOpen(false)}
           isLoading={categoryLoading}
         />
+      </Modal>
+
+      {/* Edit Category Modal */}
+      <Modal
+        isOpen={!!editingCategory}
+        onClose={() => setEditingCategory(null)}
+        title={t.menu.editCategory}
+      >
+        {editingCategory && (
+          <CategoryForm
+            initialData={{
+              name: editingCategory.name,
+              description: editingCategory.description || '',
+              sortOrder: editingCategory.displayOrder || 1
+            }}
+            onSubmit={handleUpdateCategory}
+            onCancel={() => setEditingCategory(null)}
+            isLoading={categoryLoading}
+          />
+        )}
       </Modal>
     </div>
   );
