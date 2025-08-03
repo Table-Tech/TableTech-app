@@ -33,15 +33,14 @@ export function generatePermanentQRCodeURL(tableCode: string): string {
   // Parameters:
   // - size: 300x300 (good for printing)
   // - data: encoded table URL
-  // - color: black on white (high contrast)
-  // - bgcolor: white background
+  // - color: black (high contrast)
   // - margin: 10px margin for better scanning
+  // - format: PNG with transparent background
   const qrServiceUrl = 'https://api.qrserver.com/v1/create-qr-code/';
   const params = new URLSearchParams({
     size: '300x300',
     data: tableUrl,
     color: '000000',
-    bgcolor: 'ffffff',
     margin: '10',
     format: 'png'
   });
