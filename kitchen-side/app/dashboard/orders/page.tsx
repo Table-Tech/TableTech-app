@@ -5,7 +5,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { apiClient } from '@/shared/services/api-client';
 import { useWebSocket } from '@/shared/services/websocket-client';
 import { useTranslation } from '@/shared/contexts/LanguageContext';
-import { Clock, Users, ShoppingCart, RefreshCw, Wifi, WifiOff, TestTube } from 'lucide-react';
+import { Clock, Users, ShoppingCart, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
 
 interface Order {
@@ -46,7 +46,6 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [testOrderLoading, setTestOrderLoading] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     if (!currentRestaurantId) {
@@ -113,58 +112,6 @@ export default function OrdersPage() {
     }
   }, [currentRestaurantId]);
 
-  const createTestOrder = async () => {
-    if (!currentRestaurantId) return;
-    
-    setTestOrderLoading(true);
-    try {
-      // Fetch available tables
-      const tablesResponse = await apiClient.getTables(currentRestaurantId);
-      if (!tablesResponse.success || !tablesResponse.data || tablesResponse.data.length === 0) {
-        alert('No tables available. Please create a table first.');
-        return;
-      }
-
-      // Get the first available table (or any table if no available ones)
-      const availableTables = tablesResponse.data.filter(table => table.status === 'AVAILABLE');
-      const selectedTable = availableTables.length > 0 ? availableTables[0] : tablesResponse.data[0];
-      
-      // Fetch available menu items
-      const menuResponse = await apiClient.getMenuItems(currentRestaurantId);
-      if (!menuResponse.success || !menuResponse.data || menuResponse.data.length === 0) {
-        alert('No menu items available. Please create menu items first.');
-        return;
-      }
-
-      // Get the first available menu item
-      const availableMenuItems = menuResponse.data.filter(item => item.isAvailable);
-      const selectedMenuItem = availableMenuItems.length > 0 ? availableMenuItems[0] : menuResponse.data[0];
-      
-      console.log('Creating test order with:', {
-        restaurantId: currentRestaurantId,
-        tableId: selectedTable.id,
-        tableNumber: selectedTable.number,
-        menuItemId: selectedMenuItem.id,
-        menuItemName: selectedMenuItem.name
-      });
-
-      const response = await apiClient.createTestOrder(currentRestaurantId, selectedTable.id, selectedMenuItem.id);
-      
-      if (response.success) {
-        console.log('Test order created successfully:', response.data);
-        console.log(`Test order added to Table ${selectedTable.number} with ${selectedMenuItem.name}`);
-        // The WebSocket should automatically update the UI
-      } else {
-        console.error('Failed to create test order:', response.error);
-        alert('Failed to create test order: ' + response.error);
-      }
-    } catch (error) {
-      console.error('Error creating test order:', error);
-      alert('Error creating test order: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    } finally {
-      setTestOrderLoading(false);
-    }
-  };
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
@@ -340,18 +287,10 @@ export default function OrdersPage() {
                 )}
               </div>
               <button
-                onClick={createTestOrder}
-                disabled={testOrderLoading}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-              >
-                <TestTube className="w-4 h-4 mr-2" />
-                <span>{testOrderLoading ? t.orders.creating : t.orders.testOrder}</span>
-              </button>
-              <button
                 onClick={fetchOrders}
-                className="bg-white/50 backdrop-blur-sm hover:bg-white/80 border border-gray-200/50 text-gray-700 hover:text-gray-900 px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
+                className="bg-white/50 backdrop-blur-sm hover:bg-white/80 border border-gray-200/50 text-gray-700 hover:text-gray-900 px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2"
               >
-                <RefreshCw className="w-4 h-4 mr-2" />
+                <RefreshCw className="w-4 h-4" />
                 <span>{t.orders.refresh}</span>
               </button>
             </div>

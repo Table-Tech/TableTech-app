@@ -127,21 +127,6 @@ const GeneralSettings = ({ restaurant }: { restaurant: any }) => {
           </div>
         </div>
 
-        {/* Account Settings */}
-        <div className="border-b pb-6">
-          <h3 className="text-md font-medium text-gray-900 mb-4">{t.settings.general.accountSettings}</h3>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">{t.settings.general.signOutDescription}</p>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 border border-red-300 text-red-700 rounded-md text-sm font-medium hover:bg-red-50 hover:border-red-400"
-            >
-              {t.nav.logout}
-            </button>
-          </div>
-        </div>
         {/* Restaurant Information */}
         <div>
           <div className="mb-6">
@@ -237,16 +222,24 @@ const GeneralSettings = ({ restaurant }: { restaurant: any }) => {
         </div>
       </div>
 
-      <div className="flex justify-end space-x-3 pt-8 border-t border-gray-200">
-        <button className="px-6 py-3 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all duration-200">
-          {t.common.cancel}
-        </button>
+      <div className="flex justify-between items-center pt-8 border-t border-gray-200">
         <button
-          disabled={saving}
-          className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-medium hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+          onClick={handleLogout}
+          className="px-6 py-3 border border-red-300 text-red-700 rounded-xl text-sm font-medium hover:bg-red-50 hover:border-red-400 transition-all duration-200"
         >
-          {saving ? t.settings.general.saving : t.common.save}
+          {t.nav.logout}
         </button>
+        <div className="flex space-x-3">
+          <button className="px-6 py-3 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all duration-200">
+            {t.common.cancel}
+          </button>
+          <button
+            disabled={saving}
+            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-medium hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+          >
+            {saving ? t.settings.general.saving : t.common.save}
+          </button>
+        </div>
       </div>
     </div>
   );
