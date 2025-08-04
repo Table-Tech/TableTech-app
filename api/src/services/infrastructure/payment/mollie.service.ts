@@ -208,19 +208,31 @@ export class MolliePaymentService {
         console.log('💳 DEBUG: Modified checkout URL for development:', checkoutUrl);
       }
 
-      // Store payment in database
-      console.log('💳 DEBUG: Storing payment in database...');
-      await this.prisma.payment.create({
-        data: {
-          id: molliePayment.id,
-          amount: options.amount,
-          method: 'MOLLIE',
-          status: 'PENDING',
-          transactionId: molliePayment.id,
-          orderId: options.orderId
-        }
+      // Store payment in database and update order with molliePaymentId
+      console.log('💳 DEBUG: Storing payment in database and updating order...');
+      await this.prisma.$transaction(async (tx) => {
+        // Create payment record
+        await tx.payment.create({
+          data: {
+            id: molliePayment.id,
+            amount: options.amount,
+            method: 'MOLLIE',
+            status: 'PENDING',
+            transactionId: molliePayment.id,
+            orderId: options.orderId
+          }
+        });
+
+        // Update order with molliePaymentId
+        await tx.order.update({
+          where: { id: options.orderId },
+          data: { 
+            molliePaymentId: molliePayment.id,
+            updatedAt: new Date()
+          }
+        });
       });
-      console.log('💳 DEBUG: Payment stored in database');
+      console.log('💳 DEBUG: Payment stored in database and order updated with molliePaymentId');
 
       logger.payment.initiated(
         molliePayment.id,
@@ -287,11 +299,12 @@ export class MolliePaymentService {
           }
         });
 
-        // Update order payment status
+        // Update order payment status and ensure molliePaymentId is set
         await tx.order.update({
           where: { id: orderId },
           data: {
             paymentStatus,
+            molliePaymentId: paymentId, // Ensure molliePaymentId is always set
             webhookReceived: true,
             updatedAt: new Date()
           }
