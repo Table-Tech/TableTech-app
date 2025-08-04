@@ -225,7 +225,7 @@ export default function ClientPage() {
                                                     )}
                                                     <div className="flex items-center justify-between">
                                                         <span className="text-sm font-bold text-gray-800">
-                                                            €{Number(item.price).toFixed(2)}
+                                                            €{Number(item.price).toFixed(2).replace('.', ',')}
                                                         </span>
                                                         <button
                                                             onClick={() => handleAddToCart(item)}
@@ -265,7 +265,7 @@ export default function ClientPage() {
                                     onClick={handleGoToCart}
                                     className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg transition-all shadow-lg"
                                 >
-                                    🛍️ Bekijk bestelling ({totalItems} items – €{total.toFixed(2)})
+                                    🛍️ Bekijk bestelling ({totalItems} items – €{total.toFixed(2).replace('.', ',')})
                                 </button>
                             </div>
                         </motion.div>

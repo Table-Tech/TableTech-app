@@ -208,7 +208,7 @@ export default function CartPage() {
                                                             )}
                                                         </div>
                                                         <span className={`font-bold text-xl ${getItemTextColor(index)}`}>
-                                                            €{(item.price * (isNaN(item.quantity) ? 0 : item.quantity)).toFixed(2)}
+                                                            €{(item.price * (isNaN(item.quantity) ? 0 : item.quantity)).toFixed(2).replace('.', ',')}
                                                         </span>
                                                     </div>
                                                     <div className="flex items-center space-x-3">
@@ -261,12 +261,12 @@ export default function CartPage() {
                             <div className="bg-gray-50 rounded-2xl p-4 mb-4">
                                 <div className="flex justify-between items-center mb-2">
                                     <span className="text-gray-600">Subtotaal:</span>
-                                    <span className="font-semibold">€{total.toFixed(2)}</span>
+                                    <span className="font-semibold">€{total.toFixed(2).replace('.', ',')}</span>
                                 </div>
                                 <div className="border-t border-gray-200 pt-2">
                                     <div className="flex justify-between items-center">
                                         <span className="text-lg font-bold text-gray-800">Totaal:</span>
-                                        <span className="text-xl font-bold text-gray-800">€{total.toFixed(2)}</span>
+                                        <span className="text-xl font-bold text-gray-800">€{total.toFixed(2).replace('.', ',')}</span>
                                     </div>
                                 </div>
                             </div>

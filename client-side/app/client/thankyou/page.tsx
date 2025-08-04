@@ -232,7 +232,7 @@ export default function ThankYouPage() {
                         <div className="flex justify-between items-center mb-4 gap-2">
                             <h3 className="text-lg sm:text-xl font-bold text-blue-800 flex-1">Bestellingsoverzicht</h3>
                             <span className="text-xl sm:text-2xl font-bold text-blue-800 flex-shrink-0">
-                                €{Number(orderData.totalAmount).toFixed(2)}
+                                €{Number(orderData.totalAmount).toFixed(2).replace('.', ',')}
                             </span>
                         </div>
                         
