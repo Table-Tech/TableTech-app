@@ -513,13 +513,18 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
 
   /**
    * Process order items and calculate total (optimized - batched queries)
+   * NOTE: Now handles tax-inclusive pricing from customer menu
    */
   private async processOrderItems(
     tx: any,
     items: CreateOrderDTO['items'],
     restaurantId: string
   ) {
-    // ── 1. Batch fetch all menu items ─────────────────────────────────────
+    // ── 1. Get tax rate first for price calculations ────────────────────
+    const taxRate = await this.getRestaurantTaxRate(tx, restaurantId);
+    const taxMultiplier = 1 + (taxRate / 100);
+
+    // ── 2. Batch fetch all menu items ─────────────────────────────────────
     const menuItemIds = items.map(item => item.menuId);
     const menuItems = await tx.menuItem.findMany({
       where: {
@@ -539,7 +544,7 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
       menuItems.map((item: MenuItemWithModifiers) => [item.id, item])
     );
 
-    // ── 2. Batch fetch all modifiers if needed ───────────────────────────
+    // ── 3. Batch fetch all modifiers if needed ───────────────────────────
     const allModifierIds = items
       .filter(item => item.modifiers?.length)
       .flatMap(item => item.modifiers || []);
@@ -562,8 +567,8 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
       );
     }
 
-    // ── 3. Process items using cached data ───────────────────────────────
-    let subtotalAmount = 0;
+    // ── 4. Process items using cached data ───────────────────────────────
+    let totalAmountIncTax = 0; // Total that customers see (tax-inclusive)
     const orderItems = [];
 
     for (const item of items) {
@@ -572,7 +577,8 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
         throw new ApiError(404, 'MENU_ITEM_UNAVAILABLE', `Menu item ${item.menuId} not available`);
       }
 
-      let itemPrice = Number(menuItem.price);
+      // Convert database price (excl. tax) to customer price (incl. tax)
+      let itemPriceIncTax = Math.round(Number(menuItem.price) * taxMultiplier * 100) / 100;
       const modifiers = [];
 
       // Process modifiers using cached data
@@ -583,31 +589,41 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
             throw new ApiError(404, 'INVALID_MODIFIERS', `Invalid modifier: ${modifierId}`);
           }
           
-          itemPrice += Number(modifier.price);
+          // Add modifier price (converted to tax-inclusive)
+          const modifierPriceIncTax = Math.round(Number(modifier.price) * taxMultiplier * 100) / 100;
+          itemPriceIncTax += modifierPriceIncTax;
+          
           modifiers.push({
             modifier: { connect: { id: modifier.id } },
-            price: modifier.price
+            price: modifier.price // Store original price in DB
           });
         }
       }
 
-      const itemTotal = itemPrice * item.quantity;
-      subtotalAmount += itemTotal;
+      const itemTotalIncTax = itemPriceIncTax * item.quantity;
+      totalAmountIncTax += itemTotalIncTax;
 
       orderItems.push({
         quantity: item.quantity,
-        price: menuItem.price,
+        price: menuItem.price, // Store original database price
         notes: item.notes,
         menuItem: { connect: { id: item.menuId } },
         modifiers: modifiers.length ? { create: modifiers } : undefined
       });
     }
 
-    // ── 4. Calculate Dutch BTW tax compliance (dynamic rate) ──────────────
-    const taxRate = await this.getRestaurantTaxRate(tx, restaurantId);
-    const subtotal = Math.round(subtotalAmount * 100) / 100; // Round to 2 decimals
-    const taxAmount = Math.round(subtotal * (taxRate / 100) * 100) / 100; // BTW percentage
-    const totalAmount = Math.round((subtotal + taxAmount) * 100) / 100;
+    // ── 5. Calculate tax breakdown from inclusive total ──────────────────
+    const totalAmount = Math.round(totalAmountIncTax * 100) / 100;
+    const subtotal = Math.round((totalAmount / taxMultiplier) * 100) / 100; // Reverse calculate subtotal
+    const taxAmount = Math.round((totalAmount - subtotal) * 100) / 100; // Tax amount
+
+    console.log('🍕 DEBUG: Order financial calculation:', {
+      totalAmountIncTax: totalAmountIncTax,
+      finalTotalAmount: totalAmount,
+      calculatedSubtotal: subtotal,
+      calculatedTaxAmount: taxAmount,
+      taxRate: taxRate + '%'
+    });
 
     const financials = {
       subtotal,
