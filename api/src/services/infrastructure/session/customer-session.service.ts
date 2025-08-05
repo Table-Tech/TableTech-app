@@ -29,8 +29,9 @@ export interface CustomerSession {
 
 export class CustomerSessionService {
   private prisma: PrismaClient;
-  private readonly SESSION_DURATION = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
-  private readonly REDIS_TTL = 2 * 60 * 60; // 2 hours in seconds
+  // Make customer session durations configurable via environment variables
+  private readonly SESSION_DURATION = parseInt(process.env.CUSTOMER_SESSION_DURATION_HOURS || '2') * 60 * 60 * 1000; // Default 2 hours
+  private readonly REDIS_TTL = parseInt(process.env.CUSTOMER_SESSION_DURATION_HOURS || '2') * 60 * 60; // Same duration in seconds
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;

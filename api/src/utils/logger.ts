@@ -157,6 +157,39 @@ export const logger = {
         reason,
         severity: 'MEDIUM'
       }, `Invalid API access attempt: ${reason}`);
+    },
+
+    login: (staffId: string, email: string, deviceName?: string, sessionId?: string) => {
+      baseLogger.info({
+        category: 'SECURITY',
+        event: 'STAFF_LOGIN',
+        staffId,
+        email,
+        deviceName,
+        sessionId
+      }, `Staff member logged in: ${email}`);
+    },
+
+    sessionRevoked: (sessionId: string, staffId: string, reason: string, revokedBy: string) => {
+      baseLogger.info({
+        category: 'SECURITY',
+        event: 'SESSION_REVOKED',
+        sessionId,
+        staffId,
+        reason,
+        revokedBy
+      }, `Session revoked: ${reason}`);
+    },
+
+    allSessionsRevoked: (staffId: string, reason: string, revokedBy: string, count: number) => {
+      baseLogger.info({
+        category: 'SECURITY',
+        event: 'ALL_SESSIONS_REVOKED',
+        staffId,
+        reason,
+        revokedBy,
+        sessionCount: count
+      }, `All sessions revoked for staff member: ${reason} (${count} sessions)`);
     }
   },
 

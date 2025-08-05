@@ -2,6 +2,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { verifyToken, JWTPayload } from '../utils/jwt.js';
 import { ApiError } from '../types/errors.js';
+import { staffSessionService } from '../services/infrastructure/session/staff-session.service.js';
 
 /**
  * Generic extension of FastifyRequest that carries our JWT payload.
@@ -39,19 +40,28 @@ export const requireUser = async (
   
   try {
     const payload = verifyToken(token);
+    
+    // Validate session if sessionId is present in JWT
+    if (payload.sessionId) {
+      const sessionValidation = await staffSessionService.validateSession(payload.sessionId);
+      
+      if (!sessionValidation.valid) {
+        throw new ApiError(401, 'SESSION_INVALID', sessionValidation.reason || 'Session is not valid');
+      }
+      
+      // Update payload with latest session data (in case role changed, etc.)
+      if (sessionValidation.session) {
+        payload.role = sessionValidation.session.role;
+        payload.restaurantId = sessionValidation.session.restaurantId || null;
+      }
+    }
+    
     (req as AuthenticatedRequest).user = payload;
     
-    // Optional: Check if user is still active
-    // const staff = await prisma.staff.findUnique({
-    //   where: { id: payload.staffId },
-    //   select: { isActive: true }
-    // });
-    
-    // if (!staff?.isActive) {
-    //   throw new ApiError(401, 'ACCOUNT_DEACTIVATED', 'Account has been deactivated');
-    // }
-    
   } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
     throw new ApiError(401, 'UNAUTHORIZED', 'Invalid or expired token');
   }
 };
@@ -171,7 +181,22 @@ export const optionalUser = async (
     
     try {
       const payload = verifyToken(token);
-      (req as AuthenticatedRequest).user = payload;
+      
+      // Validate session if sessionId is present (but don't fail if invalid for optional auth)
+      if (payload.sessionId) {
+        const sessionValidation = await staffSessionService.validateSession(payload.sessionId);
+        
+        if (sessionValidation.valid && sessionValidation.session) {
+          // Update payload with latest session data
+          payload.role = sessionValidation.session.role;
+          payload.restaurantId = sessionValidation.session.restaurantId || null;
+          (req as AuthenticatedRequest).user = payload;
+        }
+        // If session invalid, don't attach user (treat as unauthenticated)
+      } else {
+        // No sessionId, use JWT as-is (backward compatibility)
+        (req as AuthenticatedRequest).user = payload;
+      }
     } catch {
       // Ignore invalid tokens for optional auth
     }

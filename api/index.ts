@@ -6,6 +6,7 @@ import prismaPlugin from './src/plugins/prisma.js';
 import { WebSocketService } from './src/services/infrastructure/websocket/websocket.service.js';
 import { registerErrorHandlers } from './src/middleware/error.middleware.js';
 import { logger } from './src/utils/logger.js';
+import { initializeSessionCleanupJob } from './src/jobs/session-cleanup.job.js';
 import menuRoutes from './src/routes/menu/index.js';
 import restaurantRoutes from "./src/routes/restaurants/index.js";
 import tableRoutes from "./src/routes/tables/index.js";
@@ -15,6 +16,7 @@ import modifierGroupRoutes from "./src/routes/modifier-groups/index.js";
 import modifierRoutes from "./src/routes/modifiers/index.js";
 import authRoutes from "./src/routes/auth/index.js";
 import staffRoutes from "./src/routes/staff/index.js";
+import staffSessionRoutes from "./src/routes/staff/sessions.js";
 import paymentRoutes from "./src/routes/payments/index.js";
 import sessionRoutes from "./src/routes/sessions/index.js";
 
@@ -27,6 +29,7 @@ const fastify = Fastify({
 // Global WebSocket service declaration
 declare global {
   var wsService: WebSocketService;
+  var sessionCleanupJob: any;
 }
 
 const start = async () => {
@@ -91,6 +94,7 @@ const start = async () => {
     await fastify.register(modifierRoutes, { prefix: "/api/modifiers" });
     await fastify.register(authRoutes, { prefix: "/api/auth" });
     await fastify.register(staffRoutes, { prefix: "/api/staff" });
+    await fastify.register(staffSessionRoutes, { prefix: "/api/staff" }); // Staff session management
     await fastify.register(paymentRoutes, { prefix: "/api/payments" });
     await fastify.register(sessionRoutes, { prefix: "/api/sessions" });
 
@@ -105,6 +109,11 @@ const start = async () => {
     global.wsService = new WebSocketService(httpServer, fastify.prisma);
     
     console.log(`🔌 WebSocket: ws://localhost:${port}`);
+    
+    // Initialize session cleanup job
+    const sessionCleanupJob = initializeSessionCleanupJob(fastify.prisma);
+    sessionCleanupJob.start();
+    global.sessionCleanupJob = sessionCleanupJob;
     
     // Professional startup logging
     const services = ['Database', 'Redis', 'WebSocket', 'Mollie'];
@@ -140,6 +149,9 @@ process.on('SIGTERM', async () => {
   if (global.wsService) {
     await global.wsService.shutdown();
   }
+  if (global.sessionCleanupJob) {
+    global.sessionCleanupJob.stop();
+  }
   await fastify.close();
   process.exit(0);
 });
@@ -149,6 +161,9 @@ process.on('SIGINT', async () => {
   console.log('🛑 Shutting down gracefully...');
   if (global.wsService) {
     await global.wsService.shutdown();
+  }
+  if (global.sessionCleanupJob) {
+    global.sessionCleanupJob.stop();
   }
   await fastify.close();
   process.exit(0);
