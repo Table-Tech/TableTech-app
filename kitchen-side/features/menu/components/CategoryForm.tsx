@@ -15,6 +15,8 @@ interface CategoryFormProps {
   onCancel: () => void;
   initialData?: CategoryFormData;
   isLoading?: boolean;
+  allCategories?: any[];
+  currentCategoryId?: string;
 }
 
 export interface CategoryFormData {
@@ -24,7 +26,7 @@ export interface CategoryFormData {
   sortOrder: number;
 }
 
-export function CategoryForm({ onSubmit, onCancel, initialData, isLoading }: CategoryFormProps) {
+export function CategoryForm({ onSubmit, onCancel, initialData, isLoading, allCategories, currentCategoryId }: CategoryFormProps) {
   const t = useTranslation();
   const [formData, setFormData] = useState<CategoryFormData>({
     name: initialData?.name || '',
@@ -34,6 +36,26 @@ export function CategoryForm({ onSubmit, onCancel, initialData, isLoading }: Cat
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Calculate current position among all categories
+  const getCurrentPosition = () => {
+    if (!allCategories || !currentCategoryId) return 1;
+    
+    // Create a copy of categories with the current form's sortOrder
+    const categoriesWithUpdate = allCategories.map(cat => 
+      cat.id === currentCategoryId 
+        ? { ...cat, displayOrder: formData.sortOrder }
+        : cat
+    );
+    
+    // Sort categories by displayOrder
+    const sortedCategories = categoriesWithUpdate.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+    const currentIndex = sortedCategories.findIndex(cat => cat.id === currentCategoryId);
+    return currentIndex >= 0 ? currentIndex + 1 : 1;
+  };
+
+  const currentPosition = getCurrentPosition();
+  const totalCategories = allCategories?.length || 1;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,25 +152,50 @@ export function CategoryForm({ onSubmit, onCancel, initialData, isLoading }: Cat
         <div className="flex items-center space-x-3">
           <button
             type="button"
-            onClick={() => handleChange('sortOrder', Math.max(1, formData.sortOrder - 1))}
-            className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded border transition-colors"
-            disabled={formData.sortOrder <= 1}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (currentPosition > 1 && allCategories) {
+                // Move up: get the displayOrder of the category above and subtract 1
+                const sortedCategories = [...allCategories].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+                const categoryAbove = sortedCategories[currentPosition - 2];
+                if (categoryAbove) {
+                  const newOrder = (categoryAbove.displayOrder || 0) - 1;
+                  handleChange('sortOrder', newOrder);
+                }
+              }
+            }}
+            className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={currentPosition <= 1}
           >
             ↑
           </button>
-          <span className="text-sm font-medium text-gray-700 min-w-[60px] text-center">
-            Position {formData.sortOrder}
+          <span className="text-sm font-medium text-gray-700 min-w-[80px] text-center">
+            Position {currentPosition} of {totalCategories}
           </span>
           <button
             type="button"
-            onClick={() => handleChange('sortOrder', formData.sortOrder + 1)}
-            className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded border transition-colors"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (currentPosition < totalCategories && allCategories) {
+                // Move down: get the displayOrder of the category below and add 1
+                const sortedCategories = [...allCategories].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+                const categoryBelow = sortedCategories[currentPosition];
+                if (categoryBelow) {
+                  const newOrder = (categoryBelow.displayOrder || 0) + 1;
+                  handleChange('sortOrder', newOrder);
+                }
+              }
+            }}
+            className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={currentPosition >= totalCategories}
           >
             ↓
           </button>
         </div>
         <p className="text-gray-500 text-xs mt-1">
-          Use arrows to change position (lower numbers appear first)
+          Use arrows to move category up or down in the menu order
         </p>
       </div>
 

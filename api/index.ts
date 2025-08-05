@@ -2,6 +2,9 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 
+// Set timezone to Amsterdam/Europe timezone
+process.env.TZ = 'Europe/Amsterdam';
+
 import { validateEnvironment } from './src/utils/env-validation.js';
 import prismaPlugin from './src/plugins/prisma.js';
 import { WebSocketService } from './src/services/infrastructure/websocket/websocket.service.js';

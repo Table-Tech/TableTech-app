@@ -159,7 +159,8 @@ export default function OrdersPage() {
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
+    return date.toLocaleTimeString('nl-NL', { 
+      timeZone: 'Europe/Amsterdam',
       hour: '2-digit', 
       minute: '2-digit' 
     });

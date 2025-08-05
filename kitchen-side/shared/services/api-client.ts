@@ -577,76 +577,6 @@ class ApiClient {
     });
   }
 
-  // Modifier Group endpoints
-  async getModifierGroups(restaurantId: string) {
-    return this.request<Array<{
-      id: string;
-      name: string;
-      required: boolean;
-      maxSelections: number;
-      modifiers: Array<{
-        id: string;
-        name: string;
-        price: number;
-        isAvailable: boolean;
-      }>;
-    }>>(`/modifier-groups/staff/modifier-groups?restaurantId=${restaurantId}`);
-  }
-
-  async createModifierGroup(data: any) {
-    return this.request('/modifier-groups/staff/modifier-groups', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async updateModifierGroup(id: string, data: any) {
-    return this.request(`/modifier-groups/staff/modifier-groups/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async deleteModifierGroup(id: string) {
-    return this.request(`/modifier-groups/staff/modifier-groups/${id}`, {
-      method: 'DELETE',
-    });
-  }
-
-  // Modifier endpoints
-  async getModifiers(restaurantId: string, modifierGroupId?: string) {
-    const params = new URLSearchParams();
-    params.append('restaurantId', restaurantId);
-    if (modifierGroupId) params.append('modifierGroupId', modifierGroupId);
-    
-    return this.request<Array<{
-      id: string;
-      name: string;
-      price: number;
-      isAvailable: boolean;
-      modifierGroupId: string;
-    }>>(`/modifiers/staff/modifiers?${params.toString()}`);
-  }
-
-  async createModifier(data: any) {
-    return this.request('/modifiers/staff/modifiers', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async updateModifier(id: string, data: any) {
-    return this.request(`/modifiers/staff/modifiers/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async deleteModifier(id: string) {
-    return this.request(`/modifiers/staff/modifiers/${id}`, {
-      method: 'DELETE',
-    });
-  }
 
   // Session endpoints (for customer sessions)
   async createSession(tableCode: string, restaurantId: string) {
@@ -744,6 +674,131 @@ class ApiClient {
     return this.request('/staff/staff/password', {
       method: 'PATCH',
       body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  }
+
+  // =================== MODIFIER GROUP ENDPOINTS ===================
+  
+  // Get modifier groups for a specific menu item  
+  async getMenuItemModifierGroups(menuItemId: string) {
+    return this.request<Array<{
+      id: string;
+      name: string;
+      menuItemId: string;
+      required: boolean;
+      multiSelect: boolean;
+      minSelect: number;
+      maxSelect?: number;
+      displayOrder: number;
+      isActive: boolean;
+      modifiers: Array<{
+        id: string;
+        name: string;
+        price: number;
+        displayOrder: number;
+        isActive: boolean;
+        modifierGroupId: string;
+      }>;
+    }>>(`/modifier-groups/staff/modifier-groups?menuItemId=${menuItemId}`);
+  }
+
+  // Get all modifier groups for a restaurant (global management)
+  async getModifierGroups(restaurantId: string) {
+    return this.request<Array<{
+      id: string;
+      name: string;
+      required: boolean;
+      multiSelect: boolean;
+      minSelect: number;
+      maxSelect?: number;
+      displayOrder: number;
+      isActive: boolean;
+      restaurantId: string;
+      modifiers: Array<{
+        id: string;
+        name: string;
+        price: number;
+        displayOrder: number;
+        isActive: boolean;
+        modifierGroupId: string;
+      }>;
+    }>>(`/modifier-groups/staff/modifier-groups?restaurantId=${restaurantId}`);
+  }
+
+  async createModifierGroup(data: {
+    name: string;
+    restaurantId: string;
+    required: boolean;
+    multiSelect: boolean;
+    minSelect: number;
+    maxSelect?: number;
+    displayOrder: number;
+  }) {
+    return this.request(`/modifier-groups/staff/modifier-groups`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateModifierGroup(id: string, data: {
+    name?: string;
+    required?: boolean;
+    multiSelect?: boolean;
+    minSelect?: number;
+    maxSelect?: number;
+    displayOrder?: number;
+  }) {
+    return this.request(`/modifier-groups/staff/modifier-groups/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteModifierGroup(id: string) {
+    return this.request(`/modifier-groups/staff/modifier-groups/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // =================== MODIFIER ENDPOINTS ===================
+  
+  async getModifiers(modifierGroupId: string) {
+    return this.request<Array<{
+      id: string;
+      name: string;
+      price: number;
+      displayOrder: number;
+      isActive: boolean;
+      modifierGroupId: string;
+    }>>(`/modifiers/staff/modifiers?modifierGroupId=${modifierGroupId}`);
+  }
+
+  async createModifier(data: {
+    name: string;
+    modifierGroupId: string;
+    price: number;
+    displayOrder: number;
+  }) {
+    return this.request(`/modifiers/staff/modifiers`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateModifier(id: string, data: {
+    name?: string;
+    price?: number;
+    displayOrder?: number;
+  }) {
+    return this.request(`/modifiers/staff/modifiers/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteModifier(id: string) {
+    return this.request(`/modifiers/staff/modifiers/${id}`, {
+      method: 'DELETE',
     });
   }
 }

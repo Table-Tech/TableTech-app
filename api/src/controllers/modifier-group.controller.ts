@@ -137,6 +137,9 @@ export class ModifierGroupController {
     req: FastifyRequest<{ Querystring: z.infer<typeof GetModifierGroupsQuerySchema> }>,
     reply: FastifyReply
   ) {
+    if (!req.query.menuItemId) {
+      return reply.status(400).send({ error: 'menuItemId is required' });
+    }
     const modifierGroups = await this.svc.findByMenuItem(req.query.menuItemId);
     return reply.send(modifierGroups);
   }

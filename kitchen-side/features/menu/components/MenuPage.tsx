@@ -19,7 +19,8 @@ import { useMenu } from "../hooks/useMenu";
 import { useCategories } from "../hooks/useCategories";
 import { useTranslation } from "@/shared/contexts/LanguageContext";
 import { MenuItem } from "@/shared/types";
-import { Plus, FolderPlus, Eye, EyeOff, MoreVertical, Edit2, ArrowUpDown } from "lucide-react";
+import { Plus, FolderPlus, Eye, EyeOff, MoreVertical, Edit2, Settings2 } from "lucide-react";
+import { ModifierGroupsPage } from "./ModifierGroupsPage";
 
 interface MenuPageProps {
   restaurantId: string;
@@ -46,6 +47,7 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
   const [editingCategory, setEditingCategory] = useState<any | null>(null);
   const [categoryDropdown, setCategoryDropdown] = useState<string | null>(null);
   const [categoryLoading, setCategoryLoading] = useState(false);
+  const [showModifierGroups, setShowModifierGroups] = useState(false);
 
   useEffect(() => {
     fetchCategories();
@@ -167,10 +169,6 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
     setCategoryDropdown(null);
   };
 
-  const handleChangePosition = (category: any) => {
-    setEditingCategory(category);
-    setCategoryDropdown(null);
-  };
 
   if (isLoading) {
     return (
@@ -208,6 +206,16 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
     );
   }
 
+  // Show ModifierGroupsPage if requested
+  if (showModifierGroups) {
+    return (
+      <ModifierGroupsPage 
+        restaurantId={restaurantId}
+        onClose={() => setShowModifierGroups(false)}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
       {/* Header Section */}
@@ -220,7 +228,7 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
               </h1>
               <p className="text-gray-600 text-sm">Manage your restaurant's menu items and categories</p>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 justify-end">
               <Button 
                 variant="outline"
                 onClick={() => setIsCategoryModalOpen(true)}
@@ -228,6 +236,14 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
               >
                 <FolderPlus className="w-4 h-4 mr-2" />
                 {t.menu.addCategory}
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => setShowModifierGroups(true)}
+                className="bg-white/50 backdrop-blur-sm hover:bg-white/80 border-gray-200/50 text-gray-700 hover:text-gray-900 shadow-sm hover:shadow-md transition-all duration-200"
+              >
+                <Settings2 className="w-4 h-4 mr-2" />
+                Modifier Groups
               </Button>
               <Button 
                 onClick={() => setIsCreateModalOpen(true)}
@@ -364,16 +380,6 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
                                   <Edit2 className="w-4 h-4 mr-2" />
                                   {t.common.edit} Category
                                 </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleChangePosition(category);
-                                  }}
-                                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                                >
-                                  <ArrowUpDown className="w-4 h-4 mr-2" />
-                                  {t.menu.changePosition}
-                                </button>
                               </div>
                             )}
                           </div>
@@ -483,6 +489,8 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
             onSubmit={handleUpdateCategory}
             onCancel={() => setEditingCategory(null)}
             isLoading={categoryLoading}
+            allCategories={categories}
+            currentCategoryId={editingCategory.id}
           />
         )}
       </Modal>

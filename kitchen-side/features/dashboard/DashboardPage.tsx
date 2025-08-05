@@ -248,11 +248,12 @@ export const DashboardPage = ({ restaurantId }: DashboardPageProps) => {
     };
   }, [restaurantId, subscribe]);
 
-  // Format time ago
+  // Format time ago with Amsterdam timezone
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / 1000 / 60);
+    // Get current time in Amsterdam timezone
+    const nowAmsterdam = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Amsterdam" }));
+    const diffInMinutes = Math.floor((nowAmsterdam.getTime() - date.getTime()) / 1000 / 60);
     
     if (diffInMinutes < 1) return 'just now';
     if (diffInMinutes === 1) return '1 min ago';

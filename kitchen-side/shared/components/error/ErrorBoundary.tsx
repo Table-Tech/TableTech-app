@@ -59,7 +59,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       componentStack: errorInfo.componentStack,
       errorBoundary: this.props.name || 'Unknown',
       level: this.props.level || 'component',
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }),
       userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'Unknown',
       url: typeof window !== 'undefined' ? window.location.href : 'Unknown',
       errorId: this.state.errorId
@@ -298,7 +298,7 @@ export function useErrorHandler() {
           message: error.message,
           stack: error.stack,
           context: context || 'Manual report',
-          timestamp: new Date().toISOString(),
+          timestamp: new Date().toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }),
           url: window.location.href
         }
         

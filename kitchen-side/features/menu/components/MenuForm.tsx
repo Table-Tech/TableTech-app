@@ -11,6 +11,8 @@ import { Input } from '@/shared/components/ui/Input';
 import { MenuItem } from '@/shared/types';
 import { useCategories } from '../hooks/useCategories';
 import { useTranslation } from '@/shared/contexts/LanguageContext';
+import { Settings, Info } from 'lucide-react';
+import { ModifiersTab } from './ModifiersTab';
 
 interface MenuFormData {
   name: string;
@@ -32,6 +34,7 @@ export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: Menu
   const t = useTranslation();
   const { categories, fetchCategories } = useCategories(restaurantId);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'basic' | 'modifiers'>('basic');
   const [formData, setFormData] = useState<MenuFormData>({
     name: initialData?.name || '',
     description: initialData?.description || '',
@@ -68,8 +71,8 @@ export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: Menu
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+  const renderBasicInfoTab = () => (
+    <div className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           {t.menu.name} {t.menu.required}
@@ -153,15 +156,77 @@ export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: Menu
           {t.menu.availableForOrdering}
         </label>
       </div>
+    </div>
+  );
 
-      <div className="flex gap-2 pt-4">
-        <Button type="submit" disabled={isLoading} className="flex-1">
-          {isLoading ? t.menu.saving : initialData ? t.menu.updateItem : t.menu.createItem}
-        </Button>
-        <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
-          {t.common.cancel}
-        </Button>
+  const renderModifiersTab = () => {
+    // Only show modifiers tab for existing menu items (with ID)
+    if (!initialData?.id) {
+      return (
+        <div className="text-center py-12 bg-blue-50 rounded-lg border border-blue-200">
+          <Settings className="w-12 h-12 mx-auto mb-4 text-blue-300" />
+          <h3 className="text-lg font-medium text-blue-900 mb-2">Save Menu Item First</h3>
+          <p className="text-blue-700 text-sm">
+            Create the menu item first, then you can add modifier groups and options.
+          </p>
+        </div>
+      );
+    }
+
+    return <ModifiersTab menuItemId={initialData.id} restaurantId={restaurantId} />;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            type="button"
+            onClick={() => setActiveTab('basic')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'basic'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <Info className="w-4 h-4" />
+              <span>Basic Info</span>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('modifiers')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'modifiers'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <Settings className="w-4 h-4" />
+              <span>Modifiers</span>
+            </div>
+          </button>
+        </nav>
       </div>
-    </form>
+
+      {/* Tab Content */}
+      <form onSubmit={handleSubmit}>
+        {activeTab === 'basic' && renderBasicInfoTab()}
+        {activeTab === 'modifiers' && renderModifiersTab()}
+        
+        {/* Form Actions */}
+        <div className="flex gap-2 pt-4 border-t border-gray-200">
+          <Button type="submit" disabled={isLoading} className="flex-1">
+            {isLoading ? t.menu.saving : initialData ? t.menu.updateItem : t.menu.createItem}
+          </Button>
+          <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
+            {t.common.cancel}
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }
