@@ -20,6 +20,7 @@ interface CategoryFormProps {
 export interface CategoryFormData {
   name: string;
   description: string;
+  imageUrl?: string;
   sortOrder: number;
 }
 
@@ -28,6 +29,7 @@ export function CategoryForm({ onSubmit, onCancel, initialData, isLoading }: Cat
   const [formData, setFormData] = useState<CategoryFormData>({
     name: initialData?.name || '',
     description: initialData?.description || '',
+    imageUrl: initialData?.imageUrl || '',
     sortOrder: initialData?.sortOrder || 1,
   });
 
@@ -108,17 +110,45 @@ export function CategoryForm({ onSubmit, onCancel, initialData, isLoading }: Cat
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          {t.menu.sortOrder}
+          {t.menu.imageUrl} <span className="text-gray-400">({t.menu.optional})</span>
         </label>
         <Input
-          type="number"
-          value={formData.sortOrder}
-          onChange={(e) => handleChange('sortOrder', parseInt(e.target.value) || 1)}
-          min={1}
-          placeholder="1"
+          type="url"
+          value={formData.imageUrl}
+          onChange={(e) => handleChange('imageUrl', e.target.value)}
+          placeholder={t.menu.imageUrlPlaceholder}
         />
         <p className="text-gray-500 text-xs mt-1">
-          {t.menu.lowerNumbersAppearFirst}
+          Optional: Add an image URL for this category
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Position
+        </label>
+        <div className="flex items-center space-x-3">
+          <button
+            type="button"
+            onClick={() => handleChange('sortOrder', Math.max(1, formData.sortOrder - 1))}
+            className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded border transition-colors"
+            disabled={formData.sortOrder <= 1}
+          >
+            ↑
+          </button>
+          <span className="text-sm font-medium text-gray-700 min-w-[60px] text-center">
+            Position {formData.sortOrder}
+          </span>
+          <button
+            type="button"
+            onClick={() => handleChange('sortOrder', formData.sortOrder + 1)}
+            className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded border transition-colors"
+          >
+            ↓
+          </button>
+        </div>
+        <p className="text-gray-500 text-xs mt-1">
+          Use arrows to change position (lower numbers appear first)
         </p>
       </div>
 

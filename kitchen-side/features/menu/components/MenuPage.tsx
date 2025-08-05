@@ -54,8 +54,12 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (categoryDropdown) {
-        setCategoryDropdown(null);
+      if (categoryDropdown && event.target) {
+        const target = event.target as Element;
+        // Don't close if clicking inside the dropdown
+        if (!target.closest('.category-dropdown')) {
+          setCategoryDropdown(null);
+        }
       }
     };
 
@@ -102,10 +106,19 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
   const handleCreateCategory = async (data: CategoryFormData) => {
     try {
       setCategoryLoading(true);
-      await createCategory({
-        ...data,
+      const createData: any = {
+        name: data.name,
+        description: data.description,
+        displayOrder: data.sortOrder,
         restaurantId: restaurantId
-      });
+      };
+      
+      // Only include imageUrl if it's not empty
+      if (data.imageUrl && data.imageUrl.trim()) {
+        createData.imageUrl = data.imageUrl.trim();
+      }
+      
+      await createCategory(createData);
       setIsCategoryModalOpen(false);
       // Optionally refresh menu to update categories in CategoryFilter
       await fetchMenu();
@@ -122,11 +135,22 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
     
     try {
       setCategoryLoading(true);
-      await updateCategory(editingCategory.id, {
+      const updateData: any = {
         name: data.name,
-        description: data.description,
-        displayOrder: data.sortOrder
-      });
+        description: data.description
+      };
+      
+      // Only include displayOrder if it actually changed
+      if (data.sortOrder !== editingCategory.displayOrder) {
+        updateData.displayOrder = data.sortOrder;
+      }
+      
+      // Only include imageUrl if it's not empty
+      if (data.imageUrl && data.imageUrl.trim()) {
+        updateData.imageUrl = data.imageUrl.trim();
+      }
+      
+      await updateCategory(editingCategory.id, updateData);
       setEditingCategory(null);
       // Refresh menu to update categories in CategoryFilter
       await fetchMenu();
@@ -326,16 +350,25 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
                             </button>
                             
                             {categoryDropdown === category.id && (
-                              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                              <div 
+                                className="category-dropdown absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <button
-                                  onClick={() => handleEditCategory(category)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditCategory(category);
+                                  }}
                                   className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                 >
                                   <Edit2 className="w-4 h-4 mr-2" />
                                   {t.common.edit} Category
                                 </button>
                                 <button
-                                  onClick={() => handleChangePosition(category)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleChangePosition(category);
+                                  }}
                                   className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                 >
                                   <ArrowUpDown className="w-4 h-4 mr-2" />
@@ -444,6 +477,7 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
             initialData={{
               name: editingCategory.name,
               description: editingCategory.description || '',
+              imageUrl: editingCategory.imageUrl || '',
               sortOrder: editingCategory.displayOrder || 1
             }}
             onSubmit={handleUpdateCategory}
