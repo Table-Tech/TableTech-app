@@ -305,8 +305,16 @@ export class MenuService extends BaseService<Prisma.MenuItemCreateInput, MenuIte
         throw new ApiError(403, 'TABLE_MAINTENANCE', 'Table is currently under maintenance');
       }
 
+      // Get restaurant tax rate
+      const restaurant = await tx.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: { taxRate: true }
+      });
+      const taxRate = restaurant?.taxRate ? Number(restaurant.taxRate) : 9.0; // Default to 9% Dutch BTW
+      const taxMultiplier = 1 + (taxRate / 100);
+
       // Get menu
-      const menu = await tx.menuCategory.findMany({
+      const menuCategories = await tx.menuCategory.findMany({
         where: { 
           restaurantId,
           isActive: true 
@@ -329,6 +337,24 @@ export class MenuService extends BaseService<Prisma.MenuItemCreateInput, MenuIte
           }
         }
       });
+
+      console.log('🍕 DEBUG: Converting menu prices to tax-inclusive. Tax rate:', taxRate + '%', 'Multiplier:', taxMultiplier);
+
+      // Convert prices to tax-inclusive for customer display
+      const menu = menuCategories.map(category => ({
+        ...category,
+        menuItems: category.menuItems.map(item => ({
+          ...item,
+          price: Math.round(Number(item.price) * taxMultiplier * 100) / 100, // Round to 2 decimals
+          modifierGroups: item.modifierGroups.map(group => ({
+            ...group,
+            modifiers: group.modifiers.map(modifier => ({
+              ...modifier,
+              price: Math.round(Number(modifier.price) * taxMultiplier * 100) / 100
+            }))
+          }))
+        }))
+      }));
 
       return {
         restaurant: table.restaurant,
