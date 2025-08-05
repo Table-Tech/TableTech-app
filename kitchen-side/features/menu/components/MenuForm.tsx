@@ -50,10 +50,10 @@ export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: Menu
     setIsLoading(true);
     
     try {
-      // Add restaurantId to the form data and handle empty imageUrl
+      // Only add restaurantId for new items (when creating)
       const submitData = {
         ...formData,
-        restaurantId: restaurantId,
+        ...(initialData ? {} : { restaurantId: restaurantId }), // Only add restaurantId when creating new items
         imageUrl: formData.imageUrl?.trim() || undefined // Convert empty string to undefined
       };
       await onSubmit(submitData);

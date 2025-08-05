@@ -366,10 +366,12 @@ const en: Translations = {
       active: 'Active',
       inactive: 'Inactive',
       roles: {
+        SUPER_ADMIN: 'Super Admin',
         ADMIN: 'Admin',
         MANAGER: 'Manager',
         CHEF: 'Chef',
         WAITER: 'Waiter',
+        CASHIER: 'Cashier',
       },
     },
   },

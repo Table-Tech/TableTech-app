@@ -5,6 +5,9 @@ import { RoleGuard } from '@/shared/components/protection';
 import { useTranslation, useLanguage } from '@/shared/contexts/LanguageContext';
 import { useAuth } from '@/shared/contexts/AuthContext';
 import { TimePicker } from '@/shared/components/ui/TimePicker';
+import { useStaff, StaffMember } from '../hooks/useStaff';
+import { AddStaffModal } from './AddStaffModal';
+import { EditStaffModal } from './EditStaffModal';
 
 type SettingsTab = 'general' | 'payment' | 'staff';
 
@@ -370,13 +373,16 @@ const PaymentSettings = ({ restaurant }: { restaurant: any }) => {
 const StaffManagement = ({ restaurant }: { restaurant: any }) => {
   const t = useTranslation();
   const [showAddStaff, setShowAddStaff] = useState(false);
-
-  // Mock staff data
-  const staff = [
-    { id: 1, name: 'John Doe', email: 'john@example.com', role: 'ADMIN', status: 'active' },
-    { id: 2, name: 'Jane Smith', email: 'jane@example.com', role: 'WAITER', status: 'active' },
-    { id: 3, name: 'Bob Johnson', email: 'bob@example.com', role: 'CHEF', status: 'inactive' },
-  ];
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
+  const { 
+    staff, 
+    isLoading, 
+    error, 
+    createStaff, 
+    updateStaff, 
+    deleteStaff, 
+    toggleStaffStatus 
+  } = useStaff();
 
   return (
     <div className="space-y-6">
@@ -393,115 +399,142 @@ const StaffManagement = ({ restaurant }: { restaurant: any }) => {
         </button>
       </div>
 
-      {/* Staff List */}
-      <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-        <table className="min-w-full divide-y divide-gray-300">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t.settings.staff.name}
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t.settings.staff.email}
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t.settings.staff.role}
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                {t.settings.staff.status}
-              </th>
-              <th className="relative px-6 py-3">
-                <span className="sr-only">{t.common.actions}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {staff.map((member) => (
-              <tr key={member.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {member.name}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {member.email}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                    {t.settings.staff.roles[member.role as keyof typeof t.settings.staff.roles]}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    member.status === 'active' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {member.status === 'active' ? t.settings.staff.active : t.settings.staff.inactive}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button className="text-blue-600 hover:text-blue-900 mr-4">
-                    {t.common.edit}
-                  </button>
-                  <button className="text-red-600 hover:text-red-900">
-                    {t.common.delete}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-gray-600">Loading staff...</span>
+        </div>
+      )}
 
-      {/* Add Staff Modal */}
-      {showAddStaff && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-medium mb-4">{t.settings.staff.addNewStaff}</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  {t.settings.staff.name}
-                </label>
-                <input
-                  type="text"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  {t.settings.staff.email}
-                </label>
-                <input
-                  type="email"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  {t.settings.staff.role}
-                </label>
-                <select className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
-                  <option value="WAITER">{t.settings.staff.roles.WAITER}</option>
-                  <option value="CHEF">{t.settings.staff.roles.CHEF}</option>
-                  <option value="MANAGER">{t.settings.staff.roles.MANAGER}</option>
-                  <option value="ADMIN">{t.settings.staff.roles.ADMIN}</option>
-                </select>
-              </div>
-            </div>
-            <div className="mt-5 flex justify-end space-x-3">
-              <button
-                onClick={() => setShowAddStaff(false)}
-                className="px-6 py-3 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all duration-200"
-              >
-                {t.common.cancel}
-              </button>
-              <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-medium hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105">
-                {t.settings.staff.inviteStaff}
-              </button>
-            </div>
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <span className="text-red-500 mr-2">❌</span>
+            <p className="text-red-700">{error}</p>
           </div>
         </div>
       )}
+
+      {/* Staff List */}
+      {!isLoading && !error && (
+        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm overflow-hidden">
+          {staff.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl">👥</span>
+              </div>
+              <p className="text-gray-600 mb-4">No staff members found</p>
+              <p className="text-sm text-gray-500">Add your first staff member to get started</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      {t.settings.staff.name}
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      {t.settings.staff.email}
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      {t.settings.staff.role}
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      {t.settings.staff.status}
+                    </th>
+                    <th className="relative px-6 py-4">
+                      <span className="sr-only">{t.common.actions}</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {staff.map((member) => (
+                    <tr key={member.id} className="hover:bg-gray-50/50 transition-colors duration-200">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-medium text-sm mr-3">
+                            {member.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{member.name}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {member.email}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                          {t.settings.staff.roles[member.role as keyof typeof t.settings.staff.roles]}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <label className="flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={member.isActive}
+                            onChange={() => toggleStaffStatus(member.id, !member.isActive)}
+                            className="sr-only"
+                          />
+                          <div className={`
+                            relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200
+                            ${member.isActive ? 'bg-green-500' : 'bg-gray-300'}
+                          `}>
+                            <span className={`
+                              inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm
+                              ${member.isActive ? 'translate-x-6' : 'translate-x-1'}
+                            `} />
+                          </div>
+                          <span className={`ml-2 text-xs font-medium ${
+                            member.isActive ? 'text-green-700' : 'text-gray-500'
+                          }`}>
+                            {member.isActive ? t.settings.staff.active : t.settings.staff.inactive}
+                          </span>
+                        </label>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end space-x-2">
+                          <button
+                            onClick={() => setEditingStaff(member)}
+                            className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 rounded-lg text-xs font-medium transition-colors duration-200"
+                          >
+                            {t.common.edit}
+                          </button>
+                          <button
+                            onClick={() => deleteStaff(member.id)}
+                            className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1 rounded-lg text-xs font-medium transition-colors duration-200"
+                          >
+                            {t.common.delete}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Add Staff Modal */}
+      <AddStaffModal
+        isOpen={showAddStaff}
+        onClose={() => setShowAddStaff(false)}
+        onSubmit={createStaff}
+        restaurantId={restaurant?.id || ''}
+      />
+
+      {/* Edit Staff Modal */}
+      <EditStaffModal
+        isOpen={editingStaff !== null}
+        onClose={() => setEditingStaff(null)}
+        onSubmit={updateStaff}
+        staff={editingStaff}
+      />
     </div>
   );
 };

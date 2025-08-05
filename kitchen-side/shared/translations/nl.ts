@@ -366,10 +366,12 @@ const nl: Translations = {
       active: 'Actief',
       inactive: 'Inactief',
       roles: {
+        SUPER_ADMIN: 'Superbeheerder',
         ADMIN: 'Beheerder',
         MANAGER: 'Manager',
         CHEF: 'Kok',
         WAITER: 'Ober',
+        CASHIER: 'Kassier',
       },
     },
   },

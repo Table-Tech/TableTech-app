@@ -98,6 +98,9 @@ class ApiClient {
                   Authorization: `Bearer ${refreshResponse.data.token}`,
                 },
               });
+            } else {
+              // Refresh token failed, log the reason
+              console.log('Token refresh failed:', refreshResponse.error);
             }
           } catch (refreshError) {
             console.error('Token refresh failed:', refreshError);
@@ -210,7 +213,12 @@ class ApiClient {
   async refreshToken() {
     const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
     if (!refreshToken) {
-      throw new Error('No refresh token available');
+      // Instead of throwing an error, return a failed response
+      // This allows the calling code to handle it gracefully
+      return {
+        success: false,
+        error: 'No refresh token available - user needs to login again'
+      };
     }
 
     return this.request<{
@@ -243,7 +251,7 @@ class ApiClient {
       logoUrl?: string;
       address: string;
       phone: string;
-    }>>('/restaurants');
+    }>>('/restaurants/staff/restaurants');
   }
 
   // Get all restaurants (SUPER_ADMIN only)
@@ -266,7 +274,7 @@ class ApiClient {
       address: string;
       phone: string;
       taxRate: number;
-    }>(`/restaurants/${id}`);
+    }>(`/restaurants/staff/restaurants/${id}`);
   }
 
   // Create restaurant (SUPER_ADMIN and ADMIN only)
@@ -342,20 +350,20 @@ class ApiClient {
   }
 
   async updateMenuItem(restaurantId: string, id: string, data: any) {
-    return this.request(`/menu/staff/items/${id}?restaurantId=${restaurantId}`, {
+    return this.request(`/menu/staff/items/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
 
   async deleteMenuItem(restaurantId: string, id: string) {
-    return this.request(`/menu/staff/items/${id}?restaurantId=${restaurantId}`, {
+    return this.request(`/menu/staff/items/${id}`, {
       method: 'DELETE',
     });
   }
 
   async updateMenuItemAvailability(restaurantId: string, id: string, isAvailable: boolean, availabilityNote?: string) {
-    return this.request(`/menu/staff/items/${id}/availability?restaurantId=${restaurantId}`, {
+    return this.request(`/menu/staff/items/${id}/availability`, {
       method: 'PATCH',
       body: JSON.stringify({
         isAvailable,
@@ -365,21 +373,21 @@ class ApiClient {
   }
 
   async createMenuCategory(restaurantId: string, data: any) {
-    return this.request(`/menu-categories/staff/categories?restaurantId=${restaurantId}`, {
+    return this.request(`/menu-categories/staff/categories`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async updateMenuCategory(restaurantId: string, id: string, data: any) {
-    return this.request(`/menu-categories/staff/categories/${id}?restaurantId=${restaurantId}`, {
-      method: 'PUT',
+    return this.request(`/menu-categories/staff/categories/${id}`, {
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
 
   async deleteMenuCategory(restaurantId: string, id: string) {
-    return this.request(`/menu-categories/staff/categories/${id}?restaurantId=${restaurantId}`, {
+    return this.request(`/menu-categories/staff/categories/${id}`, {
       method: 'DELETE',
     });
   }
@@ -472,7 +480,7 @@ class ApiClient {
       code: string;
       status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'MAINTENANCE';
       capacity: number;
-    }>>(`/tables/staff/tables?restaurantId=${restaurantId}`);
+    }>>(`/staff/tables?restaurantId=${restaurantId}`);
   }
 
   async createTable(data: { number: number; capacity: number; restaurantId: string }) {
@@ -530,6 +538,176 @@ class ApiClient {
         ],
         notes: "WebSocket test order"
       }),
+    });
+  }
+
+  // Modifier Group endpoints
+  async getModifierGroups(restaurantId: string) {
+    return this.request<Array<{
+      id: string;
+      name: string;
+      required: boolean;
+      maxSelections: number;
+      modifiers: Array<{
+        id: string;
+        name: string;
+        price: number;
+        isAvailable: boolean;
+      }>;
+    }>>(`/modifier-groups/staff/modifier-groups?restaurantId=${restaurantId}`);
+  }
+
+  async createModifierGroup(data: any) {
+    return this.request('/modifier-groups/staff/modifier-groups', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateModifierGroup(id: string, data: any) {
+    return this.request(`/modifier-groups/staff/modifier-groups/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteModifierGroup(id: string) {
+    return this.request(`/modifier-groups/staff/modifier-groups/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Modifier endpoints
+  async getModifiers(restaurantId: string, modifierGroupId?: string) {
+    const params = new URLSearchParams();
+    params.append('restaurantId', restaurantId);
+    if (modifierGroupId) params.append('modifierGroupId', modifierGroupId);
+    
+    return this.request<Array<{
+      id: string;
+      name: string;
+      price: number;
+      isAvailable: boolean;
+      modifierGroupId: string;
+    }>>(`/modifiers/staff/modifiers?${params.toString()}`);
+  }
+
+  async createModifier(data: any) {
+    return this.request('/modifiers/staff/modifiers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateModifier(id: string, data: any) {
+    return this.request(`/modifiers/staff/modifiers/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteModifier(id: string) {
+    return this.request(`/modifiers/staff/modifiers/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Session endpoints (for customer sessions)
+  async createSession(tableCode: string, restaurantId: string) {
+    return this.request<{
+      sessionToken: string;
+      tableId: string;
+      tableNumber: number;
+      restaurantId: string;
+      expiresAt: string;
+    }>('/sessions/create', {
+      method: 'POST',
+      body: JSON.stringify({ tableCode, restaurantId }),
+    });
+  }
+
+  async validateSession(sessionToken: string) {
+    return this.request<{
+      valid: boolean;
+      tableId?: string;
+      tableNumber?: number;
+      restaurantId?: string;
+      restaurant?: {
+        id: string;
+        name: string;
+        logoUrl?: string;
+      };
+    }>(`/sessions/validate/${sessionToken}`);
+  }
+
+  async getSessionOrders(sessionToken: string) {
+    return this.request<Array<{
+      id: string;
+      orderNumber: string;
+      status: string;
+      totalAmount: number;
+      createdAt: string;
+    }>>(`/sessions/${sessionToken}/orders`);
+  }
+
+  async extendSession(sessionToken: string) {
+    return this.request<{
+      expiresAt: string;
+    }>(`/sessions/${sessionToken}/extend`, {
+      method: 'POST',
+    });
+  }
+
+  async endSession(sessionToken: string) {
+    return this.request(`/sessions/${sessionToken}/end`, {
+      method: 'POST',
+    });
+  }
+
+  // Payment endpoints (primarily for customer use)
+  async createPayment(orderId: string, returnUrl: string) {
+    return this.request<{
+      paymentId: string;
+      checkoutUrl: string;
+    }>('/payments/create', {
+      method: 'POST',
+      body: JSON.stringify({ orderId, returnUrl }),
+    });
+  }
+
+  async checkPaymentStatus(paymentId: string) {
+    return this.request<{
+      status: 'pending' | 'paid' | 'failed' | 'expired' | 'canceled';
+      orderId: string;
+      amount: number;
+    }>(`/payments/status/${paymentId}`);
+  }
+
+  // Staff management endpoints  
+  async createStaff(data: any) {
+    return this.request('/staff/staff/members', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateStaff(id: string, data: any) {
+    return this.request(`/staff/staff/members/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteStaff(id: string) {
+    return this.request(`/staff/staff/members/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async changeStaffPassword(currentPassword: string, newPassword: string) {
+    return this.request('/staff/staff/password', {
+      method: 'PATCH',
+      body: JSON.stringify({ currentPassword, newPassword }),
     });
   }
 }

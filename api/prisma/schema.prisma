@@ -307,6 +307,10 @@ model Staff {
   lastActiveAt DateTime?  // Track when last active
   loginAttempts Int       @default(0)  // Failed login tracking
   lockedUntil  DateTime?  // Account lockout
+  
+  // Session management
+  sessions     StaffSession[] // Active login sessions
+  maxConcurrentSessions Int @default(3) // Maximum allowed concurrent sessions
 
   restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
   restaurantId String?     // Optional for SUPER_ADMIN
@@ -432,4 +436,46 @@ model AuditLog {
   @@index([entityType, action, timestamp]) // Specific action types over time
   @@index([action, success, timestamp]) // Failed actions analysis
   @@index([restaurantId, action])       // Restaurant-specific action types
+}
+
+// ----------------------------
+// Staff Session Management
+// ----------------------------
+model StaffSession {
+  id            String    @id @default(uuid())
+  sessionId     String    @unique // UUID for session tracking
+  
+  // Relations
+  staffId       String   
+  staff         Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  
+  // Session metadata (NO IP tracking per your request)
+  deviceInfo    String?   // "Chrome on Windows", "Mobile Safari" etc
+  userAgent     String?   // Full user agent for device identification
+  deviceName    String?   // Custom device name (e.g., "John's Laptop")
+  
+  // Session lifecycle
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  lastActiveAt  DateTime  @default(now())
+  expiresAt     DateTime  // When this session expires (24h default)
+  
+  // Revocation tracking
+  revokedAt     DateTime? // When session was revoked
+  revokedBy     String?   // Staff ID who revoked it
+  revokeReason  String?   // "terminated", "security_breach", "manual", "expired"
+  
+  // Security metadata
+  refreshTokenHash String? // Store hashed refresh token for validation
+  
+  // Performance indexes
+  @@index([staffId, isActive])     // Get active sessions for user
+  @@index([sessionId])             // Fast session lookups
+  @@index([expiresAt])             // Cleanup expired sessions
+  @@index([isActive, expiresAt])   // Find expired active sessions to cleanup
+  @@index([staffId, createdAt])    // User session history
+  @@index([lastActiveAt])          // Activity tracking
+  @@index([revokedAt])             // Revoked session queries
+  
+  @@map("staff_sessions")
 }
