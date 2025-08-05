@@ -152,7 +152,7 @@ export class MolliePaymentService {
           currency: 'EUR',
           value: options.amount.toFixed(2)
         },
-        description: options.description || `Order #${order.orderNumber} - ${order.restaurant.name}`,
+        description: options.description || `Tafel ${order.table.number} - Order #${order.orderNumber} - ${order.restaurant.name}`,
         redirectUrl: this.getRedirectUrl(options.orderId),
         metadata: {
           orderId: options.orderId,

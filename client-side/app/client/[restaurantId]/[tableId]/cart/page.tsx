@@ -12,6 +12,7 @@ export default function CartPage() {
     };
 
     const [cartItems, setCartItems] = useState<any[]>([]);
+    const [tableNumber, setTableNumber] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [startExitTransition, setStartExitTransition] = useState(false);
     const [showContent, setShowContent] = useState(false);
@@ -28,9 +29,26 @@ export default function CartPage() {
             }
         }
 
+        // Fetch table number
+        const fetchTableInfo = async () => {
+            try {
+                const tableCode = localStorage.getItem("tableCode") || tableId;
+                const menuRes = await fetch(
+                    `http://localhost:3001/api/menu/customer/${tableCode}/${restaurantId}`
+                );
+                const menuRaw = await menuRes.json();
+                const tableNumber = menuRaw?.data?.table?.number;
+                setTableNumber(tableNumber);
+            } catch (err) {
+                console.error("Error fetching table info:", err);
+            }
+        };
+
+        fetchTableInfo();
+
         const timeout = setTimeout(() => setShowContent(true), 400);
         return () => clearTimeout(timeout);
-    }, []);
+    }, [restaurantId, tableId]);
 
     const updateQuantity = (id: number, value: string) => {
         const parsed = parseInt(value);
@@ -80,7 +98,7 @@ export default function CartPage() {
                     modifiers: item.modifiers ? item.modifiers.map((m: string) => String(m)) : [],
                     notes: item.notes || undefined
                 })),
-                description: `Order via Table ${tableCode}`,
+                description: `Order via Tafel ${tableNumber || tableCode}`,
                 notes: undefined
             };
 
@@ -149,7 +167,7 @@ export default function CartPage() {
                     <div className="bg-white border-b border-gray-200 px-4 py-6">
                         <div className="max-w-sm mx-auto">
                             <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">TableTech</h1>
-                            <p className="text-center text-gray-600 mb-4">Jouw Bestelling • Tafel {tableId}</p>
+                            <p className="text-center text-gray-600 mb-4">Jouw Bestelling • Tafel {tableNumber || tableId}</p>
                             <div className="bg-green-100 rounded-full px-4 py-2 text-center">
                                 <span className="text-green-700 font-semibold">
                                     {cartItems.reduce((t, i) => t + (i.quantity || 0), 0)} item

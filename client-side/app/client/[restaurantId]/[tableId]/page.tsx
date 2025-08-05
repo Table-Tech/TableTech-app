@@ -12,6 +12,7 @@ export default function ClientPage() {
     };
 
     const [restaurantName, setRestaurantName] = useState<string | null>(null);
+    const [tableNumber, setTableNumber] = useState<number | null>(null);
     const [cart, setCart] = useState<any[]>([]);
     const [showPopup, setShowPopup] = useState(false);
     const [menuData, setMenuData] = useState<Record<string, any[]> | null>(null);
@@ -49,6 +50,9 @@ export default function ClientPage() {
 
                 const restaurantName = menuRaw?.data?.restaurant?.name || "Restaurant Menu";
                 setRestaurantName(restaurantName);
+
+                const tableNumber = menuRaw?.data?.table?.number;
+                setTableNumber(tableNumber);
 
                 const categories = menuRaw?.data?.menu || [];
                 const grouped: Record<string, any[]> = {};
@@ -118,7 +122,7 @@ export default function ClientPage() {
                         <div className="max-w-sm mx-auto text-center">
                             <h1 className="text-3xl font-bold text-gray-800 mb-2">TableTech</h1>
                             <p className="text-gray-600">
-                                Tafel {tableId} • {restaurantName}
+                                Tafel {tableNumber || tableId} • {restaurantName}
                             </p>
                         </div>
                     </div>
