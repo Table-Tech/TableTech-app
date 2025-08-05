@@ -335,6 +335,7 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
                   </div>
                 </div>
               </div>
+              
 
               {/* Group Content */}
               {expandedGroups.has(group.id) && (
