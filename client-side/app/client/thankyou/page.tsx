@@ -197,7 +197,11 @@ export default function ThankYouPage() {
                             <div className="flex-1 min-w-0">
                                 <h4 className="font-semibold text-gray-800 text-base sm:text-lg">Bestelling Ontvangen</h4>
                                 <p className="text-xs sm:text-sm text-gray-600">
-                                    {new Date().toLocaleTimeString('nl-NL', {hour: '2-digit', minute: '2-digit'})} - Betaling verwerkt
+                                    {new Date().toLocaleTimeString('nl-NL', { 
+                                        timeZone: 'Europe/Amsterdam',
+                                        hour: '2-digit', 
+                                        minute: '2-digit' 
+                                    })} - Betaling verwerkt
                                 </p>
                             </div>
                         </div>
