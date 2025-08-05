@@ -20,15 +20,25 @@ import { useAuth } from '@/shared/hooks/useAuth'
 import { useTranslation } from '@/shared/contexts/LanguageContext'
 import { ErrorBoundary } from '@/shared/components/error'
 
-// Navigation items with translation keys
-const getNavItems = (t: any) => [
-  { labelKey: 'dashboard', icon: Home, path: '/dashboard' },
-  { labelKey: 'orders', icon: ShoppingCart, path: '/dashboard/orders' },
-  { labelKey: 'tables', icon: Table2, path: '/dashboard/tables' },
-  { labelKey: 'menu', icon: Utensils, path: '/dashboard/menu' },
-  { labelKey: 'analytics', icon: BarChart, path: '/dashboard/statistics' },
-  { labelKey: 'settings', icon: Settings, path: '/dashboard/beheer' },
+// Navigation items with translation keys and role restrictions
+const getAllNavItems = (t: any) => [
+  { labelKey: 'dashboard', icon: Home, path: '/dashboard', roles: [] }, // Available to all
+  { labelKey: 'orders', icon: ShoppingCart, path: '/dashboard/orders', roles: [] }, // Available to all
+  { labelKey: 'tables', icon: Table2, path: '/dashboard/tables', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
+  { labelKey: 'menu', icon: Utensils, path: '/dashboard/menu', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CHEF'] },
+  { labelKey: 'analytics', icon: BarChart, path: '/dashboard/statistics', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
+  { labelKey: 'settings', icon: Settings, path: '/dashboard/beheer', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
 ]
+
+// Filter navigation items based on user role
+const getNavItems = (t: any, userRole?: string) => {
+  const allItems = getAllNavItems(t)
+  if (!userRole) return allItems
+  
+  return allItems.filter(item => 
+    item.roles.length === 0 || item.roles.includes(userRole as any)
+  )
+}
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -40,7 +50,7 @@ export const DashboardLayout = React.memo(({ children }: DashboardLayoutProps) =
   const router = useRouter()
   const { user, logout, isLoading, selectedRestaurant, clearRestaurantSelection } = useAuth()
   const t = useTranslation()
-  const navItems = getNavItems(t)
+  const navItems = getNavItems(t, user?.role)
 
   const handleLogout = () => {
     logout()
@@ -76,12 +86,31 @@ export const DashboardLayout = React.memo(({ children }: DashboardLayoutProps) =
             )}
           </div>
         </div>
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
-        >
-          {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+        
+        <div className="flex items-center space-x-2">
+          {/* Mobile User Avatar with Logout */}
+          {user && (
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center font-semibold text-xs">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-lg text-red-600 hover:bg-red-50"
+                title={t.nav.logout}
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+          
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
+          >
+            {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
       <div className="flex">
@@ -231,6 +260,14 @@ const SidebarContent = ({
             </button>
           )}
           
+          {/* Logout Button - Available to all authenticated users */}
+          <button
+            onClick={onLogout}
+            className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>{t.nav.logout}</span>
+          </button>
         </div>
       </div>
     </>

@@ -78,13 +78,15 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
     if (!menuItemId) return;
 
     try {
-      // Call API to assign modifier group to menu item
-      // This would need to be implemented in the API
-      await apiClient.post(`/menu/staff/items/${menuItemId}/modifier-groups`, {
-        modifierGroupId: groupId
-      });
+      // Use the new API method to assign modifier group to menu item
+      const response = await apiClient.assignModifierGroupToMenuItem(menuItemId, groupId);
       
-      await fetchModifierGroups(); // Refresh
+      if (response.success) {
+        await fetchModifierGroups(); // Refresh the lists
+        console.log("Modifier group assigned successfully");
+      } else {
+        throw new Error(response.error || "Failed to assign modifier group");
+      }
     } catch (error) {
       console.error("Error assigning modifier group:", error);
       alert("Failed to assign modifier group. Please try again.");
@@ -99,10 +101,15 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
     }
 
     try {
-      // Call API to unassign modifier group from menu item
-      await apiClient.delete(`/menu/staff/items/${menuItemId}/modifier-groups/${groupId}`);
+      // Use the new API method to unassign modifier group from menu item
+      const response = await apiClient.unassignModifierGroupFromMenuItem(menuItemId, groupId);
       
-      await fetchModifierGroups(); // Refresh
+      if (response.success) {
+        await fetchModifierGroups(); // Refresh the lists
+        console.log("Modifier group unassigned successfully");
+      } else {
+        throw new Error(response.error || "Failed to unassign modifier group");
+      }
     } catch (error) {
       console.error("Error unassigning modifier group:", error);
       alert("Failed to remove modifier group. Please try again.");

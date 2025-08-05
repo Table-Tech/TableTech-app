@@ -760,6 +760,22 @@ class ApiClient {
     });
   }
 
+  // Assign modifier group to menu item (clone the group with new menuItemId)
+  async assignModifierGroupToMenuItem(menuItemId: string, modifierGroupId: string) {
+    return this.request(`/modifier-groups/staff/modifier-groups/${modifierGroupId}/assign`, {
+      method: 'POST',
+      body: JSON.stringify({ menuItemId }),
+    });
+  }
+
+  // Unassign modifier group from menu item (delete the menu-item-specific clone)
+  async unassignModifierGroupFromMenuItem(menuItemId: string, modifierGroupId: string) {
+    return this.request(`/modifier-groups/staff/modifier-groups/${modifierGroupId}/unassign`, {
+      method: 'DELETE',
+      body: JSON.stringify({ menuItemId }),
+    });
+  }
+
   // =================== MODIFIER ENDPOINTS ===================
   
   async getModifiers(modifierGroupId: string) {

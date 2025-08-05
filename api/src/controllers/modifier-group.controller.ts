@@ -191,5 +191,54 @@ export class ModifierGroupController {
     await this.svc.deleteModifierGroup(req.params.id, 'legacy-staff');
     return reply.status(204).send();
   }
+
+  /** POST /modifier-groups/:id/assign - Assign modifier group to menu item */
+  async assignModifierGroupToMenuItem(
+    req: AuthenticatedRequest<{ menuItemId: string }, z.infer<typeof ModifierGroupParamsSchema>>,
+    reply: FastifyReply
+  ) {
+    const { id: modifierGroupId } = req.params;
+    const { menuItemId } = req.body;
+
+    if (!menuItemId) {
+      throw new ApiError(400, 'MISSING_MENU_ITEM_ID', 'menuItemId is required');
+    }
+
+    const assignedGroup = await this.svc.assignModifierGroupToMenuItem(
+      modifierGroupId, 
+      menuItemId, 
+      req.user.staffId
+    );
+
+    return reply.status(201).send({
+      success: true,
+      message: 'Modifier group assigned successfully',
+      data: assignedGroup
+    });
+  }
+
+  /** DELETE /modifier-groups/:id/unassign - Unassign modifier group from menu item */
+  async unassignModifierGroupFromMenuItem(
+    req: AuthenticatedRequest<{ menuItemId: string }, z.infer<typeof ModifierGroupParamsSchema>>,
+    reply: FastifyReply
+  ) {
+    const { id: modifierGroupId } = req.params;
+    const { menuItemId } = req.body;
+
+    if (!menuItemId) {
+      throw new ApiError(400, 'MISSING_MENU_ITEM_ID', 'menuItemId is required');
+    }
+
+    await this.svc.unassignModifierGroupFromMenuItem(
+      modifierGroupId, 
+      menuItemId, 
+      req.user.staffId
+    );
+
+    return reply.status(200).send({
+      success: true,
+      message: 'Modifier group unassigned successfully'
+    });
+  }
 }
 

@@ -370,4 +370,113 @@ export class ModifierGroupService extends BaseService<Prisma.ModifierGroupCreate
   async delete(id: string): Promise<void> {
     return this.deleteModifierGroup(id, 'legacy-staff');
   }
+
+  /**
+   * Assign modifier group to menu item (by cloning)
+   */
+  async assignModifierGroupToMenuItem(
+    modifierGroupId: string, 
+    menuItemId: string, 
+    assignedByStaffId: string
+  ): Promise<ModifierGroup> {
+    return await this.prisma.$transaction(async (tx) => {
+      // Get the original modifier group to clone
+      const originalGroup = await tx.modifierGroup.findUnique({
+        where: { id: modifierGroupId },
+        include: {
+          modifiers: {
+            orderBy: { displayOrder: 'asc' as const }
+          }
+        }
+      });
+
+      if (!originalGroup) {
+        throw new ApiError(404, 'MODIFIER_GROUP_NOT_FOUND', 'Modifier group not found');
+      }
+
+      // Verify the target menu item exists
+      const menuItem = await tx.menuItem.findUnique({
+        where: { id: menuItemId },
+        select: { id: true, restaurantId: true }
+      });
+
+      if (!menuItem) {
+        throw new ApiError(404, 'MENU_ITEM_NOT_FOUND', 'Menu item not found');
+      }
+
+      // Check if this modifier group is already assigned to this menu item
+      const existingAssignment = await tx.modifierGroup.findFirst({
+        where: {
+          name: originalGroup.name,
+          menuItemId: menuItemId
+        }
+      });
+
+      if (existingAssignment) {
+        throw new ApiError(409, 'ALREADY_ASSIGNED', 'This modifier group is already assigned to this menu item');
+      }
+
+      // Clone the modifier group for the specific menu item
+      const clonedGroup = await tx.modifierGroup.create({
+        data: {
+          name: originalGroup.name,
+          required: originalGroup.required,
+          multiSelect: originalGroup.multiSelect,
+          minSelect: originalGroup.minSelect,
+          maxSelect: originalGroup.maxSelect,
+          displayOrder: originalGroup.displayOrder,
+          menuItemId: menuItemId
+        },
+        include: this.getModifierGroupIncludes()
+      });
+
+      // Clone all modifiers in the group
+      if (originalGroup.modifiers.length > 0) {
+        await tx.modifier.createMany({
+          data: originalGroup.modifiers.map(modifier => ({
+            name: modifier.name,
+            price: modifier.price,
+            displayOrder: modifier.displayOrder,
+            isActive: modifier.isActive,
+            modifierGroupId: clonedGroup.id
+          }))
+        });
+      }
+
+      return clonedGroup;
+    });
+  }
+
+  /**
+   * Unassign modifier group from menu item (by deleting the clone)
+   */
+  async unassignModifierGroupFromMenuItem(
+    modifierGroupId: string, 
+    menuItemId: string, 
+    unassignedByStaffId: string
+  ): Promise<void> {
+    return await this.prisma.$transaction(async (tx) => {
+      // Find the modifier group assigned to this menu item
+      const assignedGroup = await tx.modifierGroup.findFirst({
+        where: {
+          id: modifierGroupId,
+          menuItemId: menuItemId
+        }
+      });
+
+      if (!assignedGroup) {
+        throw new ApiError(404, 'ASSIGNMENT_NOT_FOUND', 'This modifier group is not assigned to this menu item');
+      }
+
+      // Delete all modifiers in this group first (cascade)
+      await tx.modifier.deleteMany({
+        where: { modifierGroupId: assignedGroup.id }
+      });
+
+      // Delete the modifier group assignment (the cloned group)
+      await tx.modifierGroup.delete({
+        where: { id: assignedGroup.id }
+      });
+    });
+  }
 }
