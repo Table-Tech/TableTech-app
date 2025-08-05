@@ -52,19 +52,21 @@ export function useStaff() {
       const response = await apiClient.getStaff(selectedRestaurant.id);
       
       if (response.success && response.data) {
-        setStaff(response.data);
+        setStaff(response.data as StaffMember[]);
       } else {
         setError(response.error || 'Failed to fetch staff members');
       }
     } catch (error) {
       setError('Network error');
-      console.error('Error fetching staff:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching staff:', error);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const createStaff = async (data: CreateStaffData) => {
+  const createStaff = async (data: CreateStaffData): Promise<void> => {
     try {
       setError(null);
       const response = await apiClient.createStaff({
@@ -74,29 +76,31 @@ export function useStaff() {
       
       if (response.success) {
         await fetchStaff(); // Refresh the list
-        return response.data;
       } else {
         throw new Error(response.error || 'Failed to create staff member');
       }
     } catch (error) {
-      console.error('Error creating staff:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error creating staff:', error);
+      }
       throw error;
     }
   };
 
-  const updateStaff = async (id: string, data: UpdateStaffData) => {
+  const updateStaff = async (id: string, data: UpdateStaffData): Promise<void> => {
     try {
       setError(null);
       const response = await apiClient.updateStaff(id, data);
       
       if (response.success) {
         await fetchStaff(); // Refresh the list
-        return response.data;
       } else {
         throw new Error(response.error || 'Failed to update staff member');
       }
     } catch (error) {
-      console.error('Error updating staff:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error updating staff:', error);
+      }
       throw error;
     }
   };
@@ -116,7 +120,9 @@ export function useStaff() {
         throw new Error(response.error || 'Failed to delete staff member');
       }
     } catch (error) {
-      console.error('Error deleting staff:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error deleting staff:', error);
+      }
       throw error;
     }
   };
@@ -125,7 +131,9 @@ export function useStaff() {
     try {
       await updateStaff(id, { isActive });
     } catch (error) {
-      console.error('Error toggling staff status:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error toggling staff status:', error);
+      }
       throw error;
     }
   };

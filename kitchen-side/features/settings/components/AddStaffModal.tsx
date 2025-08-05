@@ -75,7 +75,9 @@ export function AddStaffModal({ isOpen, onClose, onSubmit, restaurantId }: AddSt
       });
       onClose();
     } catch (error) {
-      console.error('Error adding staff:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error adding staff:', error);
+      }
     } finally {
       setIsLoading(false);
     }

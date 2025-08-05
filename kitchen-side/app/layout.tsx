@@ -18,8 +18,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TableTech Kitchen",
-  description: "Restaurant kitchen management system",
+  title: "TableTech Kitchen Dashboard",
+  description: "Professional restaurant kitchen management system for order processing, inventory tracking, and team coordination",
+  keywords: ["restaurant", "kitchen", "management", "orders", "pos"],
+  authors: [{ name: "TableTech Team" }],
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
+  robots: "noindex, nofollow", // Kitchen dashboard should not be indexed
+  icons: {
+    icon: [
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: { url: "/apple-touch-icon.png", sizes: "180x180" },
+  },
+  manifest: "/site.webmanifest",
+  other: {
+    "theme-color": "#ffffff",
+    "msapplication-TileColor": "#da532c",
+  },
 };
 
 export default function RootLayout({
