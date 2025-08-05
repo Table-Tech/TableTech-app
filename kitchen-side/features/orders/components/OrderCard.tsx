@@ -11,6 +11,7 @@ import { Button } from '@/shared/components/ui/Button';
 interface OrderCardProps {
   order: KitchenOrder;
   onStatusUpdate?: () => void;
+  isLiveMode?: boolean;
 }
 
 export function OrderCard({ order, onStatusUpdate }: OrderCardProps) {

@@ -454,12 +454,33 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
   async getOrders(restaurantId: string, query: OrderQueryDTO) {
     const where: Prisma.OrderWhereInput = { restaurantId };
 
-    if (query.status) where.status = query.status;
+    // Status filtering
+    if (query.status) {
+      where.status = query.status;
+    } else if (query.excludeStatuses && query.excludeStatuses.length > 0) {
+      where.status = { notIn: query.excludeStatuses };
+    }
+
+    // Payment status filtering
+    if (query.paymentStatus) {
+      where.paymentStatus = query.paymentStatus;
+    }
+
+    // Table filtering
     if (query.tableId) where.tableId = query.tableId;
-    if (query.from || query.to) {
+
+    // Date filtering - handle smart date ranges
+    const dateRange = this.getDateRange(query.dateFilter, query.from, query.to);
+    if (dateRange.from || dateRange.to) {
       where.createdAt = {};
-      if (query.from) where.createdAt.gte = new Date(query.from);
-      if (query.to) where.createdAt.lte = new Date(query.to);
+      if (dateRange.from) where.createdAt.gte = dateRange.from;
+      if (dateRange.to) where.createdAt.lte = dateRange.to;
+    }
+
+    // Default filter: Today's paid orders, excluding pending/completed/cancelled
+    if (!query.status && !query.excludeStatuses && !query.paymentStatus && !query.from && !query.to && query.dateFilter === 'today') {
+      where.paymentStatus = 'COMPLETED'; // Use COMPLETED instead of PAID to match enum
+      where.status = { notIn: ['PENDING', 'COMPLETED', 'CANCELLED'] };
     }
 
     const [orders, total] = await Promise.all([
@@ -482,6 +503,55 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
         pages: Math.ceil(total / query.limit)
       }
     };
+  }
+
+  /**
+   * Get date range based on filter type
+   */
+  private getDateRange(dateFilter: string, from?: string, to?: string) {
+    // If explicit dates provided, use them
+    if (from || to) {
+      return {
+        from: from ? new Date(from) : undefined,
+        to: to ? new Date(to) : undefined
+      };
+    }
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    switch (dateFilter) {
+      case 'today':
+        return {
+          from: today,
+          to: new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1) // End of today
+        };
+      
+      case 'yesterday':
+        const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+        return {
+          from: yesterday,
+          to: new Date(yesterday.getTime() + 24 * 60 * 60 * 1000 - 1)
+        };
+      
+      case 'week':
+        const weekStart = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return {
+          from: weekStart,
+          to: now
+        };
+      
+      case 'month':
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        return {
+          from: monthStart,
+          to: now
+        };
+      
+      case 'all':
+      default:
+        return { from: undefined, to: undefined };
+    }
   }
 
   /**

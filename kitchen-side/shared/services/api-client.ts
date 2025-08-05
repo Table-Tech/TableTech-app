@@ -410,10 +410,29 @@ class ApiClient {
   }
 
   // Order endpoints
-  async getOrders(restaurantId: string, status?: string) {
+  async getOrders(restaurantId: string, filters?: {
+    status?: string;
+    paymentStatus?: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+    dateFilter?: 'today' | 'yesterday' | 'week' | 'month' | 'all';
+    excludeStatuses?: string[];
+    from?: string;
+    to?: string;
+    limit?: number;
+    offset?: number;
+  }) {
     const params = new URLSearchParams();
     params.append('restaurantId', restaurantId);
-    if (status) params.append('status', status);
+    
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.paymentStatus) params.append('paymentStatus', filters.paymentStatus);
+    if (filters?.dateFilter) params.append('dateFilter', filters.dateFilter);
+    if (filters?.excludeStatuses?.length) {
+      filters.excludeStatuses.forEach(status => params.append('excludeStatuses', status));
+    }
+    if (filters?.from) params.append('from', filters.from);
+    if (filters?.to) params.append('to', filters.to);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.offset) params.append('offset', filters.offset.toString());
     
     return this.request<{
       orders: Array<{
