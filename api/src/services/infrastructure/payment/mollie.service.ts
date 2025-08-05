@@ -153,7 +153,8 @@ export class MolliePaymentService {
           value: options.amount.toFixed(2)
         },
         description: options.description || `Tafel ${order.table.number} - Order #${order.orderNumber} - ${order.restaurant.name}`,
-        redirectUrl: this.getRedirectUrl(options.orderId),
+        redirectUrl: this.getSuccessRedirectUrl(options.orderId),
+        cancelUrl: this.getCancelRedirectUrl(),
         metadata: {
           orderId: options.orderId,
           restaurantId: options.restaurantId,
@@ -191,7 +192,7 @@ export class MolliePaymentService {
 
       // Update redirect URL with payment ID for development
       if (process.env.NODE_ENV !== 'production') {
-        const updatedRedirectUrl = this.getRedirectUrl(options.orderId, molliePayment.id);
+        const updatedRedirectUrl = this.getSuccessRedirectUrl(options.orderId, molliePayment.id);
         console.log('💳 DEBUG: Updated redirect URL with payment ID:', updatedRedirectUrl);
         // Note: Mollie doesn't allow updating the redirect URL after creation,
         // so we'll pass the payment ID in the response instead
@@ -201,9 +202,9 @@ export class MolliePaymentService {
 
       // For development, we'll modify the checkout URL to include payment ID in redirect
       if (process.env.NODE_ENV !== 'production') {
-        const updatedRedirectUrl = encodeURIComponent(this.getRedirectUrl(options.orderId, molliePayment.id));
+        const updatedRedirectUrl = encodeURIComponent(this.getSuccessRedirectUrl(options.orderId, molliePayment.id));
         // Replace the redirect URL in the checkout URL
-        const originalRedirectUrl = encodeURIComponent(this.getRedirectUrl(options.orderId));
+        const originalRedirectUrl = encodeURIComponent(this.getSuccessRedirectUrl(options.orderId));
         checkoutUrl = checkoutUrl.replace(originalRedirectUrl, updatedRedirectUrl);
         console.log('💳 DEBUG: Modified checkout URL for development:', checkoutUrl);
       }
@@ -507,13 +508,20 @@ export class MolliePaymentService {
     }
   }
 
-  private getRedirectUrl(orderId: string, paymentId?: string): string {
+  private getSuccessRedirectUrl(orderId: string, paymentId?: string): string {
     const baseUrl = process.env.FRONTEND_URL?.split(',')[0] || 'http://localhost:3000';
     let url = `${baseUrl}/client/thankyou?orderId=${orderId}`;
     if (paymentId) {
       url += `&paymentId=${paymentId}`;
     }
-    console.log('💳 DEBUG: Generated redirect URL:', url);
+    console.log('💳 DEBUG: Generated success redirect URL:', url);
+    return url;
+  }
+
+  private getCancelRedirectUrl(): string {
+    const baseUrl = process.env.FRONTEND_URL?.split(',')[0] || 'http://localhost:3000';
+    const url = `${baseUrl}/client/payment-cancelled`;
+    console.log('💳 DEBUG: Generated cancel redirect URL:', url);
     return url;
   }
 
