@@ -199,14 +199,31 @@ class ApiClient {
         name: string;
         email: string;
         role: string;
-        restaurant: {
+        restaurantId: string | null;
+        sessionId?: string;
+        restaurant?: {
+          id: string;
+          name: string;
+        };
+      };
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        role: string;
+        restaurantId: string | null;
+        sessionId: string;
+        restaurant?: {
           id: string;
           name: string;
         };
       };
     }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ 
+        email, 
+        password
+      }),
     });
   }
 

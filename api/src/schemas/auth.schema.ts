@@ -25,8 +25,7 @@ export const LoginSchema = z.object({
     .max(255),
   password: z.string()
     .min(1, "Password is required")
-    .max(100), // Prevent DoS
-  deviceName: z.string().optional() // Optional device name for session tracking
+    .max(100) // Prevent DoS
 });
 
 export const RegisterStaffSchema = z.object({

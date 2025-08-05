@@ -9,7 +9,6 @@ export interface CreateStaffSessionDTO {
   staffId: string;
   deviceInfo?: string;
   userAgent?: string;
-  deviceName?: string;
   refreshToken?: string; // We'll hash this before storing
 }
 
@@ -22,7 +21,6 @@ export interface StaffSessionData {
   restaurantId?: string;
   restaurantName?: string;
   deviceInfo?: string;
-  deviceName?: string;
   isActive: boolean;
   createdAt: Date;
   lastActiveAt: Date;
@@ -101,7 +99,6 @@ export class StaffSessionService {
           staffId: data.staffId,
           deviceInfo,
           userAgent: data.userAgent,
-          deviceName: data.deviceName,
           refreshTokenHash,
           expiresAt
         }
@@ -117,7 +114,6 @@ export class StaffSessionService {
         restaurantId: staff.restaurant?.id,
         restaurantName: staff.restaurant?.name,
         deviceInfo,
-        deviceName: data.deviceName,
         isActive: true,
         createdAt: session.createdAt,
         lastActiveAt: session.lastActiveAt,
@@ -141,7 +137,7 @@ export class StaffSessionService {
       });
 
       // 9. Log session creation
-      logger.security.login(staff.id, staff.email, data.deviceName, sessionId);
+      logger.security.login(staff.id, staff.email, deviceInfo, sessionId);
 
       return session;
 
@@ -212,7 +208,6 @@ export class StaffSessionService {
           restaurantId: dbSession.staff.restaurant?.id,
           restaurantName: dbSession.staff.restaurant?.name,
           deviceInfo: dbSession.deviceInfo || undefined,
-          deviceName: dbSession.deviceName || undefined,
           isActive: dbSession.isActive,
           createdAt: dbSession.createdAt,
           lastActiveAt: dbSession.lastActiveAt,

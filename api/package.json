@@ -1,13 +1,23 @@
 {
-  "name": "api",
+  "name": "tabletech-api",
   "version": "1.0.0",
-  "description": "TableTech API",
+  "description": "TableTech Restaurant Management API",
   "type": "module",
+  "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx index.ts"
+    "dev": "tsx index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "start:prod": "NODE_ENV=production node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext .ts",
+    "test": "echo \"No tests specified\" && exit 0",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:studio": "prisma studio"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["restaurant", "api", "fastify", "prisma", "redis"],
+  "author": "TableTech Team",
   "license": "MIT",
   "dependencies": {
     "@fastify/cors": "^11.0.1",

@@ -43,16 +43,44 @@ export const requireUser = async (
     
     // Validate session if sessionId is present in JWT
     if (payload.sessionId) {
-      const sessionValidation = await staffSessionService.validateSession(payload.sessionId);
-      
-      if (!sessionValidation.valid) {
-        throw new ApiError(401, 'SESSION_INVALID', sessionValidation.reason || 'Session is not valid');
-      }
-      
-      // Update payload with latest session data (in case role changed, etc.)
-      if (sessionValidation.session) {
-        payload.role = sessionValidation.session.role;
-        payload.restaurantId = sessionValidation.session.restaurantId || null;
+      try {
+        const sessionValidation = await staffSessionService.validateSession(payload.sessionId);
+        
+        if (!sessionValidation.valid) {
+          // Log session invalidation for security monitoring
+          req.log.warn({
+            category: 'SECURITY',
+            event: 'SESSION_VALIDATION_FAILED',
+            sessionId: payload.sessionId,
+            staffId: payload.staffId,
+            reason: sessionValidation.reason
+          }, `Session validation failed: ${sessionValidation.reason}`);
+          
+          throw new ApiError(401, 'SESSION_INVALID', sessionValidation.reason || 'Session is not valid');
+        }
+        
+        // Update payload with latest session data (in case role changed, etc.)
+        if (sessionValidation.session) {
+          payload.role = sessionValidation.session.role;
+          payload.restaurantId = sessionValidation.session.restaurantId || null;
+        }
+        
+      } catch (sessionError) {
+        // Handle session service errors (Redis down, database issues, etc.)
+        if (sessionError instanceof ApiError) {
+          throw sessionError; // Re-throw validation errors
+        }
+        
+        // Log infrastructure errors but allow request to continue with JWT-only auth
+        req.log.error({
+          category: 'SYSTEM',
+          event: 'SESSION_SERVICE_ERROR',
+          sessionId: payload.sessionId,
+          staffId: payload.staffId,
+          error: sessionError instanceof Error ? sessionError.message : 'Unknown error'
+        }, 'Session service unavailable - falling back to JWT-only authentication');
+        
+        // Continue with JWT-only authentication if session service fails
       }
     }
     

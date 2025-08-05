@@ -32,10 +32,7 @@ export class AuthController {
     req: AuthenticatedRequest<z.infer<typeof LoginSchema>>,
     reply: FastifyReply
   ) {
-    const result = await this.svc.login(req.body, {
-      userAgent: req.headers['user-agent'],
-      deviceName: req.body.deviceName
-    });
+    const result = await this.svc.login(req.body, req.headers['user-agent']);
     return reply.send({
       success: true,
       message: "Login successful",

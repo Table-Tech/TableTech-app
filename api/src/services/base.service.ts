@@ -5,12 +5,24 @@ import { PrismaClient } from '@prisma/client';
  * Base service class with common CRUD operations
  * Extended by all service classes for consistent data access patterns
  */
+// Singleton Prisma instance for connection pooling
+let prismaInstance: PrismaClient | null = null;
+
+export function getPrismaInstance(): PrismaClient {
+  if (!prismaInstance) {
+    prismaInstance = new PrismaClient({
+      log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    });
+  }
+  return prismaInstance;
+}
+
 export abstract class BaseService<CreateInput, Model> {
   protected prisma: PrismaClient;
   protected abstract model: keyof PrismaClient;
 
   constructor() {
-    this.prisma = new PrismaClient();
+    this.prisma = getPrismaInstance();
   }
 
   /**

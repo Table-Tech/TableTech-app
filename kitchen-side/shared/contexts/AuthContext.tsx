@@ -114,6 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
+      localStorage.removeItem('sessionId'); // Clear session ID
       localStorage.removeItem('selectedRestaurant');
       setToken(null);
       setUser(null);
@@ -156,16 +157,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiClient.login(email, password);
       
       if (response.success && response.data) {
-        const { token: newToken, refreshToken, staff } = response.data;
+        const { token: newToken, refreshToken, staff, user } = response.data;
+        
+        // Use the new user object if available (has sessionId), otherwise fall back to staff
+        const userData = user || staff;
         
         // Store in state
         setToken(newToken);
-        setUser(staff as User);
+        setUser(userData as User);
         
         // Store in localStorage
         localStorage.setItem('token', newToken);
         localStorage.setItem('refreshToken', refreshToken);
-        localStorage.setItem('user', JSON.stringify(staff));
+        localStorage.setItem('user', JSON.stringify(userData));
+        
+        // Store sessionId separately for easy access
+        if (userData.sessionId) {
+          localStorage.setItem('sessionId', userData.sessionId);
+        }
         
         // Handle restaurant selection based on role
         if (staff.role === 'SUPER_ADMIN') {
@@ -211,6 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('sessionId'); // Clear session ID
     localStorage.removeItem('selectedRestaurant');
     localStorage.removeItem('mockUser'); // Clean up cached data
     router.push('/login');
