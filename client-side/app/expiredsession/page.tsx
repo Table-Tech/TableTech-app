@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BrowserMultiFormatReader, IScannerControls } from "@zxing/library";
+import { BrowserMultiFormatReader } from "@zxing/library";
 
 export default function ExpiredSessionPage() {
     const router = useRouter();
     const videoRef = useRef<HTMLVideoElement>(null);
-    const [scannerControls, setScannerControls] = useState<IScannerControls | null>(null);
+    const [scannerControls, setScannerControls] = useState<any | null>(null);
     const [isScanning, setIsScanning] = useState(false);
     const [flashEnabled, setFlashEnabled] = useState(false);
     const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
@@ -50,7 +50,7 @@ export default function ExpiredSessionPage() {
             setError(null);
 
             const controls = await codeReader.current.decodeFromVideoDevice(
-                undefined,
+                null,
                 videoRef.current,
                 (result, error) => {
                     if (result) {
@@ -98,7 +98,7 @@ export default function ExpiredSessionPage() {
             const track = stream.getVideoTracks()[0];
             const capabilities = track.getCapabilities();
 
-            if (capabilities.torch) {
+            if ('torch' in capabilities) {
                 await track.applyConstraints({
                     advanced: [{ torch: !flashEnabled } as any]
                 });

@@ -6,12 +6,11 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Button } from '@/shared/components/ui/Button';
-import { Input } from '@/shared/components/ui/Input';
+import { Button, Input, CurrencyInput, Switch } from '@/shared/components/ui';
 import { MenuItem } from '@/shared/types';
 import { useCategories } from '../hooks/useCategories';
 import { useTranslation } from '@/shared/contexts/LanguageContext';
-import { Settings, Info } from 'lucide-react';
+import { Settings, Info, Eye, EyeOff } from 'lucide-react';
 import { ModifiersTab } from './ModifiersTab';
 
 interface MenuFormData {
@@ -100,17 +99,19 @@ export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: Menu
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          {t.menu.priceInDollars}
+          {t.menu.price} *
         </label>
-        <Input
-          type="number"
-          step="0.01"
-          min="0"
+        <CurrencyInput
           value={formData.price}
-          onChange={(e) => handleChange('price', parseFloat(e.target.value) || 0)}
-          placeholder="0.00"
+          onChange={(value) => handleChange('price', value)}
+          placeholder="€0,00"
           required
+          min={0}
+          max={999.99}
         />
+        <p className="text-xs text-gray-500 mt-1">
+          💡 Price excluding VAT • 21% will be added for customers
+        </p>
       </div>
 
       <div>
@@ -144,17 +145,29 @@ export function MenuForm({ initialData, onSubmit, onCancel, restaurantId }: Menu
         />
       </div>
 
-      <div className="flex items-center">
-        <input
-          type="checkbox"
-          id="available"
+      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
+        <div className="flex items-center space-x-3">
+          <div className={`p-2 rounded-full ${formData.isAvailable ? 'bg-green-100' : 'bg-red-100'}`}>
+            {formData.isAvailable ? (
+              <Eye className="w-4 h-4 text-green-600" />
+            ) : (
+              <EyeOff className="w-4 h-4 text-red-600" />
+            )}
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-900">
+              Available
+            </label>
+            <p className="text-xs text-gray-500">
+              {formData.isAvailable ? 'Customers can order this item' : 'Hidden from customer menu'}
+            </p>
+          </div>
+        </div>
+        <Switch
+          id="availability-toggle"
           checked={formData.isAvailable}
-          onChange={(e) => handleChange('isAvailable', e.target.checked)}
-          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          onChange={(checked) => handleChange('isAvailable', checked)}
         />
-        <label htmlFor="available" className="ml-2 block text-sm text-gray-700">
-          {t.menu.availableForOrdering}
-        </label>
       </div>
     </div>
   );

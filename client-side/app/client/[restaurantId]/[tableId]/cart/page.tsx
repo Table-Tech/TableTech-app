@@ -22,6 +22,17 @@ export default function CartPage() {
         if (storedCart) {
             try {
                 const parsedCart = JSON.parse(storedCart);
+                console.log("Raw cart data:", parsedCart);
+                
+                // Debug: Check each item's modifier data
+                parsedCart.forEach((item: any, index: number) => {
+                    console.log(`Cart item ${index}:`, {
+                        name: item.name,
+                        modifiers: item.modifiers,
+                        modifierNames: item.modifierNames
+                    });
+                });
+                
                 setCartItems(parsedCart);
             } catch (error) {
                 console.error("Error parsing cart:", error);
@@ -50,20 +61,25 @@ export default function CartPage() {
         return () => clearTimeout(timeout);
     }, [restaurantId, tableId]);
 
-    const updateQuantity = (id: number, value: string) => {
+    const updateQuantity = (cartItemId: string, value: string) => {
         const parsed = parseInt(value);
         const newQuantity = isNaN(parsed) ? 0 : parsed;
         const updated = cartItems.map((item) =>
-            item.id === id ? { ...item, quantity: newQuantity } : item
+            item.cartItemId === cartItemId ? { ...item, quantity: newQuantity } : item
         );
         setCartItems(updated);
         localStorage.setItem("cart", JSON.stringify(updated));
     };
 
-    const removeItem = (id: number) => {
-        const updated = cartItems.filter((item) => item.id !== id);
+    const removeItem = (cartItemId: string) => {
+        const updated = cartItems.filter((item) => item.cartItemId !== cartItemId);
         setCartItems(updated);
         localStorage.setItem("cart", JSON.stringify(updated));
+    };
+
+    const clearCart = () => {
+        setCartItems([]);
+        localStorage.removeItem("cart");
     };
 
     const total = cartItems.reduce((sum: number, item: any) => {
@@ -191,7 +207,7 @@ export default function CartPage() {
                                 <AnimatePresence>
                                     {cartItems.map((item: any, index: number) => (
                                         <motion.div
-                                            key={item.id}
+                                            key={item.cartItemId || `${item.id}-${index}`}
                                             initial={{ opacity: 0, y: -10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, y: 10 }}
@@ -219,9 +235,9 @@ export default function CartPage() {
                                                             <h3 className={`font-bold text-lg ${getItemTextColor(index)}`}>
                                                                 {item.quantity}x {item.name}
                                                             </h3>
-                                                            {item.modifiers?.length > 0 && (
+                                                            {(item.modifierNames?.length > 0 || item.modifiers?.length > 0) && (
                                                                 <p className="text-sm text-gray-600">
-                                                                    {item.modifiers.join(", ")}
+                                                                    {item.modifierNames ? item.modifierNames.join(", ") : item.modifiers.join(", ")}
                                                                 </p>
                                                             )}
                                                         </div>
@@ -232,7 +248,7 @@ export default function CartPage() {
                                                     <div className="flex items-center space-x-3">
                                                         <div className="flex items-center space-x-2">
                                                             <button
-                                                                onClick={() => updateQuantity(item.id, String(Math.max(1, item.quantity - 1)))}
+                                                                onClick={() => updateQuantity(item.cartItemId, String(Math.max(1, item.quantity - 1)))}
                                                                 className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-200 text-gray-600 hover:bg-gray-50"
                                                             >
                                                                 -
@@ -242,18 +258,18 @@ export default function CartPage() {
                                                                 min={1}
                                                                 inputMode="numeric"
                                                                 value={item.quantity === 0 || isNaN(item.quantity) ? "" : String(item.quantity)}
-                                                                onChange={(e) => updateQuantity(item.id, e.target.value)}
+                                                                onChange={(e) => updateQuantity(item.cartItemId, e.target.value)}
                                                                 className="w-12 text-center py-1 border border-gray-300 rounded-lg bg-white shadow-sm text-sm"
                                                             />
                                                             <button
-                                                                onClick={() => updateQuantity(item.id, String(item.quantity + 1))}
+                                                                onClick={() => updateQuantity(item.cartItemId, String(item.quantity + 1))}
                                                                 className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-200 text-gray-600 hover:bg-gray-50"
                                                             >
                                                                 +
                                                             </button>
                                                         </div>
                                                         <button
-                                                            onClick={() => removeItem(item.id)}
+                                                            onClick={() => removeItem(item.cartItemId)}
                                                             className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors"
                                                         >
                                                             Verwijder
@@ -295,17 +311,25 @@ export default function CartPage() {
                             >
                                 Bestelling Plaatsen
                             </button>
-                            <button
-                                className="w-full text-gray-600 text-center py-2"
-                                onClick={() => {
-                                    setStartExitTransition(true);
-                                    setTimeout(() => {
-                                        router.push(`/client/${restaurantId}/${tableId}`);
-                                    }, 600);
-                                }}
-                            >
-                                ← Terug naar menu
-                            </button>
+                            <div className="flex gap-2">
+                                <button
+                                    className="flex-1 text-gray-600 text-center py-2"
+                                    onClick={() => {
+                                        setStartExitTransition(true);
+                                        setTimeout(() => {
+                                            router.push(`/client/${restaurantId}/${tableId}`);
+                                        }, 600);
+                                    }}
+                                >
+                                    ← Terug naar menu
+                                </button>
+                                <button
+                                    className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600"
+                                    onClick={clearCart}
+                                >
+                                    Clear Cart
+                                </button>
+                            </div>
                         </div>
                     </motion.footer>
 

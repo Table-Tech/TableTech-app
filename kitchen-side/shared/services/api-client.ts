@@ -37,9 +37,12 @@ class ApiClient {
       }
     }
 
-    const defaultHeaders: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
+    const defaultHeaders: HeadersInit = {};
+    
+    // Only set Content-Type for requests that have a body
+    if (options.body || (options.method && !['GET', 'DELETE', 'HEAD'].includes(options.method))) {
+      defaultHeaders['Content-Type'] = 'application/json';
+    }
 
     if (token) {
       defaultHeaders.Authorization = `Bearer ${token}`;
@@ -360,7 +363,10 @@ class ApiClient {
     console.log('Full URL:', `${this.baseUrl}/menu/staff/items`);
     const response = await this.request(`/menu/staff/items`, {
       method: 'POST',
-      body: JSON.stringify(data),
+      headers: {
+        'X-Restaurant-Context': restaurantId
+      },
+      body: JSON.stringify({...data, restaurantId}),
     });
     console.log('Raw API Response:', response);
     return response;
@@ -369,6 +375,9 @@ class ApiClient {
   async updateMenuItem(restaurantId: string, id: string, data: any) {
     return this.request(`/menu/staff/items/${id}`, {
       method: 'PATCH',
+      headers: {
+        'X-Restaurant-Context': restaurantId
+      },
       body: JSON.stringify(data),
     });
   }
@@ -376,12 +385,18 @@ class ApiClient {
   async deleteMenuItem(restaurantId: string, id: string) {
     return this.request(`/menu/staff/items/${id}`, {
       method: 'DELETE',
+      headers: {
+        'X-Restaurant-Context': restaurantId
+      },
     });
   }
 
   async updateMenuItemAvailability(restaurantId: string, id: string, isAvailable: boolean, availabilityNote?: string) {
     return this.request(`/menu/staff/items/${id}/availability`, {
       method: 'PATCH',
+      headers: {
+        'X-Restaurant-Context': restaurantId
+      },
       body: JSON.stringify({
         isAvailable,
         availabilityNote
@@ -392,13 +407,19 @@ class ApiClient {
   async createMenuCategory(restaurantId: string, data: any) {
     return this.request(`/menu-categories/staff/categories`, {
       method: 'POST',
-      body: JSON.stringify(data),
+      headers: {
+        'X-Restaurant-Context': restaurantId
+      },
+      body: JSON.stringify({...data, restaurantId}),
     });
   }
 
   async updateMenuCategory(restaurantId: string, id: string, data: any) {
     return this.request(`/menu-categories/staff/categories/${id}`, {
       method: 'PATCH',
+      headers: {
+        'X-Restaurant-Context': restaurantId
+      },
       body: JSON.stringify(data),
     });
   }
@@ -406,6 +427,9 @@ class ApiClient {
   async deleteMenuCategory(restaurantId: string, id: string) {
     return this.request(`/menu-categories/staff/categories/${id}`, {
       method: 'DELETE',
+      headers: {
+        'X-Restaurant-Context': restaurantId
+      },
     });
   }
 
@@ -533,6 +557,9 @@ class ApiClient {
       updatedAt: string;
     }>('/staff/tables', {
       method: 'POST',
+      headers: {
+        'X-Restaurant-Context': data.restaurantId
+      },
       body: JSON.stringify(data),
     });
   }
@@ -653,6 +680,9 @@ class ApiClient {
   async createStaff(data: any) {
     return this.request('/staff/staff/members', {
       method: 'POST',
+      headers: {
+        'X-Restaurant-Context': data.restaurantId
+      },
       body: JSON.stringify(data),
     });
   }
@@ -660,13 +690,21 @@ class ApiClient {
   async updateStaff(id: string, data: any) {
     return this.request(`/staff/staff/members/${id}`, {
       method: 'PATCH',
+      headers: {
+        'X-Restaurant-Context': data.restaurantId || data.restaurant?.id
+      },
       body: JSON.stringify(data),
     });
   }
 
-  async deleteStaff(id: string) {
+  async deleteStaff(id: string, restaurantId?: string) {
+    const headers: any = {};
+    if (restaurantId) {
+      headers['X-Restaurant-Context'] = restaurantId;
+    }
     return this.request(`/staff/staff/members/${id}`, {
       method: 'DELETE',
+      headers,
     });
   }
 
@@ -677,143 +715,159 @@ class ApiClient {
     });
   }
 
-  // =================== MODIFIER GROUP ENDPOINTS ===================
+  // =================== MODIFIER TEMPLATE ENDPOINTS ===================
   
-  // Get modifier groups for a specific menu item  
-  async getMenuItemModifierGroups(menuItemId: string) {
-    return this.request<Array<{
-      id: string;
-      name: string;
-      menuItemId: string;
-      required: boolean;
-      multiSelect: boolean;
-      minSelect: number;
-      maxSelect?: number;
-      displayOrder: number;
-      isActive: boolean;
-      modifiers: Array<{
+  // Get modifier templates assigned to a menu item  
+  async getMenuItemModifierTemplates(menuItemId: string) {
+    return this.request<{
+      success: boolean;
+      data: Array<{
         id: string;
-        name: string;
-        price: number;
+        displayName?: string;
+        required: boolean;
+        minSelect: number;
+        maxSelect?: number;
         displayOrder: number;
-        isActive: boolean;
-        modifierGroupId: string;
+        template: {
+          id: string;
+          name: string;
+          type: string;
+          options: Array<{
+            id: string;
+            name: string;
+            price: number;
+            displayOrder: number;
+          }>;
+        };
+        optionOverrides: Array<{
+          id: string;
+          optionId: string;
+          isHidden: boolean;
+          priceOverride: number | null;
+          nameOverride: string | null;
+          isDefault: boolean;
+        }>;
       }>;
-    }>>(`/modifier-groups/staff/modifier-groups?menuItemId=${menuItemId}`);
+    }>(`/staff/menu-items/${menuItemId}/templates`);
   }
 
-  // Get all modifier groups for a restaurant (global management)
-  async getModifierGroups(restaurantId: string) {
-    return this.request<Array<{
-      id: string;
-      name: string;
-      required: boolean;
-      multiSelect: boolean;
-      minSelect: number;
-      maxSelect?: number;
-      displayOrder: number;
-      isActive: boolean;
-      restaurantId: string;
-      modifiers: Array<{
+  // Get all modifier templates for a restaurant (global management)
+  async getModifierTemplates() {
+    return this.request<{
+      success: boolean;
+      data: Array<{
         id: string;
         name: string;
-        price: number;
-        displayOrder: number;
+        description?: string;
+        type: string;
         isActive: boolean;
-        modifierGroupId: string;
+        createdAt: string;
+        updatedAt: string;
+        options: Array<{
+          id: string;
+          name: string;
+          price: number;
+          displayOrder: number;
+          isActive: boolean;
+        }>;
+        _count: { menuItems: number };
       }>;
-    }>>(`/modifier-groups/staff/modifier-groups?restaurantId=${restaurantId}`);
+    }>(`/staff/modifier-templates`);
   }
 
-  async createModifierGroup(data: {
+  async createModifierTemplate(data: {
     name: string;
-    restaurantId: string;
-    required: boolean;
-    multiSelect: boolean;
-    minSelect: number;
-    maxSelect?: number;
-    displayOrder: number;
+    description?: string;
+    type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE';
+    options: Array<{
+      name: string;
+      price: number;
+      displayOrder?: number;
+    }>;
   }) {
-    return this.request(`/modifier-groups/staff/modifier-groups`, {
+    return this.request(`/staff/modifier-templates`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async updateModifierGroup(id: string, data: {
+  async updateModifierTemplate(id: string, data: {
     name?: string;
+    description?: string;
+    type?: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE';
+    isActive?: boolean;
+  }) {
+    return this.request(`/staff/modifier-templates/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteModifierTemplate(id: string) {
+    return this.request(`/staff/modifier-templates/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Assign template to menu item with optional overrides
+  async assignTemplateToMenuItem(menuItemId: string, data: {
+    templateId: string;
+    displayName?: string;
     required?: boolean;
-    multiSelect?: boolean;
     minSelect?: number;
     maxSelect?: number;
     displayOrder?: number;
+    optionOverrides?: Array<{
+      optionId: string;
+      isHidden?: boolean;
+      priceOverride?: number;
+      nameOverride?: string;
+      isDefault?: boolean;
+    }>;
   }) {
-    return this.request(`/modifier-groups/staff/modifier-groups/${id}`, {
-      method: 'PATCH',
+    return this.request(`/staff/menu-items/${menuItemId}/templates`, {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async deleteModifierGroup(id: string) {
-    return this.request(`/modifier-groups/staff/modifier-groups/${id}`, {
+  // Unassign template from menu item
+  async unassignTemplateFromMenuItem(menuItemId: string, templateId: string) {
+    return this.request(`/staff/menu-items/${menuItemId}/templates/${templateId}`, {
       method: 'DELETE',
     });
   }
 
-  // Assign modifier group to menu item (clone the group with new menuItemId)
-  async assignModifierGroupToMenuItem(menuItemId: string, modifierGroupId: string) {
-    return this.request(`/modifier-groups/staff/modifier-groups/${modifierGroupId}/assign`, {
-      method: 'POST',
-      body: JSON.stringify({ menuItemId }),
-    });
-  }
-
-  // Unassign modifier group from menu item (delete the menu-item-specific clone)
-  async unassignModifierGroupFromMenuItem(menuItemId: string, modifierGroupId: string) {
-    return this.request(`/modifier-groups/staff/modifier-groups/${modifierGroupId}/unassign`, {
-      method: 'DELETE',
-      body: JSON.stringify({ menuItemId }),
-    });
-  }
-
-  // =================== MODIFIER ENDPOINTS ===================
+  // =================== TEMPLATE OPTION ENDPOINTS ===================
   
-  async getModifiers(modifierGroupId: string) {
-    return this.request<Array<{
-      id: string;
-      name: string;
-      price: number;
-      displayOrder: number;
-      isActive: boolean;
-      modifierGroupId: string;
-    }>>(`/modifiers/staff/modifiers?modifierGroupId=${modifierGroupId}`);
-  }
-
-  async createModifier(data: {
+  // Add option to template
+  async addOptionToTemplate(templateId: string, data: {
     name: string;
-    modifierGroupId: string;
     price: number;
-    displayOrder: number;
+    displayOrder?: number;
   }) {
-    return this.request(`/modifiers/staff/modifiers`, {
+    return this.request(`/staff/modifier-templates/${templateId}/options`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async updateModifier(id: string, data: {
+  // Update template option
+  async updateTemplateOption(templateId: string, optionId: string, data: {
     name?: string;
     price?: number;
     displayOrder?: number;
+    isActive?: boolean;
   }) {
-    return this.request(`/modifiers/staff/modifiers/${id}`, {
+    return this.request(`/staff/modifier-templates/${templateId}/options/${optionId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
 
-  async deleteModifier(id: string) {
-    return this.request(`/modifiers/staff/modifiers/${id}`, {
+  // Delete template option
+  async deleteTemplateOption(templateId: string, optionId: string) {
+    return this.request(`/staff/modifier-templates/${templateId}/options/${optionId}`, {
       method: 'DELETE',
     });
   }

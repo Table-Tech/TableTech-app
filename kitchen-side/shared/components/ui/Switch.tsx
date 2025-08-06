@@ -51,16 +51,16 @@ export function Switch({
         />
         <label
           htmlFor={id}
-          className={`block w-full h-full rounded-full cursor-pointer transition-colors duration-200 ${
+          className={`flex items-center w-full h-full rounded-full cursor-pointer transition-all duration-200 ${
             isChecked 
-              ? 'bg-blue-600' 
+              ? 'bg-gradient-to-r from-blue-600 to-blue-800' 
               : 'bg-gray-300'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <span
             className={`block w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-200 ${
               isChecked ? 'translate-x-5' : 'translate-x-1'
-            } mt-1`}
+            }`}
           />
         </label>
       </div>

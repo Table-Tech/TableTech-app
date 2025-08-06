@@ -160,12 +160,18 @@ export class CategoryService extends BaseService<Prisma.MenuCategoryCreateInput,
           where: { isAvailable: true },
           orderBy: { displayOrder: 'asc' },
           include: {
-            modifierGroups: {
+            modifierTemplates: {
               orderBy: { displayOrder: 'asc' as const },
               include: {
-                modifiers: {
-                  orderBy: { displayOrder: 'asc' as const }
-                }
+                template: {
+                  include: {
+                    options: {
+                      where: { isActive: true },
+                      orderBy: { displayOrder: 'asc' as const }
+                    }
+                  }
+                },
+                optionOverrides: true
               }
             }
           }

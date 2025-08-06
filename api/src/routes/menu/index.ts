@@ -101,14 +101,14 @@ export default async function menuRoutes(server: FastifyInstance) {
 
   // =================== CUSTOMER ROUTES ===================
   server.register(async function customerMenuRoutes(server) {
-    // Apply rate limiting to all customer routes
-    server.addHook('preHandler', rateLimit(30, 60000)); // 30 requests per minute
+    // Apply rate limiting to all customer routes (disabled for development)
+    // server.addHook('preHandler', rateLimit(200, 60000)); // 200 requests per minute
 
     // GET /api/customer/menu/:tableCode/:restaurantId - Get customer menu
     server.get('/:tableCode/:restaurantId', {
       preHandler: [
         validateParams(CustomerMenuParamsSchema),
-        rateLimit(10, 60000) // 10 menu requests per minute per IP
+        // rateLimit(100, 60000) // 100 menu requests per minute per IP (disabled for dev)
       ]
     }, (req, reply) => controller.getCustomerMenu(req as any, reply));
 

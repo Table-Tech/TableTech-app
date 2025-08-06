@@ -80,13 +80,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
         
-        // Stop loading immediately so user can interact with the app
+        // Validate token before allowing access
         if (process.env.NODE_ENV === 'development') {
-          console.log('AuthContext: Setting user data and stopping loading');
+          console.log('AuthContext: Validating token with server');
         }
-        setIsLoading(false);
         
-        // Validate token in the background (don't block UI)
         try {
           const response = await apiClient.getCurrentUser();
           
@@ -94,22 +92,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Update with fresh user data from server
             setUser(response.data as User);
             
-            // Load available restaurants for Super Admin in background
+            // Load available restaurants for Super Admin
             if (userData.role === 'SUPER_ADMIN') {
               await loadAvailableRestaurants();
             }
+            
+            // Now we can safely stop loading
+            if (process.env.NODE_ENV === 'development') {
+              console.log('AuthContext: Token validated, stopping loading');
+            }
+            setIsLoading(false);
           } else {
             // Token is invalid, clear auth data
+            if (process.env.NODE_ENV === 'development') {
+              console.log('AuthContext: Token validation failed, clearing auth');
+            }
             clearAuthData();
+            setIsLoading(false);
           }
         } catch (error) {
           if (process.env.NODE_ENV === 'development') {
-            console.error('Background token validation failed:', error);
+            console.error('Token validation failed:', error);
           }
-          // Only clear auth data if it's a 401 or other auth-related error
-          if (error instanceof Error && error.message.includes('401')) {
-            clearAuthData();
-          }
+          // Clear auth data on validation failure
+          clearAuthData();
+          setIsLoading(false);
         }
         
       } catch (error) {

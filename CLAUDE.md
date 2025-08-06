@@ -2,50 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Engineering Principles
+## Project Overview
 
-As an AI assistant working on this codebase, you should:
+TableTech is a monorepo restaurant management system with three main applications:
+- **API** (`api/`): Fastify REST API with PostgreSQL/Prisma, WebSocket support, and Mollie payments (port 3001)
+- **Client-Side** (`client-side/`): Next.js 15 customer-facing QR code ordering app (port 3000)
+- **Kitchen-Side** (`kitchen-side/`): Next.js 15 restaurant staff dashboard (port 3002)
 
-1. **Challenge assumptions**: Never assume the user's request is the best approach. Always evaluate if there are better solutions, more efficient patterns, or potential issues with the proposed approach.
+## Essential Development Commands
 
-2. **Suggest alternatives**: When a user requests something, consider:
-   - Is this the most maintainable solution?
-   - Are there existing patterns in the codebase that should be followed instead?
-   - Could this introduce security vulnerabilities or performance issues?
-   - Is there a more type-safe or robust approach?
-
-3. **Follow established patterns**: Before implementing something new, examine the existing codebase architecture and follow established patterns rather than introducing inconsistencies.
-
-4. **Prioritize code quality**: Always write code that is:
-   - Type-safe and well-typed
-   - Properly error-handled
-   - Following the existing code style and conventions
-   - Documented when necessary
-   - Tested (or testable)
-
-5. **Security-first mindset**: Always consider security implications, especially around:
-   - Authentication and authorization
-   - Input validation and sanitization
-   - SQL injection prevention (use Prisma's type-safe queries)
-   - XSS prevention
-   - Proper error handling that doesn't leak sensitive information
-
-6. **Performance considerations**: Be mindful of:
-   - Database query efficiency
-   - N+1 query problems
-   - Proper use of Prisma includes/selects
-   - Frontend bundle size and rendering performance
-
-## Project Structure
-
-TableTech is a monorepo for a restaurant management system with three main applications:
-- **API** (`api/`): Fastify-based REST API with PostgreSQL and Prisma
-- **Client Side** (`client-side/`): Next.js customer-facing app (port 3000)
-- **Kitchen Side** (`kitchen-side/`): Next.js restaurant management dashboard (port 3002)
-
-## Development Commands
-
-### Starting Development Servers
+### Quick Start
 ```bash
 # Start all services concurrently
 npm run dev
@@ -59,97 +25,121 @@ npm run dev:api       # API server on port 3001
 ### API Development
 ```bash
 cd api
-npm run dev           # Start API with tsx hot reload
-npx prisma generate   # Generate Prisma client after schema changes
-npx prisma db push    # Push schema changes to database
-npx prisma studio     # Open Prisma database browser
+npm run dev           # Start with tsx hot reload
+npm run build         # TypeScript compilation
+npm run typecheck     # Type check without emit
+npm run lint          # ESLint (currently not configured)
+
+# Database management
+npm run db:generate   # Generate Prisma client after schema changes
+npm run db:migrate    # Deploy database migrations
+npm run db:studio     # Open Prisma Studio GUI
 ```
 
 ### Frontend Development
 ```bash
-# Client-side app
-cd client-side
-npm run dev
-npm run build
-npm run lint
+# Both client-side and kitchen-side share these commands
+cd [client-side|kitchen-side]
+npm run dev           # Development server
+npm run build         # Production build
+npm run lint          # ESLint checking
 
-# Kitchen-side app  
+# Kitchen-side additional
 cd kitchen-side
-npm run dev
-npm run build
-npm run lint
+npm run lint:fix      # Auto-fix ESLint issues
+npm run type-check    # TypeScript checking
 ```
 
-## API Architecture
+## Architecture Patterns
 
-The API follows a layered architecture pattern:
+### API Architecture (Layered Pattern)
+```
+src/
+├── routes/       # Fastify route handlers with Zod validation
+├── controllers/  # Business logic orchestration
+├── services/     # Data access layer (all extend BaseService<TInput, TOutput>)
+├── schemas/      # Zod validation schemas
+├── middleware/   # Auth, validation, error handling
+└── utils/        # JWT, password hashing, logging utilities
+```
 
-### Core Structure
-- **Routes** (`src/routes/`): Fastify route handlers with validation
-- **Controllers** (`src/controllers/`): Business logic orchestration
-- **Services** (`src/services/`): Data access layer extending BaseService
-- **Schemas** (`src/schemas/`): Zod validation schemas
-- **Middleware** (`src/middleware/`): Authentication, validation, error handling
-- **Utils** (`src/utils/`): Shared utilities (JWT, password hashing, etc.)
+**Key Patterns:**
+- All services extend `BaseService` for consistent CRUD operations
+- Zod schemas validate all requests/responses
+- JWT authentication with role-based access (SUPER_ADMIN, ADMIN, MANAGER, CHEF, WAITER, CASHIER)
+- Multi-tenant architecture with restaurant-scoped data
+- WebSocket support via Socket.io for real-time updates
 
-### Key Patterns
-- All services extend `BaseService<TInput, TOutput>` for consistent CRUD operations
-- Zod schemas are used for request/response validation
-- JWT-based authentication with role-based access control
-- Comprehensive error handling with custom error types
-- Structured logging with request ID tracking
+### Frontend Architecture
+**Kitchen-Side:** Feature-based organization with domain folders containing components, hooks, services, and types
+**Client-Side:** Route-based organization with App Router dynamic routes for table/QR access
 
-### Database Schema
-Built with Prisma ORM using PostgreSQL. Key entities:
-- `Restaurant` - Multi-tenant restaurant data
-- `Table` - QR code enabled table management
-- `MenuItem` & `MenuCategory` - Menu structure
-- `ModifierGroup` & `Modifier` - Menu item customizations
-- `Order` & `OrderItem` - Order management with status tracking
-- `Staff` - User management with role-based permissions
-- `Payment` - Mollie payment integration
+Both use:
+- Next.js 15 with App Router
+- TypeScript strict mode
+- Tailwind CSS for styling
+- Environment variables in `.env.local`
 
-### API Endpoints
-All endpoints are prefixed with `/api/`:
-- `/auth` - Authentication and authorization
-- `/staff` - Staff management
-- `/restaurants` - Restaurant CRUD operations
-- `/menu` - Menu item management
-- `/menu-categories` - Menu category management
-- `/orders` - Order processing and tracking
-- `/tables` - Table management and QR codes
-- `/modifier-groups` & `/modifiers` - Menu customization options
+## Database Schema (Prisma)
 
-## Technology Stack
+Key entities and relationships:
+- `Restaurant` → Multi-tenant root entity
+- `Table` → QR-enabled table management
+- `MenuItem`, `MenuCategory` → Menu structure
+- `ModifierGroup`, `Modifier` → Customization options
+- `Order`, `OrderItem` → Order tracking with status workflow
+- `Staff` → User management with roles
+- `CustomerSession`, `StaffSession` → Session tracking
+- `Payment` → Mollie integration
+- `AuditLog` → Compliance tracking
 
-### Backend
-- **Fastify**: Web framework with TypeScript support
-- **Prisma**: Database ORM with PostgreSQL
-- **Zod**: Schema validation
-- **JWT**: Authentication tokens
-- **bcryptjs**: Password hashing
+## API Endpoints
 
-### Frontend (Both Apps)
-- **Next.js 15**: React framework with App Router
-- **TypeScript**: Type safety
-- **Tailwind CSS**: Styling
-- **React 19**: UI library
+All prefixed with `/api/`:
+- `/auth` - Authentication (login, logout, refresh)
+- `/staff` - Staff CRUD with role management
+- `/restaurants` - Restaurant management
+- `/menu`, `/menu-categories` - Menu management
+- `/orders` - Order processing with real-time updates
+- `/tables` - Table management and QR generation
+- `/modifier-groups`, `/modifiers` - Menu customizations
+- `/payments` - Payment processing
+- `/sessions` - Session management
 
-### Development Tools
-- **tsx**: TypeScript execution for API
-- **concurrently**: Run multiple dev servers
-- **ESLint**: Code linting for Next.js apps
+## Critical Conventions
+
+### When Making Changes:
+1. **Follow existing patterns** - Check neighboring files for established conventions
+2. **Maintain type safety** - Use Prisma-generated types and Zod schemas
+3. **Handle errors properly** - Use structured error responses
+4. **Consider multi-tenancy** - Always scope data by restaurant
+5. **Check for existing utilities** - Reuse BaseService, auth middleware, validation schemas
+
+### Security Considerations:
+- Never expose sensitive data in error messages
+- Use Prisma's type-safe queries (avoid raw SQL)
+- Validate all inputs with Zod schemas
+- Check role-based permissions in protected routes
+- Session security includes device tracking and concurrent limits
+
+### Performance Guidelines:
+- Prevent N+1 queries with proper Prisma includes/selects
+- Use database indexes (defined in schema)
+- Leverage Redis caching where implemented
+- Consider WebSocket for real-time features
 
 ## Environment Setup
 
-The API requires a `DATABASE_URL` environment variable for PostgreSQL connection. Both frontend apps use `.env.local` files for configuration.
+Required environment variables:
+- `DATABASE_URL` - PostgreSQL connection string
+- Frontend apps use `.env.local` for configuration
+- Timezone is set to Europe/Amsterdam (Dutch market)
 
-## Testing and Quality
+## Testing Status
 
-Run linting on frontend applications:
+Currently no test framework is configured. Use TypeScript compilation and ESLint for static analysis:
 ```bash
+cd api && npm run typecheck
 cd client-side && npm run lint
 cd kitchen-side && npm run lint
 ```
-
-No test framework is currently configured. When adding tests, check for existing test scripts in package.json files first.

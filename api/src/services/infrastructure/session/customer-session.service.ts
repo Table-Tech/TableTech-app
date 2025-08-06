@@ -273,7 +273,7 @@ export class CustomerSessionService {
           orderItems: {
             include: {
               menuItem: true,
-              modifiers: { include: { modifier: true } }
+              modifiers: { include: { modifierOption: true } }
             }
           }
         },

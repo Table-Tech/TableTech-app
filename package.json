@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "client_side",
+    "client-side",
     "kitchen-side",
     "api"
   ],
@@ -11,7 +11,7 @@
   "description": "Monorepo for TableTech fullstack app",
   "scripts": {
   "dev": "concurrently \"npm run dev:client\" \"npm run dev:kitchen\" \"npm run dev:api\"",
-  "dev:client": "cd client_side && npx next dev -p 3000",
+  "dev:client": "cd client-side && npx next dev -p 3000",
   "dev:kitchen": "cd kitchen-side && npx next dev -p 3002",
   "dev:api": "cd api && npm run dev"
 },

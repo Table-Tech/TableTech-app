@@ -219,7 +219,7 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
       {/* Header Section */}
-      <div className="max-w-6xl mx-auto px-6 pt-6">
+      <div className="max-w-7xl mx-auto px-6 pt-6">
         <div className="bg-gradient-to-br from-white/70 via-green-50/60 to-emerald-50/40 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 shadow-sm mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="space-y-1">
@@ -243,7 +243,7 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
                 className="bg-white/50 backdrop-blur-sm hover:bg-white/80 border-gray-200/50 text-gray-700 hover:text-gray-900 shadow-sm hover:shadow-md transition-all duration-200"
               >
                 <Settings2 className="w-4 h-4 mr-2" />
-                Modifier Groups
+Modifier Templates
               </Button>
               <Button 
                 onClick={() => setIsCreateModalOpen(true)}
@@ -278,10 +278,10 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
                   onChange={(e) => setShowHiddenItems(e.target.checked)}
                   className="sr-only"
                 />
-                <div className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 shadow-inner ${
+                <div className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 ${
                   showHiddenItems 
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 shadow-blue-200' 
-                    : 'bg-gray-300 shadow-gray-200'
+                    ? 'bg-gradient-to-r from-blue-600 to-blue-800' 
+                    : 'bg-gray-300'
                 }`}>
                   <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-all duration-300 shadow-sm ${
                     showHiddenItems ? 'translate-x-6 shadow-lg' : 'translate-x-1'

@@ -4,27 +4,26 @@ import { useState, useEffect } from "react";
 import { Button } from "@/shared/components/ui/Button";
 import { Modal } from "@/shared/components/ui/Modal";
 import { LoadingSpinner } from "@/shared/components/ui/LoadingSpinner";
+import { CurrencyInput } from "@/shared/components/ui/CurrencyInput";
 import { apiClient } from "@/shared/services/api-client";
 import { Plus, Edit2, Trash2, Settings2, Tag } from "lucide-react";
 
-interface ModifierGroup {
+interface ModifierTemplate {
   id: string;
   name: string;
-  required: boolean;
-  multiSelect: boolean;
-  minSelect: number;
-  maxSelect?: number;
-  displayOrder: number;
+  description?: string;
+  type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE';
   isActive: boolean;
-  restaurantId: string;
-  modifiers: Array<{
+  createdAt: string;
+  updatedAt: string;
+  options: Array<{
     id: string;
     name: string;
     price: number;
     displayOrder: number;
     isActive: boolean;
-    modifierGroupId: string;
   }>;
+  _count: { menuItems: number };
 }
 
 interface ModifierGroupsPageProps {
@@ -33,181 +32,168 @@ interface ModifierGroupsPageProps {
 }
 
 export function ModifierGroupsPage({ restaurantId, onClose }: ModifierGroupsPageProps) {
-  const [modifierGroups, setModifierGroups] = useState<ModifierGroup[]>([]);
+  const [modifierTemplates, setModifierTemplates] = useState<ModifierTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
-  const [isModifierModalOpen, setIsModifierModalOpen] = useState(false);
-  const [editingGroup, setEditingGroup] = useState<ModifierGroup | null>(null);
-  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
-  const [editingModifier, setEditingModifier] = useState<any>(null);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isOptionModalOpen, setIsOptionModalOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<ModifierTemplate | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [editingOption, setEditingOption] = useState<any>(null);
 
-  const [groupFormData, setGroupFormData] = useState({
+  const [templateFormData, setTemplateFormData] = useState({
     name: "",
-    required: false,
-    multiSelect: false,
-    minSelect: 1,
-    maxSelect: undefined as number | undefined,
+    description: "",
+    type: "SINGLE_CHOICE" as "SINGLE_CHOICE" | "MULTIPLE_CHOICE",
   });
 
-  const [modifierFormData, setModifierFormData] = useState({
+  const [optionFormData, setOptionFormData] = useState({
     name: "",
     price: 0,
   });
 
-  const fetchModifierGroups = async () => {
+  const fetchModifierTemplates = async () => {
     try {
       setIsLoading(true);
-      const response = await apiClient.getModifierGroups(restaurantId);
-      if (response.success) {
-        setModifierGroups(response.data || []);
+      const response = await apiClient.getModifierTemplates();
+      if (response.success && Array.isArray(response.data)) {
+        setModifierTemplates(response.data);
       }
     } catch (error) {
-      console.error("Error fetching modifier groups:", error);
+      console.error("Error fetching modifier templates:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchModifierGroups();
+    fetchModifierTemplates();
   }, [restaurantId]);
 
-  const handleCreateGroup = () => {
-    setEditingGroup(null);
-    setGroupFormData({
+  const handleCreateTemplate = () => {
+    setEditingTemplate(null);
+    setTemplateFormData({
       name: "",
-      required: false,
-      multiSelect: false,
-      minSelect: 1,
-      maxSelect: undefined,
+      description: "",
+      type: "SINGLE_CHOICE",
     });
-    setIsGroupModalOpen(true);
+    setIsTemplateModalOpen(true);
   };
 
-  const handleEditGroup = (group: ModifierGroup) => {
-    setEditingGroup(group);
-    setGroupFormData({
-      name: group.name,
-      required: group.required,
-      multiSelect: group.multiSelect,
-      minSelect: group.minSelect,
-      maxSelect: group.maxSelect,
+  const handleEditTemplate = (template: ModifierTemplate) => {
+    setEditingTemplate(template);
+    setTemplateFormData({
+      name: template.name,
+      description: template.description || "",
+      type: template.type,
     });
-    setIsGroupModalOpen(true);
+    setIsTemplateModalOpen(true);
   };
 
-  const handleGroupSubmit = async (e: React.FormEvent) => {
+  const handleTemplateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!groupFormData.name.trim()) {
-      alert("Group name is required");
-      return;
-    }
-
-    if (groupFormData.multiSelect && groupFormData.maxSelect && groupFormData.maxSelect < groupFormData.minSelect) {
-      alert("Maximum selections cannot be less than minimum selections");
+    if (!templateFormData.name.trim()) {
+      alert("Template name is required");
       return;
     }
 
     try {
-      if (editingGroup) {
-        await apiClient.updateModifierGroup(editingGroup.id, groupFormData);
+      if (editingTemplate) {
+        await apiClient.updateModifierTemplate(editingTemplate.id, templateFormData);
       } else {
-        await apiClient.createModifierGroup({
-          ...groupFormData,
-          restaurantId,
-          displayOrder: modifierGroups.length,
+        await apiClient.createModifierTemplate({
+          ...templateFormData,
+          options: [], // Start with no options - they'll be added separately
         });
       }
-      setIsGroupModalOpen(false);
-      await fetchModifierGroups();
+      setIsTemplateModalOpen(false);
+      await fetchModifierTemplates();
     } catch (error) {
-      console.error("Error saving modifier group:", error);
-      alert("Failed to save modifier group. Please try again.");
+      console.error("Error saving modifier template:", error);
+      alert("Failed to save modifier template. Please try again.");
     }
   };
 
-  const handleDeleteGroup = async (groupId: string) => {
-    if (!confirm("Are you sure you want to delete this modifier group?")) {
+  const handleDeleteTemplate = async (templateId: string) => {
+    if (!confirm("Are you sure you want to delete this modifier template? This will remove it from all menu items.")) {
       return;
     }
 
     try {
-      await apiClient.deleteModifierGroup(groupId);
-      await fetchModifierGroups();
+      await apiClient.deleteModifierTemplate(templateId);
+      await fetchModifierTemplates();
     } catch (error) {
-      console.error("Error deleting modifier group:", error);
-      alert("Failed to delete modifier group. Please try again.");
+      console.error("Error deleting modifier template:", error);
+      alert("Failed to delete modifier template. Please try again.");
     }
   };
 
-  const handleAddModifier = (groupId: string) => {
-    setSelectedGroupId(groupId);
-    setEditingModifier(null);
-    setModifierFormData({
+  const handleAddOption = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    setEditingOption(null);
+    setOptionFormData({
       name: "",
       price: 0,
     });
-    setIsModifierModalOpen(true);
+    setIsOptionModalOpen(true);
   };
 
-  const handleEditModifier = (modifier: any, groupId: string) => {
-    setSelectedGroupId(groupId);
-    setEditingModifier(modifier);
-    setModifierFormData({
-      name: modifier.name,
-      price: modifier.price,
+  const handleEditOption = (option: any, templateId: string) => {
+    setSelectedTemplateId(templateId);
+    setEditingOption(option);
+    setOptionFormData({
+      name: option.name,
+      price: option.price,
     });
-    setIsModifierModalOpen(true);
+    setIsOptionModalOpen(true);
   };
 
-  const handleModifierSubmit = async (e: React.FormEvent) => {
+  const handleOptionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!modifierFormData.name.trim()) {
-      alert("Modifier name is required");
+    if (!optionFormData.name.trim()) {
+      alert("Option name is required");
       return;
     }
 
-    if (modifierFormData.price < 0) {
+    if (optionFormData.price < 0) {
       alert("Price cannot be negative");
       return;
     }
 
     try {
-      if (editingModifier) {
-        await apiClient.updateModifier(editingModifier.id, {
-          name: modifierFormData.name,
-          price: modifierFormData.price,
+      if (editingOption) {
+        await apiClient.updateTemplateOption(selectedTemplateId, editingOption.id, {
+          name: optionFormData.name,
+          price: optionFormData.price,
         });
       } else {
-        const selectedGroup = modifierGroups.find(g => g.id === selectedGroupId);
-        await apiClient.createModifier({
-          name: modifierFormData.name,
-          modifierGroupId: selectedGroupId,
-          price: modifierFormData.price,
-          displayOrder: selectedGroup?.modifiers?.length || 0,
+        const selectedTemplate = modifierTemplates.find(t => t.id === selectedTemplateId);
+        await apiClient.addOptionToTemplate(selectedTemplateId, {
+          name: optionFormData.name,
+          price: optionFormData.price,
+          displayOrder: selectedTemplate?.options?.length || 0,
         });
       }
-      setIsModifierModalOpen(false);
-      await fetchModifierGroups();
+      setIsOptionModalOpen(false);
+      await fetchModifierTemplates();
     } catch (error) {
-      console.error("Error saving modifier:", error);
-      alert("Failed to save modifier. Please try again.");
+      console.error("Error saving option:", error);
+      alert("Failed to save option. Please try again.");
     }
   };
 
-  const handleDeleteModifier = async (modifierId: string) => {
-    if (!confirm("Are you sure you want to delete this modifier option?")) {
+  const handleDeleteOption = async (templateId: string, optionId: string) => {
+    if (!confirm("Are you sure you want to delete this option?")) {
       return;
     }
 
     try {
-      await apiClient.deleteModifier(modifierId);
-      await fetchModifierGroups();
+      await apiClient.deleteTemplateOption(templateId, optionId);
+      await fetchModifierTemplates();
     } catch (error) {
-      console.error("Error deleting modifier:", error);
-      alert("Failed to delete modifier. Please try again.");
+      console.error("Error deleting option:", error);
+      alert("Failed to delete option. Please try again.");
     }
   };
 
@@ -219,7 +205,7 @@ export function ModifierGroupsPage({ restaurantId, onClose }: ModifierGroupsPage
             <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <LoadingSpinner size="lg" />
             </div>
-            <p className="text-gray-700 font-medium">Loading modifier groups...</p>
+            <p className="text-gray-700 font-medium">Loading modifier templates...</p>
           </div>
         </div>
       </div>
@@ -235,9 +221,9 @@ export function ModifierGroupsPage({ restaurantId, onClose }: ModifierGroupsPage
             <div className="space-y-1">
               <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-700 bg-clip-text text-transparent">
                 <Settings2 className="w-8 h-8 inline mr-3 text-indigo-600" />
-                Modifier Groups
+                Modifier Templates
               </h1>
-              <p className="text-gray-600 text-sm">Create and manage reusable modifier groups for your menu items</p>
+              <p className="text-gray-600 text-sm">Create and manage reusable modifier templates for your menu items</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Button 
@@ -248,11 +234,11 @@ export function ModifierGroupsPage({ restaurantId, onClose }: ModifierGroupsPage
                 ← Back to Menu
               </Button>
               <Button 
-                onClick={handleCreateGroup}
+                onClick={handleCreateTemplate}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Add Modifier Group
+                Add Modifier Template
               </Button>
             </div>
           </div>
@@ -261,63 +247,66 @@ export function ModifierGroupsPage({ restaurantId, onClose }: ModifierGroupsPage
 
       {/* Content */}
       <div className="max-w-6xl mx-auto px-6 pb-8">
-        {modifierGroups.length === 0 ? (
+        {modifierTemplates.length === 0 ? (
           <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-12 text-center shadow-sm">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <Settings2 className="w-10 h-10 text-indigo-600" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No modifier groups yet</h3>
-            <p className="text-gray-600 mb-6">Create your first modifier group to get started with menu customizations</p>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No modifier templates yet</h3>
+            <p className="text-gray-600 mb-6">Create your first modifier template to get started with menu customizations</p>
             <Button 
-              onClick={handleCreateGroup}
+              onClick={handleCreateTemplate}
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Create First Modifier Group
+              Create First Modifier Template
             </Button>
           </div>
         ) : (
           <div className="space-y-6">
-            {modifierGroups.map((group) => (
-              <div key={group.id} className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm hover:shadow-md transition-all duration-300">
-                {/* Group Header */}
+            {modifierTemplates.map((template) => (
+              <div key={template.id} className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm hover:shadow-md transition-all duration-300">
+                {/* Template Header */}
                 <div className="p-6 border-b border-gray-200/50">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3">
                         <div className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600"></div>
                         <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                          {group.name}
+                          {template.name}
                         </h3>
                         <div className="flex items-center space-x-2">
-                          {group.required && (
-                            <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-medium">
-                              Required
-                            </span>
-                          )}
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            group.multiSelect 
+                            template.type === 'MULTIPLE_CHOICE' 
                               ? 'bg-blue-100 text-blue-700' 
                               : 'bg-gray-100 text-gray-700'
                           }`}>
-                            {group.multiSelect ? 'Multi-select' : 'Single-select'}
+                            {template.type === 'MULTIPLE_CHOICE' ? 'Multi-select' : 'Single-select'}
                           </span>
+                          {!template.isActive && (
+                            <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-medium">
+                              Inactive
+                            </span>
+                          )}
                         </div>
                       </div>
-                      {group.multiSelect && (
+                      {template.description && (
                         <p className="text-sm text-gray-600 mt-2 ml-6">
-                          Min: {group.minSelect}, Max: {group.maxSelect || 'unlimited'}
+                          {template.description}
                         </p>
                       )}
                     </div>
                     <div className="flex items-center space-x-2">
                       <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
-                        {group.modifiers.length} options
+                        {template.options.length} options
+                      </div>
+                      <div className="bg-green-50 text-green-700 px-3 py-1 rounded-full text-sm font-medium">
+                        {template._count.menuItems} items
                       </div>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleEditGroup(group)}
+                        onClick={() => handleEditTemplate(template)}
                         className="text-gray-600 hover:text-gray-800"
                       >
                         <Edit2 className="w-4 h-4" />
@@ -325,7 +314,7 @@ export function ModifierGroupsPage({ restaurantId, onClose }: ModifierGroupsPage
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDeleteGroup(group.id)}
+                        onClick={() => handleDeleteTemplate(template.id)}
                         className="text-red-600 hover:text-red-700"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -334,17 +323,17 @@ export function ModifierGroupsPage({ restaurantId, onClose }: ModifierGroupsPage
                   </div>
                 </div>
 
-                {/* Modifiers List */}
+                {/* Options List */}
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-lg font-semibold text-gray-900 flex items-center">
                       <Tag className="w-5 h-5 mr-2 text-indigo-600" />
-                      Modifier Options
+                      Template Options
                     </h4>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleAddModifier(group.id)}
+                      onClick={() => handleAddOption(template.id)}
                       className="bg-white/50 hover:bg-white/80"
                     >
                       <Plus className="w-4 h-4 mr-2" />
@@ -352,37 +341,44 @@ export function ModifierGroupsPage({ restaurantId, onClose }: ModifierGroupsPage
                     </Button>
                   </div>
 
-                  {group.modifiers.length === 0 ? (
+                  {template.options.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       <Tag className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                      <p className="text-sm">No modifier options yet</p>
+                      <p className="text-sm">No options yet</p>
                       <p className="text-xs text-gray-400 mt-1">Add options like "Extra Cheese", "Large Size", etc.</p>
                     </div>
                   ) : (
                     <div className="grid gap-3">
-                      {group.modifiers.map((modifier) => (
+                      {template.options.map((option) => (
                         <div
-                          key={modifier.id}
+                          key={option.id}
                           className="flex items-center justify-between p-4 bg-gray-50/50 rounded-lg border border-gray-200/50"
                         >
                           <div className="flex-1">
-                            <h5 className="font-medium text-gray-900">{modifier.name}</h5>
+                            <div className="flex items-center space-x-2">
+                              <h5 className="font-medium text-gray-900">{option.name}</h5>
+                              {!option.isActive && (
+                                <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-medium">
+                                  Inactive
+                                </span>
+                              )}
+                            </div>
                             <p className="text-sm text-gray-600">
-                              {modifier.price > 0 ? `+$${Number(modifier.price).toFixed(2)}` : 'No extra charge'}
+                              {option.price > 0 ? `+€${Number(option.price).toFixed(2)}` : 'No extra charge'}
                             </p>
                           </div>
                           <div className="flex items-center space-x-2">
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleEditModifier(modifier, group.id)}
+                              onClick={() => handleEditOption(option, template.id)}
                             >
                               <Edit2 className="w-4 h-4" />
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleDeleteModifier(modifier.id)}
+                              onClick={() => handleDeleteOption(template.id, option.id)}
                               className="text-red-600 hover:text-red-700"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -399,143 +395,117 @@ export function ModifierGroupsPage({ restaurantId, onClose }: ModifierGroupsPage
         )}
       </div>
 
-      {/* Group Modal */}
+      {/* Template Modal */}
       <Modal
-        isOpen={isGroupModalOpen}
-        onClose={() => setIsGroupModalOpen(false)}
-        title={editingGroup ? 'Edit Modifier Group' : 'Create Modifier Group'}
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        title={editingTemplate ? 'Edit Modifier Template' : 'Create Modifier Template'}
       >
-        <div className="space-y-4">
+        <form onSubmit={handleTemplateSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Group Name
+              Template Name *
             </label>
             <input
               type="text"
-              value={groupFormData.name}
-              onChange={(e) => setGroupFormData({ ...groupFormData, name: e.target.value })}
+              value={templateFormData.name}
+              onChange={(e) => setTemplateFormData({ ...templateFormData, name: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="e.g., Size, Extras, Cooking Style"
+              required
             />
           </div>
 
-          <div className="flex items-center space-x-3">
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={groupFormData.required}
-                onChange={(e) => setGroupFormData({ ...groupFormData, required: e.target.checked })}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-gray-700">Required</span>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Description (optional)
             </label>
-
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={groupFormData.multiSelect}
-                onChange={(e) => setGroupFormData({ ...groupFormData, multiSelect: e.target.checked })}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-gray-700">Allow multiple selections</span>
-            </label>
+            <textarea
+              value={templateFormData.description}
+              onChange={(e) => setTemplateFormData({ ...templateFormData, description: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Describe what this template is for..."
+              rows={2}
+            />
           </div>
 
-          {groupFormData.multiSelect && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Minimum selections
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={groupFormData.minSelect}
-                  onChange={(e) => setGroupFormData({ ...groupFormData, minSelect: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Maximum selections (optional)
-                </label>
-                <input
-                  type="number"
-                  min={groupFormData.minSelect}
-                  value={groupFormData.maxSelect || ""}
-                  onChange={(e) => setGroupFormData({ 
-                    ...groupFormData, 
-                    maxSelect: e.target.value ? parseInt(e.target.value) : undefined 
-                  })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Unlimited"
-                />
-              </div>
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Selection Type
+            </label>
+            <select
+              value={templateFormData.type}
+              onChange={(e) => setTemplateFormData({ ...templateFormData, type: e.target.value as "SINGLE_CHOICE" | "MULTIPLE_CHOICE" })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="SINGLE_CHOICE">Single Choice (pick one)</option>
+              <option value="MULTIPLE_CHOICE">Multiple Choice (pick many)</option>
+            </select>
+          </div>
 
           <div className="flex justify-end space-x-3 pt-4">
             <Button
+              type="button"
               variant="outline"
-              onClick={() => setIsGroupModalOpen(false)}
+              onClick={() => setIsTemplateModalOpen(false)}
             >
               Cancel
             </Button>
-            <Button onClick={handleGroupSubmit}>
-              {editingGroup ? 'Update' : 'Create'} Group
+            <Button type="submit">
+              {editingTemplate ? 'Update' : 'Create'} Template
             </Button>
           </div>
-        </div>
+        </form>
       </Modal>
 
-      {/* Modifier Modal */}
+      {/* Option Modal */}
       <Modal
-        isOpen={isModifierModalOpen}
-        onClose={() => setIsModifierModalOpen(false)}
-        title={editingModifier ? 'Edit Modifier Option' : 'Add Modifier Option'}
+        isOpen={isOptionModalOpen}
+        onClose={() => setIsOptionModalOpen(false)}
+        title={editingOption ? 'Edit Template Option' : 'Add Template Option'}
       >
-        <div className="space-y-4">
+        <form onSubmit={handleOptionSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Option Name
+              Option Name *
             </label>
             <input
               type="text"
-              value={modifierFormData.name}
-              onChange={(e) => setModifierFormData({ ...modifierFormData, name: e.target.value })}
+              value={optionFormData.name}
+              onChange={(e) => setOptionFormData({ ...optionFormData, name: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="e.g., Extra Cheese, Large Size, Spicy"
+              required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Additional Price ($)
+              Additional Price (€)
             </label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={modifierFormData.price}
-              onChange={(e) => setModifierFormData({ ...modifierFormData, price: parseFloat(e.target.value) || 0 })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="0.00"
+            <CurrencyInput
+              value={optionFormData.price}
+              onChange={(value) => setOptionFormData({ ...optionFormData, price: value })}
+              placeholder="€0,00"
+              min={0}
+              max={99.99}
             />
-            <p className="text-xs text-gray-500 mt-1">Enter 0 for no additional charge</p>
+            <p className="text-xs text-gray-500 mt-1">💡 Enter €0,00 for no additional charge</p>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
             <Button
+              type="button"
               variant="outline"
-              onClick={() => setIsModifierModalOpen(false)}
+              onClick={() => setIsOptionModalOpen(false)}
             >
               Cancel
             </Button>
-            <Button onClick={handleModifierSubmit}>
-              {editingModifier ? 'Update' : 'Add'} Option
+            <Button type="submit">
+              {editingOption ? 'Update' : 'Add'} Option
             </Button>
           </div>
-        </div>
+        </form>
       </Modal>
     </div>
   );
