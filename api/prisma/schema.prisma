@@ -1,8 +1,3 @@
-// Full production-ready schema for TableTech
-
-// ----------------------------
-// Prisma Setup
-// ----------------------------
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,68 +7,49 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ----------------------------
-// Models
-// ----------------------------
-
 model Restaurant {
-  id              String           @id @default(uuid())
-  name            String
-  address         String?
-  phone           String?
-  email           String?          @unique
-  logoUrl         String?          // For restaurant branding
-  currency        String           @default("EUR")  // ISO currency code
-  taxRate         Decimal          @default(9.0) @db.Decimal(5,2)  // Dutch BTW 9%
-  timezone        String           @default("Europe/Amsterdam")
-  isActive        Boolean          @default(true)   // Soft delete for restaurants
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-
-  tables          Table[]
-  menuCategories  MenuCategory[]
-  menuItems       MenuItem[]
-  orders          Order[]
-  staff           Staff[]
+  id                String             @id @default(uuid())
+  name              String
+  address           String?
+  phone             String?
+  email             String?            @unique
+  logoUrl           String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  currency          String             @default("EUR")
+  isActive          Boolean            @default(true)
+  taxRate           Decimal            @default(9.0) @db.Decimal(5, 2)
+  timezone          String             @default("Europe/Amsterdam")
+  menuCategories    MenuCategory[]
+  menuItems         MenuItem[]
   modifierTemplates ModifierTemplate[]
+  orders            Order[]
+  staff             Staff[]
+  tables            Table[]
 
-  // Performance indexes
-  @@index([email])               // Email lookups
-  @@index([isActive])            // Filter active restaurants
-  @@index([createdAt])           // Restaurant registration tracking
-
-  // For future: add restaurant-level settings
-  // settings        Json?         // e.g., opening hours, currency, locale
+  @@index([email])
+  @@index([isActive])
+  @@index([createdAt])
 }
 
 model Table {
-  id           String        @id @default(uuid())
-  number       Int
-  code         String        @unique     // Shown in QR codes (e.g., "T1")
-  capacity     Int?
-  status       TableStatus   @default(AVAILABLE)
-  qrCodeUrl    String?       // Optional if you host the generated QR
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
-  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id])
-  restaurantId String
-
-  orders       Order[]
+  id               String            @id @default(uuid())
+  number           Int
+  code             String            @unique
+  capacity         Int?
+  status           TableStatus       @default(AVAILABLE)
+  qrCodeUrl        String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  restaurantId     String
   customerSessions CustomerSession[]
-  assistance   TableAssistance[]
+  orders           Order[]
+  restaurant       Restaurant        @relation(fields: [restaurantId], references: [id])
+  assistance       TableAssistance[]
 
-  // Performance indexes
-  @@index([restaurantId])        // Tables by restaurant
-  @@index([status])              // Filter by status
-  @@index([restaurantId, status]) // Available tables per restaurant
-}
-
-enum TableStatus {
-  AVAILABLE
-  OCCUPIED
-  RESERVED
-  MAINTENANCE
+  @@index([restaurantId])
+  @@index([status])
+  @@index([restaurantId, status])
 }
 
 model MenuCategory {
@@ -85,113 +61,95 @@ model MenuCategory {
   isActive     Boolean    @default(true)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
-
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
   restaurantId String
-
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
   menuItems    MenuItem[]
 
-  // Performance indexes
-  @@index([restaurantId])                    // Categories by restaurant
-  @@index([isActive])                        // Filter active categories
-  @@index([displayOrder])                    // Category ordering
-  @@index([restaurantId, isActive, displayOrder]) // Menu display queries
+  @@index([restaurantId])
+  @@index([isActive])
+  @@index([displayOrder])
+  @@index([restaurantId, isActive, displayOrder])
 }
 
 model MenuItem {
-  id              String           @id @default(uuid())
-  name            String
-  description     String?
-  price           Decimal          @db.Decimal(10, 2)
-  imageUrl        String?
-  isAvailable     Boolean          @default(true)
-  preparationTime Int?             // Minutes estimate
-  displayOrder    Int              @default(0)
-  stockCount      Int?             // Track inventory
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  
-  // WebSocket availability features
-  availabilityNote String?         // Reason for unavailability
-  lastUnavailableAt DateTime?      // When marked unavailable
-  unavailableBy   String?          // Staff member who changed availability
-
-  category        MenuCategory     @relation(fields: [categoryId], references: [id])
-  categoryId      String
-  restaurant      Restaurant       @relation(fields: [restaurantId], references: [id])
-  restaurantId    String
-
-  orderItems      OrderItem[]
+  id                String                  @id @default(uuid())
+  name              String
+  description       String?
+  price             Decimal                 @db.Decimal(10, 2)
+  imageUrl          String?
+  isAvailable       Boolean                 @default(true)
+  preparationTime   Int?
+  displayOrder      Int                     @default(0)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  categoryId        String
+  restaurantId      String
+  availabilityNote  String?
+  lastUnavailableAt DateTime?
+  stockCount        Int?
+  unavailableBy     String?
+  category          MenuCategory            @relation(fields: [categoryId], references: [id])
+  restaurant        Restaurant              @relation(fields: [restaurantId], references: [id])
   modifierTemplates MenuItemModifierGroup[]
+  orderItems        OrderItem[]
 
-  // Performance indexes
-  @@index([restaurantId])           // Menu items by restaurant
-  @@index([categoryId])             // Items in category
-  @@index([isAvailable])            // Filter available items
-  @@index([restaurantId, isAvailable]) // Available items per restaurant
+  @@index([restaurantId])
+  @@index([categoryId])
+  @@index([isAvailable])
+  @@index([restaurantId, isAvailable])
 }
 
-// OLD MODIFIER SYSTEM REMOVED - Now using ModifierTemplate system
-
-// ----------------------------
-// NEW MODIFIER TEMPLATE SYSTEM
-// ----------------------------
-
 model ModifierTemplate {
-  id             String   @id @default(uuid())
-  restaurantId   String
-  name           String   
-  description    String?
-  type           String   @default("SINGLE_CHOICE") // SINGLE_CHOICE, MULTIPLE_CHOICE
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
-  restaurant     Restaurant @relation(fields: [restaurantId], references: [id])
-  options        ModifierOption[]
-  menuItems      MenuItemModifierGroup[]
-  
+  id           String                  @id @default(uuid())
+  restaurantId String
+  name         String
+  description  String?
+  type         String                  @default("SINGLE_CHOICE")
+  isActive     Boolean                 @default(true)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  menuItems    MenuItemModifierGroup[]
+  options      ModifierOption[]
+  restaurant   Restaurant              @relation(fields: [restaurantId], references: [id])
+
   @@unique([restaurantId, name])
   @@index([restaurantId])
   @@index([isActive])
 }
 
 model ModifierOption {
-  id             String   @id @default(uuid())
-  templateId     String
-  name           String   
-  price          Decimal  @default(0) @db.Decimal(10, 2)
-  displayOrder   Int      @default(0)
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
-  template       ModifierTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  itemOverrides  MenuItemModifierOption[]
-  orderItems     OrderItemModifier[]
-  
+  id            String                   @id @default(uuid())
+  templateId    String
+  name          String
+  price         Decimal                  @default(0) @db.Decimal(10, 2)
+  displayOrder  Int                      @default(0)
+  isActive      Boolean                  @default(true)
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  itemOverrides MenuItemModifierOption[]
+  orderItems    OrderItemModifier[]
+  template      ModifierTemplate         @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
   @@index([templateId])
   @@index([templateId, displayOrder])
   @@index([isActive])
 }
 
 model MenuItemModifierGroup {
-  id             String   @id @default(uuid())
-  menuItemId     String
-  templateId     String   
-  
-  displayName    String?  // Override template name for this item
-  required       Boolean  @default(false)
-  minSelect      Int      @default(0)
-  maxSelect      Int?
-  displayOrder   Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
-  menuItem       MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  template       ModifierTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  id              String                   @id @default(uuid())
+  menuItemId      String
+  templateId      String
+  displayName     String?
+  required        Boolean                  @default(false)
+  minSelect       Int                      @default(0)
+  maxSelect       Int?
+  displayOrder    Int                      @default(0)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  menuItem        MenuItem                 @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  template        ModifierTemplate         @relation(fields: [templateId], references: [id], onDelete: Cascade)
   optionOverrides MenuItemModifierOption[]
-  
+
   @@unique([menuItemId, templateId])
   @@index([menuItemId])
   @@index([templateId])
@@ -199,20 +157,18 @@ model MenuItemModifierGroup {
 }
 
 model MenuItemModifierOption {
-  id             String   @id @default(uuid())
-  groupId        String   
-  optionId       String   
-  
-  isHidden       Boolean  @default(false)  // Hide this option for this item
-  priceOverride  Decimal? @db.Decimal(10, 2) // Different price for this item
-  nameOverride   String?  // Different display name for this item
-  isDefault      Boolean  @default(false)  // Pre-selected for this item
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
-  group          MenuItemModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  option         ModifierOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
-  
+  id            String                @id @default(uuid())
+  groupId       String
+  optionId      String
+  isHidden      Boolean               @default(false)
+  priceOverride Decimal?              @db.Decimal(10, 2)
+  nameOverride  String?
+  isDefault     Boolean               @default(false)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  group         MenuItemModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  option        ModifierOption        @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
   @@unique([groupId, optionId])
   @@index([groupId])
   @@index([optionId])
@@ -220,106 +176,66 @@ model MenuItemModifierOption {
 }
 
 model Order {
-  id              String        @id @default(uuid())
-  orderNumber     String        @unique
-  status          OrderStatus   @default(PENDING)
-  
-  // CRITICAL: Financial breakdown (Dutch tax compliance)
-  subtotal        Decimal       @default(0) @db.Decimal(10, 2)  // Before tax
-  taxAmount       Decimal       @default(0) @db.Decimal(10, 2)  // BTW (9%)
-  serviceFee      Decimal?      @db.Decimal(10, 2)  // Optional service charge
-  totalAmount     Decimal       @db.Decimal(10, 2)  // Final amount
-  
+  id              String           @id @default(uuid())
+  orderNumber     String           @unique
+  status          OrderStatus      @default(PENDING)
+  totalAmount     Decimal          @db.Decimal(10, 2)
   notes           String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  paymentStatus   PaymentStatus @default(PENDING)
-  molliePaymentId String?       // Track payment with Mollie
-  webhookReceived Boolean       @default(false)
-  
-  // WebSocket/Real-time tracking fields
-  confirmedAt     DateTime?     // When kitchen confirmed order
-  confirmedBy     String?       // Staff member who confirmed
-  readyAt         DateTime?     // When marked ready for pickup
-  deliveredAt     DateTime?     // When delivered to customer
-  completedAt     DateTime?     // When fully completed
-  
-  // Customer session tracking
-  sessionId       String?       // Link to customer session
-  customerSession CustomerSession? @relation(fields: [sessionId], references: [sessionId])
-
-  table           Table         @relation(fields: [tableId], references: [id])
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  paymentStatus   PaymentStatus    @default(PENDING)
+  molliePaymentId String?
+  webhookReceived Boolean          @default(false)
   tableId         String
-
-  restaurant      Restaurant    @relation(fields: [restaurantId], references: [id])
   restaurantId    String
-
+  completedAt     DateTime?
+  confirmedAt     DateTime?
+  confirmedBy     String?
+  deliveredAt     DateTime?
+  readyAt         DateTime?
+  serviceFee      Decimal?         @db.Decimal(10, 2)
+  sessionId       String?
+  subtotal        Decimal          @default(0) @db.Decimal(10, 2)
+  taxAmount       Decimal          @default(0) @db.Decimal(10, 2)
+  restaurant      Restaurant       @relation(fields: [restaurantId], references: [id])
+  customerSession CustomerSession? @relation(fields: [sessionId], references: [sessionId])
+  table           Table            @relation(fields: [tableId], references: [id])
   orderItems      OrderItem[]
   payments        Payment[]
 
-  // Performance indexes
-  @@index([restaurantId])        // Filter by restaurant
-  @@index([tableId])             // Orders for specific table
-  @@index([status])              // Kitchen queries by status
-  @@index([createdAt])           // Order by time
-  @@index([sessionId])           // Orders by customer session
-  @@index([paymentStatus])       // Payment tracking
-  @@index([molliePaymentId])     // Mollie webhook lookups
-  @@index([orderNumber])         // Quick order lookups
-  @@index([restaurantId, status]) // Combined restaurant + status queries
-  @@index([restaurantId, createdAt]) // Restaurant order history
-  @@index([tableId, createdAt])  // Table order history
-  @@index([status, createdAt])   // Kitchen workflow by time
-}
-
-enum OrderStatus {
-  PENDING
-  CONFIRMED
-  PREPARING
-  READY
-  DELIVERED
-  COMPLETED
-  CANCELLED
-}
-
-enum PaymentStatus {
-  PENDING
-  COMPLETED
-  FAILED
-  REFUNDED
+  @@index([restaurantId])
+  @@index([tableId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([sessionId])
+  @@index([paymentStatus])
+  @@index([molliePaymentId])
+  @@index([orderNumber])
+  @@index([restaurantId, status])
+  @@index([restaurantId, createdAt])
+  @@index([tableId, createdAt])
+  @@index([status, createdAt])
 }
 
 model OrderItem {
-  id           String         @id @default(uuid())
-  quantity     Int
-  price        Decimal        @db.Decimal(10, 2)
-  notes        String?
-  status       OrderItemStatus @default(PENDING)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id         String              @id @default(uuid())
+  quantity   Int
+  price      Decimal             @db.Decimal(10, 2)
+  notes      String?
+  status     OrderItemStatus     @default(PENDING)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  orderId    String
+  menuItemId String
+  menuItem   MenuItem            @relation(fields: [menuItemId], references: [id])
+  order      Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  modifiers  OrderItemModifier[]
 
-  order        Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId      String
-
-  menuItem     MenuItem       @relation(fields: [menuItemId], references: [id])
-  menuItemId   String
-
-  modifiers    OrderItemModifier[]
-
-  // Performance indexes
-  @@index([orderId])             // Items in an order
-  @@index([menuItemId])          // Track popular menu items
-  @@index([status])              // Kitchen workflow queries
-  @@index([orderId, status])     // Order preparation tracking
-  @@index([menuItemId, createdAt]) // Menu item popularity over time
-}
-
-enum OrderItemStatus {
-  PENDING
-  PREPARING
-  READY
-  DELIVERED
-  CANCELLED
+  @@index([orderId])
+  @@index([menuItemId])
+  @@index([status])
+  @@index([orderId, status])
+  @@index([menuItemId, createdAt])
 }
 
 model OrderItemModifier {
@@ -339,64 +255,186 @@ model OrderItemModifier {
 }
 
 model Staff {
-  id           String     @id @default(uuid())
-  name         String
-  email        String     @unique
-  passwordHash String
-  role         StaffRole
-  isActive     Boolean    @default(true)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  
-  // Security & session tracking
-  lastLoginAt  DateTime?  // Track login activity
-  lastActiveAt DateTime?  // Track when last active
-  loginAttempts Int       @default(0)  // Failed login tracking
-  lockedUntil  DateTime?  // Account lockout
-  
-  // Session management
-  sessions     StaffSession[] // Active login sessions
-  maxConcurrentSessions Int @default(3) // Maximum allowed concurrent sessions
+  id                    String         @id @default(uuid())
+  name                  String
+  email                 String         @unique
+  passwordHash          String
+  role                  StaffRole
+  isActive              Boolean        @default(true)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  restaurantId          String?
+  lastActiveAt          DateTime?
+  lastLoginAt           DateTime?
+  lockedUntil           DateTime?
+  loginAttempts         Int            @default(0)
+  maxConcurrentSessions Int            @default(3)
+  restaurant            Restaurant?    @relation(fields: [restaurantId], references: [id])
+  sessions              StaffSession[]
 
-  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
-  restaurantId String?     // Optional for SUPER_ADMIN
-
-  // Performance indexes
-  @@index([email])              // Login queries
-  @@index([restaurantId])       // Staff by restaurant
-  @@index([isActive])           // Filter active staff
-  @@index([role])               // Staff by role
-  @@index([restaurantId, role]) // Role-based queries per restaurant
-  @@index([lastLoginAt])        // Recent activity tracking
-  @@index([lockedUntil])        // Account lockout queries
-}
-
-enum StaffRole {
-  SUPER_ADMIN // System-wide admin, can access all restaurants
-  ADMIN       // Restaurant admin
-  MANAGER     // Restaurant manager
-  CHEF        // Kitchen staff
-  WAITER      // Service staff
-  CASHIER     // Payment handling
+  @@index([email])
+  @@index([restaurantId])
+  @@index([isActive])
+  @@index([role])
+  @@index([restaurantId, role])
+  @@index([lastLoginAt])
+  @@index([lockedUntil])
 }
 
 model Payment {
-  id             String        @id @default(uuid())
-  amount         Decimal       @db.Decimal(10, 2)
-  method         PaymentMethod
-  status         PaymentStatus @default(PENDING)
-  transactionId  String?       // From Mollie or other gateway
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id            String        @id @default(uuid())
+  amount        Decimal       @db.Decimal(10, 2)
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  transactionId String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  orderId       String
+  order         Order         @relation(fields: [orderId], references: [id])
 
-  order          Order         @relation(fields: [orderId], references: [id])
-  orderId        String
+  @@index([orderId])
+  @@index([status])
+  @@index([transactionId])
+  @@index([createdAt])
+}
 
-  // Performance indexes
-  @@index([orderId])         // Payments for order
-  @@index([status])          // Filter by status
-  @@index([transactionId])   // Mollie webhook lookups
-  @@index([createdAt])       // Payment history
+model CustomerSession {
+  id            String   @id @default(uuid())
+  sessionId     String   @unique
+  tableId       String
+  ipAddress     String?
+  userAgent     String?
+  customerName  String?
+  customerEmail String?
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime
+  lastActiveAt  DateTime @default(now())
+  isActive      Boolean  @default(true)
+  table         Table    @relation(fields: [tableId], references: [id])
+  orders        Order[]
+
+  @@index([sessionId])
+  @@index([tableId])
+  @@index([expiresAt])
+  @@index([isActive])
+  @@index([lastActiveAt])
+  @@index([tableId, isActive])
+  @@index([isActive, expiresAt])
+}
+
+model TableAssistance {
+  id          String    @id @default(uuid())
+  tableId     String
+  type        String
+  message     String?
+  requestedAt DateTime  @default(now())
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  table       Table     @relation(fields: [tableId], references: [id])
+
+  @@index([tableId])
+  @@index([resolvedAt])
+  @@index([type])
+  @@index([requestedAt])
+  @@index([tableId, resolvedAt])
+  @@index([type, resolvedAt])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  action       String
+  entityType   String
+  entityId     String?
+  userId       String?
+  restaurantId String?
+  changes      Json?
+  metadata     Json?
+  ip           String?
+  userAgent    String?
+  severity     String   @default("info")
+  success      Boolean  @default(true)
+  timestamp    DateTime @default(now())
+
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([restaurantId])
+  @@index([timestamp])
+  @@index([severity])
+  @@index([restaurantId, timestamp])
+  @@index([userId, timestamp])
+  @@index([entityType, action, timestamp])
+  @@index([action, success, timestamp])
+  @@index([restaurantId, action])
+}
+
+model StaffSession {
+  id               String    @id @default(uuid())
+  sessionId        String    @unique
+  staffId          String
+  deviceInfo       String?
+  userAgent        String?
+  deviceName       String?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  lastActiveAt     DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  revokedBy        String?
+  revokeReason     String?
+  refreshTokenHash String?
+  staff            Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId, isActive])
+  @@index([sessionId])
+  @@index([expiresAt])
+  @@index([isActive, expiresAt])
+  @@index([staffId, createdAt])
+  @@index([lastActiveAt])
+  @@index([revokedAt])
+  @@map("staff_sessions")
+}
+
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  MAINTENANCE
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum OrderItemStatus {
+  PENDING
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+enum StaffRole {
+  ADMIN
+  MANAGER
+  CHEF
+  WAITER
+  CASHIER
+  SUPER_ADMIN
 }
 
 enum PaymentMethod {
@@ -405,123 +443,4 @@ enum PaymentMethod {
   DEBIT_CARD
   MOBILE_PAYMENT
   MOLLIE
-}
-
-model CustomerSession {
-  id            String    @id @default(uuid())
-  sessionId     String    @unique         // UUID for the session
-  tableId       String                    // Which table they're at
-  ipAddress     String?                   // For security tracking
-  userAgent     String?                   // Browser/app info
-  customerName  String?                   // Optional customer name
-  customerEmail String?                   // Optional for receipts
-  createdAt     DateTime  @default(now())
-  expiresAt     DateTime                  // Auto-expire sessions
-  lastActiveAt  DateTime  @default(now()) // Track activity
-  isActive      Boolean   @default(true)  // Soft delete flag
-  
-  // Relations
-  table         Table     @relation(fields: [tableId], references: [id])
-  orders        Order[]   // Track all orders from this session
-  
-  // Indexes for performance
-  @@index([sessionId])           // Session token lookups
-  @@index([tableId])             // Sessions by table
-  @@index([expiresAt])           // Session cleanup
-  @@index([isActive])            // Active session filtering
-  @@index([lastActiveAt])        // Activity-based cleanup
-  @@index([tableId, isActive])   // Active sessions per table
-  @@index([isActive, expiresAt]) // Expired session cleanup
-}
-
-model TableAssistance {
-  id          String    @id @default(uuid())
-  tableId     String
-  type        String    // "waiter", "bill", "help"
-  message     String?
-  requestedAt DateTime  @default(now())
-  resolvedAt  DateTime?
-  resolvedBy  String?   // Staff member who resolved it
-  
-  table       Table     @relation(fields: [tableId], references: [id])
-  
-  @@index([tableId])             // Assistance requests by table
-  @@index([resolvedAt])          // To find active requests (NULL = active)
-  @@index([type])                // Filter by assistance type
-  @@index([requestedAt])         // Order by request time
-  @@index([tableId, resolvedAt]) // Active requests per table
-  @@index([type, resolvedAt])    // Active requests by type
-}
-
-model AuditLog {
-  id           String   @id @default(uuid())
-  action       String   // ORDER_CREATED, PAYMENT_PROCESSED, STAFF_LOGIN, etc
-  entityType   String   // Order, Payment, Staff, Menu, etc
-  entityId     String?  // ID of the affected record
-  userId       String?  // Who performed the action (staff member)
-  restaurantId String?  // Which restaurant context
-  changes      Json?    // { old: {...}, new: {...} } for data changes
-  metadata     Json?    // Additional context data
-  ip           String?  // IP address of action
-  userAgent    String?  // Browser/client information
-  severity     String   @default("info") // info, warning, critical
-  success      Boolean  @default(true)   // Whether action succeeded
-  timestamp    DateTime @default(now())
-  
-  // Performance indexes for audit queries
-  @@index([action])                     // Query by action type
-  @@index([entityType, entityId])       // Find all changes to specific entity
-  @@index([userId])                     // User activity tracking
-  @@index([restaurantId])               // Restaurant-specific audits
-  @@index([timestamp])                  // Time-based queries
-  @@index([severity])                   // Filter by importance
-  
-  // Composite indexes for common audit queries
-  @@index([restaurantId, timestamp])    // Restaurant activity over time
-  @@index([userId, timestamp])          // User activity timeline
-  @@index([entityType, action, timestamp]) // Specific action types over time
-  @@index([action, success, timestamp]) // Failed actions analysis
-  @@index([restaurantId, action])       // Restaurant-specific action types
-}
-
-// ----------------------------
-// Staff Session Management
-// ----------------------------
-model StaffSession {
-  id            String    @id @default(uuid())
-  sessionId     String    @unique // UUID for session tracking
-  
-  // Relations
-  staffId       String   
-  staff         Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  
-  // Session metadata (NO IP tracking per your request)
-  deviceInfo    String?   // "Chrome on Windows", "Mobile Safari" etc
-  userAgent     String?   // Full user agent for device identification
-  deviceName    String?   // Custom device name (e.g., "John's Laptop")
-  
-  // Session lifecycle
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  lastActiveAt  DateTime  @default(now())
-  expiresAt     DateTime  // When this session expires (24h default)
-  
-  // Revocation tracking
-  revokedAt     DateTime? // When session was revoked
-  revokedBy     String?   // Staff ID who revoked it
-  revokeReason  String?   // "terminated", "security_breach", "manual", "expired"
-  
-  // Security metadata
-  refreshTokenHash String? // Store hashed refresh token for validation
-  
-  // Performance indexes
-  @@index([staffId, isActive])     // Get active sessions for user
-  @@index([sessionId])             // Fast session lookups
-  @@index([expiresAt])             // Cleanup expired sessions
-  @@index([isActive, expiresAt])   // Find expired active sessions to cleanup
-  @@index([staffId, createdAt])    // User session history
-  @@index([lastActiveAt])          // Activity tracking
-  @@index([revokedAt])             // Revoked session queries
-  
-  @@map("staff_sessions")
 }

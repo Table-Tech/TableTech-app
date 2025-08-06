@@ -368,7 +368,7 @@ export class MenuService extends BaseService<Prisma.MenuItemCreateInput, MenuIte
                 return {
                   ...option,
                   name: override?.nameOverride || option.name,
-                  price: Math.round(Number(override?.priceOverride !== null ? override.priceOverride : option.price) * taxMultiplier * 100) / 100,
+                  price: Math.round(Number(override?.priceOverride !== undefined && override.priceOverride !== null ? override.priceOverride : option.price) * taxMultiplier * 100) / 100,
                   isHidden: override?.isHidden || false
                 };
               }).filter((option: any) => !option.isHidden)

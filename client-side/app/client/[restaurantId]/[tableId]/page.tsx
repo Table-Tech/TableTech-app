@@ -19,18 +19,28 @@ export default function ClientPage() {
     const [error, setError] = useState<string | null>(null);
     const [startTransition, setStartTransition] = useState(false);
     const [startEntryTransition, setStartEntryTransition] = useState(true);
+    const [isClient, setIsClient] = useState(false);
     const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
     const total = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
     const totalItems = cart.reduce((sum, i) => sum + i.quantity, 0);
 
+    // Client-side hydration fix
     useEffect(() => {
+        setIsClient(true);
+        
+        // Only access localStorage after client-side hydration
         const stored = localStorage.getItem("cart");
         if (stored) {
-            const parsed = JSON.parse(stored);
-            const filtered = parsed.filter((item: any) => item.quantity >= 1);
-            setCart(filtered);
-            localStorage.setItem("cart", JSON.stringify(filtered));
+            try {
+                const parsed = JSON.parse(stored);
+                const filtered = parsed.filter((item: any) => item.quantity >= 1);
+                setCart(filtered);
+                localStorage.setItem("cart", JSON.stringify(filtered));
+            } catch (error) {
+                console.error('Error parsing cart from localStorage:', error);
+                localStorage.removeItem("cart");
+            }
         }
 
         const timeout = setTimeout(() => setStartEntryTransition(false), 600);
@@ -38,7 +48,7 @@ export default function ClientPage() {
     }, []);
 
     useEffect(() => {
-        if (!restaurantId || !tableId) return;
+        if (!restaurantId || !tableId || !isClient) return;
 
         const fetchMenu = async () => {
             try {
@@ -71,9 +81,11 @@ export default function ClientPage() {
         };
 
         fetchMenu();
-    }, [restaurantId, tableId]);
+    }, [restaurantId, tableId, isClient]);
 
     const handleAddToCart = (item: any) => {
+        if (!isClient) return; // Prevent updates before hydration
+        
         const existing = cart.find((i) => i.id === item.id);
         const newCart = existing
             ? cart.map((i) =>
@@ -81,7 +93,12 @@ export default function ClientPage() {
             )
             : [...cart, { ...item, quantity: 1 }];
         setCart(newCart);
-        localStorage.setItem("cart", JSON.stringify(newCart));
+        
+        try {
+            localStorage.setItem("cart", JSON.stringify(newCart));
+        } catch (error) {
+            console.error('Error saving cart to localStorage:', error);
+        }
     };
 
     const handleGoToCart = () => {
@@ -102,6 +119,18 @@ export default function ClientPage() {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <p className="text-red-600">Geen geldige link. Scan opnieuw.</p>
+            </div>
+        );
+    }
+
+    // Show loading until client-side hydration is complete
+    if (!isClient) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                    <p className="text-lg font-medium text-gray-700">Laden...</p>
+                </div>
             </div>
         );
     }

@@ -1,4 +1,4 @@
-import { Order, Prisma, OrderStatus, TableStatus, MenuItem, Modifier } from '@prisma/client';
+import { Order, Prisma, OrderStatus, TableStatus, MenuItem, ModifierOption } from '@prisma/client';
 import { BaseService } from './base.service.js';
 import { ApiError } from '../types/errors.js';
 import { 
@@ -22,9 +22,17 @@ import { FastifyRequest } from 'fastify';
 
 // Types for the processed data
 type MenuItemWithModifiers = MenuItem & {
-  modifierGroups: Array<{
+  modifierTemplates: Array<{
     id: string;
-    modifiers: Modifier[];
+    template: {
+      id: string;
+      name: string;
+      options: Array<{
+        id: string;
+        name: string;
+        price: number;
+      }>;
+    };
   }>;
 };
 
@@ -572,7 +580,7 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
           include: {
             menuItem: true,
             modifiers: {
-              include: { modifier: true }
+              include: { modifierOption: true }
             }
           }
         }
@@ -603,8 +611,12 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
         isAvailable: true
       },
       include: {
-        modifierGroups: {
-          include: { modifiers: true }
+        modifierTemplates: {
+          include: { 
+            template: {
+              include: { options: true }
+            }
+          }
         }
       }
     });
@@ -619,21 +631,16 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
       .filter(item => item.modifiers?.length)
       .flatMap(item => item.modifiers || []);
     
-    let modifierMap = new Map<string, Modifier>();
+    let modifierMap = new Map<string, ModifierOption>();
     if (allModifierIds.length > 0) {
-      const modifiers = await tx.modifier.findMany({
+      const modifiers = await tx.modifierOption.findMany({
         where: {
           id: { in: allModifierIds },
-          modifierGroup: {
-            menuItem: {
-              restaurantId,
-              id: { in: menuItemIds }
-            }
-          }
+          isActive: true
         }
       });
-      modifierMap = new Map<string, Modifier>(
-        modifiers.map((mod: Modifier) => [mod.id, mod])
+      modifierMap = new Map<string, ModifierOption>(
+        modifiers.map((mod: ModifierOption) => [mod.id, mod])
       );
     }
 
@@ -664,7 +671,7 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
           itemPriceIncTax += modifierPriceIncTax;
           
           modifiers.push({
-            modifier: { connect: { id: modifier.id } },
+            modifierOption: { connect: { id: modifier.id } },
             price: modifier.price // Store original price in DB
           });
         }
@@ -838,7 +845,7 @@ export class OrderService extends BaseService<Prisma.OrderCreateInput, Order> {
           },
           modifiers: {
             include: {
-              modifier: {
+              modifierOption: {
                 select: { id: true, name: true, price: true }
               }
             }

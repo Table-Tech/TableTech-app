@@ -492,7 +492,7 @@ export class WebSocketService {
           orderItems: {
             include: {
               menuItem: true,
-              modifiers: { include: { modifier: true } }
+              modifiers: { include: { modifierOption: true } }
             }
           }
         },
@@ -547,7 +547,7 @@ export class WebSocketService {
           orderItems: {
             include: {
               menuItem: true,
-              modifiers: { include: { modifier: true } }
+              modifiers: { include: { modifierOption: true } }
             }
           }
         },
