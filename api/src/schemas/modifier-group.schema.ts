@@ -7,8 +7,8 @@ export const CreateModifierGroupSchema = z.object({
     .max(100, 'Modifier group name must be less than 100 characters')
     .trim()
     .refine(val => val.length > 0, 'Modifier group name cannot be empty'),
-  menuItemId: z.string()
-    .uuid('Invalid menu item ID'),
+  restaurantId: z.string()
+    .uuid('Invalid restaurant ID'),
   required: z.boolean()
     .default(false),
   multiSelect: z.boolean()
@@ -92,8 +92,12 @@ export const UpdateModifierGroupSchema = z.object({
 
 // Modifier group query parameters
 export const ModifierGroupQuerySchema = z.object({
+  restaurantId: z.string()
+    .uuid('Invalid restaurant ID')
+    .optional(),
   menuItemId: z.string()
-    .uuid('Invalid menu item ID'),
+    .uuid('Invalid menu item ID')
+    .optional(),
   isActive: z.boolean().optional(),
   search: z.string()
     .max(100, 'Search term too long')
@@ -108,6 +112,12 @@ export const ModifierGroupQuerySchema = z.object({
     .int('Offset must be an integer')
     .min(0, 'Offset cannot be negative')
     .default(0)
+}).refine(data => {
+  // Either restaurantId or menuItemId must be provided
+  return data.restaurantId || data.menuItemId;
+}, {
+  message: 'Either restaurantId or menuItemId must be provided',
+  path: ['restaurantId']
 });
 
 // Reorder modifier groups schema

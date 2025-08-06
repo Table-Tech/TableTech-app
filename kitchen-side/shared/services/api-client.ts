@@ -98,6 +98,9 @@ class ApiClient {
                   Authorization: `Bearer ${refreshResponse.data.token}`,
                 },
               });
+            } else {
+              // Refresh token failed, log the reason
+              console.log('Token refresh failed:', refreshResponse.error);
             }
           } catch (refreshError) {
             console.error('Token refresh failed:', refreshError);
@@ -196,21 +199,43 @@ class ApiClient {
         name: string;
         email: string;
         role: string;
-        restaurant: {
+        restaurantId: string | null;
+        sessionId?: string;
+        restaurant?: {
+          id: string;
+          name: string;
+        };
+      };
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        role: string;
+        restaurantId: string | null;
+        sessionId: string;
+        restaurant?: {
           id: string;
           name: string;
         };
       };
     }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ 
+        email, 
+        password
+      }),
     });
   }
 
   async refreshToken() {
     const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
     if (!refreshToken) {
-      throw new Error('No refresh token available');
+      // Instead of throwing an error, return a failed response
+      // This allows the calling code to handle it gracefully
+      return {
+        success: false,
+        error: 'No refresh token available - user needs to login again'
+      };
     }
 
     return this.request<{
@@ -243,7 +268,7 @@ class ApiClient {
       logoUrl?: string;
       address: string;
       phone: string;
-    }>>('/restaurants');
+    }>>('/restaurants/staff/restaurants');
   }
 
   // Get all restaurants (SUPER_ADMIN only)
@@ -266,7 +291,32 @@ class ApiClient {
       address: string;
       phone: string;
       taxRate: number;
-    }>(`/restaurants/${id}`);
+    }>(`/restaurants/staff/restaurants/${id}`);
+  }
+
+  // Create restaurant (SUPER_ADMIN and ADMIN only)
+  async createRestaurant(data: {
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    logoUrl?: string;
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+      logoUrl?: string;
+      taxRate: number;
+      currency: string;
+      timezone: string;
+      isActive: boolean;
+    }>('/restaurants/staff/restaurants', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   // Menu endpoints
@@ -317,20 +367,20 @@ class ApiClient {
   }
 
   async updateMenuItem(restaurantId: string, id: string, data: any) {
-    return this.request(`/menu/staff/items/${id}?restaurantId=${restaurantId}`, {
+    return this.request(`/menu/staff/items/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
 
   async deleteMenuItem(restaurantId: string, id: string) {
-    return this.request(`/menu/staff/items/${id}?restaurantId=${restaurantId}`, {
+    return this.request(`/menu/staff/items/${id}`, {
       method: 'DELETE',
     });
   }
 
   async updateMenuItemAvailability(restaurantId: string, id: string, isAvailable: boolean, availabilityNote?: string) {
-    return this.request(`/menu/staff/items/${id}/availability?restaurantId=${restaurantId}`, {
+    return this.request(`/menu/staff/items/${id}/availability`, {
       method: 'PATCH',
       body: JSON.stringify({
         isAvailable,
@@ -340,30 +390,49 @@ class ApiClient {
   }
 
   async createMenuCategory(restaurantId: string, data: any) {
-    return this.request(`/menu-categories/staff/categories?restaurantId=${restaurantId}`, {
+    return this.request(`/menu-categories/staff/categories`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async updateMenuCategory(restaurantId: string, id: string, data: any) {
-    return this.request(`/menu-categories/staff/categories/${id}?restaurantId=${restaurantId}`, {
-      method: 'PUT',
+    return this.request(`/menu-categories/staff/categories/${id}`, {
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
 
   async deleteMenuCategory(restaurantId: string, id: string) {
-    return this.request(`/menu-categories/staff/categories/${id}?restaurantId=${restaurantId}`, {
+    return this.request(`/menu-categories/staff/categories/${id}`, {
       method: 'DELETE',
     });
   }
 
   // Order endpoints
-  async getOrders(restaurantId: string, status?: string) {
+  async getOrders(restaurantId: string, filters?: {
+    status?: string;
+    paymentStatus?: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+    dateFilter?: 'today' | 'yesterday' | 'week' | 'month' | 'all';
+    excludeStatuses?: string[];
+    from?: string;
+    to?: string;
+    limit?: number;
+    offset?: number;
+  }) {
     const params = new URLSearchParams();
     params.append('restaurantId', restaurantId);
-    if (status) params.append('status', status);
+    
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.paymentStatus) params.append('paymentStatus', filters.paymentStatus);
+    if (filters?.dateFilter) params.append('dateFilter', filters.dateFilter);
+    if (filters?.excludeStatuses?.length) {
+      filters.excludeStatuses.forEach(status => params.append('excludeStatuses', status));
+    }
+    if (filters?.from) params.append('from', filters.from);
+    if (filters?.to) params.append('to', filters.to);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.offset) params.append('offset', filters.offset.toString());
     
     return this.request<{
       orders: Array<{
@@ -447,7 +516,7 @@ class ApiClient {
       code: string;
       status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'MAINTENANCE';
       capacity: number;
-    }>>(`/tables/staff/tables?restaurantId=${restaurantId}`);
+    }>>(`/staff/tables?restaurantId=${restaurantId}`);
   }
 
   async createTable(data: { number: number; capacity: number; restaurantId: string }) {
@@ -505,6 +574,247 @@ class ApiClient {
         ],
         notes: "WebSocket test order"
       }),
+    });
+  }
+
+
+  // Session endpoints (for customer sessions)
+  async createSession(tableCode: string, restaurantId: string) {
+    return this.request<{
+      sessionToken: string;
+      tableId: string;
+      tableNumber: number;
+      restaurantId: string;
+      expiresAt: string;
+    }>('/sessions/create', {
+      method: 'POST',
+      body: JSON.stringify({ tableCode, restaurantId }),
+    });
+  }
+
+  async validateSession(sessionToken: string) {
+    return this.request<{
+      valid: boolean;
+      tableId?: string;
+      tableNumber?: number;
+      restaurantId?: string;
+      restaurant?: {
+        id: string;
+        name: string;
+        logoUrl?: string;
+      };
+    }>(`/sessions/validate/${sessionToken}`);
+  }
+
+  async getSessionOrders(sessionToken: string) {
+    return this.request<Array<{
+      id: string;
+      orderNumber: string;
+      status: string;
+      totalAmount: number;
+      createdAt: string;
+    }>>(`/sessions/${sessionToken}/orders`);
+  }
+
+  async extendSession(sessionToken: string) {
+    return this.request<{
+      expiresAt: string;
+    }>(`/sessions/${sessionToken}/extend`, {
+      method: 'POST',
+    });
+  }
+
+  async endSession(sessionToken: string) {
+    return this.request(`/sessions/${sessionToken}/end`, {
+      method: 'POST',
+    });
+  }
+
+  // Payment endpoints (primarily for customer use)
+  async createPayment(orderId: string, returnUrl: string) {
+    return this.request<{
+      paymentId: string;
+      checkoutUrl: string;
+    }>('/payments/create', {
+      method: 'POST',
+      body: JSON.stringify({ orderId, returnUrl }),
+    });
+  }
+
+  async checkPaymentStatus(paymentId: string) {
+    return this.request<{
+      status: 'pending' | 'paid' | 'failed' | 'expired' | 'canceled';
+      orderId: string;
+      amount: number;
+    }>(`/payments/status/${paymentId}`);
+  }
+
+  // Staff management endpoints  
+  async createStaff(data: any) {
+    return this.request('/staff/staff/members', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateStaff(id: string, data: any) {
+    return this.request(`/staff/staff/members/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteStaff(id: string) {
+    return this.request(`/staff/staff/members/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async changeStaffPassword(currentPassword: string, newPassword: string) {
+    return this.request('/staff/staff/password', {
+      method: 'PATCH',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  }
+
+  // =================== MODIFIER GROUP ENDPOINTS ===================
+  
+  // Get modifier groups for a specific menu item  
+  async getMenuItemModifierGroups(menuItemId: string) {
+    return this.request<Array<{
+      id: string;
+      name: string;
+      menuItemId: string;
+      required: boolean;
+      multiSelect: boolean;
+      minSelect: number;
+      maxSelect?: number;
+      displayOrder: number;
+      isActive: boolean;
+      modifiers: Array<{
+        id: string;
+        name: string;
+        price: number;
+        displayOrder: number;
+        isActive: boolean;
+        modifierGroupId: string;
+      }>;
+    }>>(`/modifier-groups/staff/modifier-groups?menuItemId=${menuItemId}`);
+  }
+
+  // Get all modifier groups for a restaurant (global management)
+  async getModifierGroups(restaurantId: string) {
+    return this.request<Array<{
+      id: string;
+      name: string;
+      required: boolean;
+      multiSelect: boolean;
+      minSelect: number;
+      maxSelect?: number;
+      displayOrder: number;
+      isActive: boolean;
+      restaurantId: string;
+      modifiers: Array<{
+        id: string;
+        name: string;
+        price: number;
+        displayOrder: number;
+        isActive: boolean;
+        modifierGroupId: string;
+      }>;
+    }>>(`/modifier-groups/staff/modifier-groups?restaurantId=${restaurantId}`);
+  }
+
+  async createModifierGroup(data: {
+    name: string;
+    restaurantId: string;
+    required: boolean;
+    multiSelect: boolean;
+    minSelect: number;
+    maxSelect?: number;
+    displayOrder: number;
+  }) {
+    return this.request(`/modifier-groups/staff/modifier-groups`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateModifierGroup(id: string, data: {
+    name?: string;
+    required?: boolean;
+    multiSelect?: boolean;
+    minSelect?: number;
+    maxSelect?: number;
+    displayOrder?: number;
+  }) {
+    return this.request(`/modifier-groups/staff/modifier-groups/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteModifierGroup(id: string) {
+    return this.request(`/modifier-groups/staff/modifier-groups/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Assign modifier group to menu item (clone the group with new menuItemId)
+  async assignModifierGroupToMenuItem(menuItemId: string, modifierGroupId: string) {
+    return this.request(`/modifier-groups/staff/modifier-groups/${modifierGroupId}/assign`, {
+      method: 'POST',
+      body: JSON.stringify({ menuItemId }),
+    });
+  }
+
+  // Unassign modifier group from menu item (delete the menu-item-specific clone)
+  async unassignModifierGroupFromMenuItem(menuItemId: string, modifierGroupId: string) {
+    return this.request(`/modifier-groups/staff/modifier-groups/${modifierGroupId}/unassign`, {
+      method: 'DELETE',
+      body: JSON.stringify({ menuItemId }),
+    });
+  }
+
+  // =================== MODIFIER ENDPOINTS ===================
+  
+  async getModifiers(modifierGroupId: string) {
+    return this.request<Array<{
+      id: string;
+      name: string;
+      price: number;
+      displayOrder: number;
+      isActive: boolean;
+      modifierGroupId: string;
+    }>>(`/modifiers/staff/modifiers?modifierGroupId=${modifierGroupId}`);
+  }
+
+  async createModifier(data: {
+    name: string;
+    modifierGroupId: string;
+    price: number;
+    displayOrder: number;
+  }) {
+    return this.request(`/modifiers/staff/modifiers`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateModifier(id: string, data: {
+    name?: string;
+    price?: number;
+    displayOrder?: number;
+  }) {
+    return this.request(`/modifiers/staff/modifiers/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteModifier(id: string) {
+    return this.request(`/modifiers/staff/modifiers/${id}`, {
+      method: 'DELETE',
     });
   }
 }

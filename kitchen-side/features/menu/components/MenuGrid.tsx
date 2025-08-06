@@ -7,6 +7,7 @@
 
 import { MenuItem } from '@/shared/types';
 import { Button } from '@/shared/components/ui/Button';
+import { useTranslation } from '@/shared/contexts/LanguageContext';
 import { Edit, Eye, EyeOff, DollarSign } from 'lucide-react';
 
 interface MenuGridProps {
@@ -17,6 +18,8 @@ interface MenuGridProps {
 }
 
 export function MenuGrid({ items, onEdit, onToggleAvailability, showHiddenItems = false }: MenuGridProps) {
+  const t = useTranslation();
+  
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {items.map((item) => {
@@ -74,11 +77,11 @@ export function MenuGrid({ items, onEdit, onToggleAvailability, showHiddenItems 
                   ? 'bg-green-100 text-green-800' 
                   : 'bg-red-100 text-red-800'
               }`}>
-                {item.available ? 'Available' : 'Hidden'}
+                {item.available ? t.menu.available : t.menu.hidden}
               </span>
               {isHidden && showHiddenItems && (
                 <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
-                  Not visible to customers
+                  {t.menu.notVisibleToCustomers}
                 </span>
               )}
             </div>
@@ -92,7 +95,7 @@ export function MenuGrid({ items, onEdit, onToggleAvailability, showHiddenItems 
                 className="flex-1"
               >
                 <Edit className="w-4 h-4 mr-1" />
-                Edit
+                {t.menu.edit}
               </Button>
               <Button
                 variant={item.available ? "outline" : "success"}
@@ -107,12 +110,12 @@ export function MenuGrid({ items, onEdit, onToggleAvailability, showHiddenItems 
                 {item.available ? (
                   <>
                     <EyeOff className="w-4 h-4 mr-1" />
-                    Hide
+                    {t.menu.hide}
                   </>
                 ) : (
                   <>
                     <Eye className="w-4 h-4 mr-1" />
-                    Show
+                    {t.menu.show}
                   </>
                 )}
               </Button>

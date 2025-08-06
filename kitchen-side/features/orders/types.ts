@@ -38,7 +38,12 @@ export interface OrderStatistics {
 
 export interface OrderFilters {
   status?: string;
+  paymentStatus?: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+  dateFilter?: 'today' | 'yesterday' | 'week' | 'month' | 'all';
+  excludeStatuses?: string[];
   tableNumber?: number;
   startDate?: Date;
   endDate?: Date;
+  from?: string;
+  to?: string;
 }

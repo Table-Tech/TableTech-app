@@ -81,5 +81,21 @@ export default async function modifierGroupRoutes(server: FastifyInstance) {
       ]
     }, (req, reply) => controller.bulkUpdateModifierGroups(req as any, reply));
 
+    // POST /api/staff/modifier-groups/:id/assign - Assign modifier group to menu item
+    server.post('/modifier-groups/:id/assign', {
+      preHandler: [
+        validateParams(ModifierGroupParamsSchema),
+        requireRole(['MANAGER', 'ADMIN', 'CHEF', 'SUPER_ADMIN'])
+      ]
+    }, (req, reply) => controller.assignModifierGroupToMenuItem(req as any, reply));
+
+    // DELETE /api/staff/modifier-groups/:id/unassign - Unassign modifier group from menu item
+    server.delete('/modifier-groups/:id/unassign', {
+      preHandler: [
+        validateParams(ModifierGroupParamsSchema),
+        requireRole(['MANAGER', 'ADMIN', 'CHEF', 'SUPER_ADMIN'])
+      ]
+    }, (req, reply) => controller.unassignModifierGroupFromMenuItem(req as any, reply));
+
   }, { prefix: '/staff' });
 }

@@ -13,7 +13,7 @@ export function useOrders(restaurantId: string, filters?: OrderFilters) {
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
     total: 0,
-    limit: 10,
+    limit: 20,
     offset: 0,
     pages: 0
   });
@@ -24,7 +24,24 @@ export function useOrders(restaurantId: string, filters?: OrderFilters) {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await apiClient.getOrders(restaurantId, filters?.status);
+      
+      // Convert filters to API format
+      const apiFilters = filters ? {
+        status: filters.status,
+        paymentStatus: filters.paymentStatus,
+        dateFilter: filters.dateFilter || 'today', // Default to today
+        excludeStatuses: filters.excludeStatuses,
+        from: filters.from,
+        to: filters.to,
+        limit: pagination.limit,
+        offset: pagination.offset
+      } : {
+        dateFilter: 'today' as const, // Default: today's orders only
+        limit: pagination.limit,
+        offset: pagination.offset
+      };
+      
+      const response = await apiClient.getOrders(restaurantId, apiFilters);
       
       if (response.success && response.data) {
         setOrders(response.data.orders);
@@ -34,7 +51,9 @@ export function useOrders(restaurantId: string, filters?: OrderFilters) {
       }
     } catch (error) {
       setError('Network error');
-      console.error('Error fetching orders:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching orders:', error);
+      }
     } finally {
       setIsLoading(false);
     }

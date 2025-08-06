@@ -7,6 +7,7 @@
 
 import { useEffect } from 'react';
 import { useCategories } from '../hooks/useCategories';
+import { useTranslation } from '@/shared/contexts/LanguageContext';
 
 interface CategoryFilterProps {
   selectedCategory: string;
@@ -15,6 +16,7 @@ interface CategoryFilterProps {
 }
 
 export function CategoryFilter({ selectedCategory, onCategoryChange, restaurantId }: CategoryFilterProps) {
+  const t = useTranslation();
   const { categories, fetchCategories } = useCategories(restaurantId);
 
   useEffect(() => {
@@ -23,7 +25,7 @@ export function CategoryFilter({ selectedCategory, onCategoryChange, restaurantI
 
   return (
     <div className="mb-6">
-      <h3 className="text-sm font-medium text-gray-700 mb-2">Filter by Category</h3>
+      <h3 className="text-sm font-medium text-gray-700 mb-2">{t.menu.filterByCategory}</h3>
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => onCategoryChange('all')}
@@ -33,7 +35,7 @@ export function CategoryFilter({ selectedCategory, onCategoryChange, restaurantI
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
-          All Items
+          {t.menu.allItems}
         </button>
         {categories.map((category) => (
           <button

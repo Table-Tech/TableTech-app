@@ -17,29 +17,64 @@ export class ModifierGroupService extends BaseService<Prisma.ModifierGroupCreate
    */
   async createModifierGroup(data: CreateModifierGroupDTO, createdByStaffId: string): Promise<ModifierGroup> {
     return await this.prisma.$transaction(async (tx) => {
-      // Verify menu item exists and get restaurant ID for validation
-      const menuItem = await tx.menuItem.findUnique({
-        where: { id: data.menuItemId },
-        select: { id: true, name: true, restaurantId: true }
+      // Verify restaurant exists
+      const restaurant = await tx.restaurant.findUnique({
+        where: { id: data.restaurantId },
+        select: { id: true, name: true }
       });
 
-      if (!menuItem) {
-        throw new ApiError(404, 'MENU_ITEM_NOT_FOUND', 'Menu item not found');
+      if (!restaurant) {
+        throw new ApiError(404, 'RESTAURANT_NOT_FOUND', 'Restaurant not found');
       }
 
-      // Check for duplicate name within the menu item
+      // Check for duplicate name within the restaurant
       const existing = await tx.modifierGroup.findFirst({
         where: { 
           name: data.name, 
-          menuItemId: data.menuItemId 
+          menuItem: {
+            restaurantId: data.restaurantId
+          }
         }
       });
 
       if (existing) {
-        throw new ApiError(409, 'DUPLICATE_NAME', 'Modifier group with this name already exists for this menu item');
+        throw new ApiError(409, 'DUPLICATE_NAME', 'Modifier group with this name already exists in this restaurant');
       }
 
-      // Create modifier group
+      // For now, create a restaurant-level modifier group by using a placeholder approach
+      // We'll need to find or create a placeholder menu item for this restaurant
+      let placeholderMenuItem = await tx.menuItem.findFirst({
+        where: {
+          restaurantId: data.restaurantId,
+          name: "__MODIFIER_GROUP_PLACEHOLDER__"
+        }
+      });
+
+      if (!placeholderMenuItem) {
+        // Create a hidden placeholder menu item for modifier groups
+        placeholderMenuItem = await tx.menuItem.create({
+          data: {
+            name: "__MODIFIER_GROUP_PLACEHOLDER__",
+            description: "Internal placeholder for restaurant-level modifier groups",
+            price: 0,
+            isAvailable: false,
+            preparationTime: 0,
+            restaurantId: data.restaurantId,
+            categoryId: (await tx.menuCategory.findFirst({
+              where: { restaurantId: data.restaurantId }
+            }))?.id || (await tx.menuCategory.create({
+              data: {
+                name: "__PLACEHOLDER_CATEGORY__",
+                description: "Internal placeholder category",
+                displayOrder: 9999,
+                restaurantId: data.restaurantId
+              }
+            })).id
+          }
+        });
+      }
+
+      // Create modifier group linked to placeholder menu item
       const modifierGroup = await tx.modifierGroup.create({
         data: {
           name: data.name,
@@ -48,7 +83,7 @@ export class ModifierGroupService extends BaseService<Prisma.ModifierGroupCreate
           minSelect: data.minSelect,
           maxSelect: data.maxSelect,
           displayOrder: data.displayOrder,
-          menuItem: { connect: { id: data.menuItemId } }
+          menuItemId: placeholderMenuItem.id
         },
         include: this.getModifierGroupIncludes()
       });
@@ -61,13 +96,25 @@ export class ModifierGroupService extends BaseService<Prisma.ModifierGroupCreate
    * Get modifier groups with filters and pagination
    */
   async getModifierGroups(query: ModifierGroupQueryDTO) {
-    const where: Prisma.ModifierGroupWhereInput = {
-      menuItemId: query.menuItemId
-    };
+    const where: Prisma.ModifierGroupWhereInput = {};
+
+    // Support both restaurant-level and menu item-specific queries
+    if (query.restaurantId) {
+      where.menuItem = {
+        restaurantId: query.restaurantId,
+        name: "__MODIFIER_GROUP_PLACEHOLDER__" // Get restaurant-level modifier groups
+      };
+    } else if (query.menuItemId) {
+      where.menuItemId = query.menuItemId;
+    }
 
     // Apply filters
     if (query.search) {
       where.name = { contains: query.search, mode: 'insensitive' };
+    }
+
+    if (query.isActive !== undefined) {
+      where.isActive = query.isActive;
     }
 
     const [modifierGroups, total] = await Promise.all([
@@ -322,5 +369,114 @@ export class ModifierGroupService extends BaseService<Prisma.ModifierGroupCreate
 
   async delete(id: string): Promise<void> {
     return this.deleteModifierGroup(id, 'legacy-staff');
+  }
+
+  /**
+   * Assign modifier group to menu item (by cloning)
+   */
+  async assignModifierGroupToMenuItem(
+    modifierGroupId: string, 
+    menuItemId: string, 
+    assignedByStaffId: string
+  ): Promise<ModifierGroup> {
+    return await this.prisma.$transaction(async (tx) => {
+      // Get the original modifier group to clone
+      const originalGroup = await tx.modifierGroup.findUnique({
+        where: { id: modifierGroupId },
+        include: {
+          modifiers: {
+            orderBy: { displayOrder: 'asc' as const }
+          }
+        }
+      });
+
+      if (!originalGroup) {
+        throw new ApiError(404, 'MODIFIER_GROUP_NOT_FOUND', 'Modifier group not found');
+      }
+
+      // Verify the target menu item exists
+      const menuItem = await tx.menuItem.findUnique({
+        where: { id: menuItemId },
+        select: { id: true, restaurantId: true }
+      });
+
+      if (!menuItem) {
+        throw new ApiError(404, 'MENU_ITEM_NOT_FOUND', 'Menu item not found');
+      }
+
+      // Check if this modifier group is already assigned to this menu item
+      const existingAssignment = await tx.modifierGroup.findFirst({
+        where: {
+          name: originalGroup.name,
+          menuItemId: menuItemId
+        }
+      });
+
+      if (existingAssignment) {
+        throw new ApiError(409, 'ALREADY_ASSIGNED', 'This modifier group is already assigned to this menu item');
+      }
+
+      // Clone the modifier group for the specific menu item
+      const clonedGroup = await tx.modifierGroup.create({
+        data: {
+          name: originalGroup.name,
+          required: originalGroup.required,
+          multiSelect: originalGroup.multiSelect,
+          minSelect: originalGroup.minSelect,
+          maxSelect: originalGroup.maxSelect,
+          displayOrder: originalGroup.displayOrder,
+          menuItemId: menuItemId
+        },
+        include: this.getModifierGroupIncludes()
+      });
+
+      // Clone all modifiers in the group
+      if (originalGroup.modifiers.length > 0) {
+        await tx.modifier.createMany({
+          data: originalGroup.modifiers.map(modifier => ({
+            name: modifier.name,
+            price: modifier.price,
+            displayOrder: modifier.displayOrder,
+            isActive: modifier.isActive,
+            modifierGroupId: clonedGroup.id
+          }))
+        });
+      }
+
+      return clonedGroup;
+    });
+  }
+
+  /**
+   * Unassign modifier group from menu item (by deleting the clone)
+   */
+  async unassignModifierGroupFromMenuItem(
+    modifierGroupId: string, 
+    menuItemId: string, 
+    unassignedByStaffId: string
+  ): Promise<void> {
+    return await this.prisma.$transaction(async (tx) => {
+      // Find the modifier group assigned to this menu item
+      const assignedGroup = await tx.modifierGroup.findFirst({
+        where: {
+          id: modifierGroupId,
+          menuItemId: menuItemId
+        }
+      });
+
+      if (!assignedGroup) {
+        throw new ApiError(404, 'ASSIGNMENT_NOT_FOUND', 'This modifier group is not assigned to this menu item');
+      }
+
+      // Delete all modifiers in this group first (cascade)
+      await tx.modifier.deleteMany({
+        where: { modifierGroupId: assignedGroup.id }
+      });
+
+      // Delete the modifier group assignment (the cloned group)
+      await tx.modifierGroup.delete({
+        where: { id: assignedGroup.id }
+      });
+    });
   }
 }

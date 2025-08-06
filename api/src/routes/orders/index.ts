@@ -108,11 +108,19 @@ export default async function orderRoutes(server: FastifyInstance) {
       const { orderId } = request.params as { orderId: string };
       
       try {
-        const order = await orderService.findById(orderId);
+        const order = await (orderService as any).prisma.order.findUnique({
+          where: { id: orderId },
+          include: {
+            table: {
+              select: { id: true, number: true, code: true }
+            }
+          }
+        });
+        
         if (!order) {
           throw new ApiError(404, 'ORDER_NOT_FOUND', 'Order not found');
         }
-
+        
         // Return minimal order info for customers
         return reply.send({
           success: true,

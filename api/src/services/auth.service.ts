@@ -10,20 +10,26 @@ import {
   ForgotPasswordDTO,
   ResetPasswordDTO 
 } from "../schemas/auth.schema.js";
+import { staffSessionService } from "./infrastructure/session/staff-session.service.js";
+
+type UserWithSession = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  restaurantId: string | null;
+  sessionId?: string;
+  restaurant?: {
+    id: string;
+    name: string;
+  };
+};
 
 type LoginResponse = {
   token: string;
   refreshToken: string;
-  staff: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-    restaurant?: {
-      id: string;
-      name: string;
-    };
-  };
+  staff: UserWithSession; // Backwards compatibility
+  user: UserWithSession;  // New standard format
 };
 
 export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
@@ -69,23 +75,30 @@ export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
     const token = generateToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
+    // Create user object (no session for register - sessions created on login only)
+    const userData: UserWithSession = {
+      id: staff.id,
+      name: staff.name,
+      email: staff.email,
+      role: staff.role,
+      restaurantId: staff.restaurantId,
+      restaurant: staff.restaurant || undefined
+    };
+
     return {
       token,
       refreshToken,
-      staff: {
-        id: staff.id,
-        name: staff.name,
-        email: staff.email,
-        role: staff.role,
-        restaurant: staff.restaurant || undefined
-      }
+      // Keep staff for backwards compatibility
+      staff: userData,
+      // Add user for new standard format
+      user: userData
     };
   }
 
   /**
    * Login staff member
    */
-  async login(data: LoginDTO): Promise<LoginResponse> {
+  async login(data: LoginDTO, userAgent?: string): Promise<LoginResponse> {
     // Find staff by email
     const staff = await this.prisma.staff.findUnique({
       where: { email: data.email },
@@ -102,15 +115,75 @@ export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
       throw new ApiError(401, 'ACCOUNT_DEACTIVATED', 'Account has been deactivated');
     }
 
+    // Check account lockout
+    if (staff.lockedUntil && staff.lockedUntil > new Date()) {
+      throw new ApiError(401, 'ACCOUNT_LOCKED', 'Account is temporarily locked due to failed login attempts');
+    }
+
     // Verify password
     const isValid = await comparePassword(data.password, staff.passwordHash);
     if (!isValid) {
+      // Increment failed attempts
+      await this.prisma.staff.update({
+        where: { id: staff.id },
+        data: { 
+          loginAttempts: { increment: 1 },
+          // Lock account after 5 failed attempts for 30 minutes
+          lockedUntil: staff.loginAttempts >= 4 ? new Date(Date.now() + 30 * 60 * 1000) : null
+        }
+      });
       throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
     }
 
-    // Generate tokens
+    // Create session with fallback handling
+    let session;
+    try {
+      session = await staffSessionService.createSession({
+        staffId: staff.id,
+        userAgent: userAgent,
+        refreshToken: generateRefreshToken({ 
+          staffId: staff.id, 
+          restaurantId: staff.restaurantId, 
+          role: staff.role, 
+          email: staff.email 
+        })
+      });
+    } catch (sessionError) {
+      // If session creation fails, continue with JWT-only auth
+      console.error('Session creation failed during login:', sessionError);
+      
+      // Generate JWT without session ID (fallback mode)
+      const tokenPayload: JWTPayload = {
+        staffId: staff.id,
+        restaurantId: staff.restaurantId,
+        role: staff.role,
+        email: staff.email
+      };
+
+      const token = generateToken(tokenPayload);
+      const refreshToken = generateRefreshToken(tokenPayload);
+
+      const userData: UserWithSession = {
+        id: staff.id,
+        name: staff.name,
+        email: staff.email,
+        role: staff.role,
+        restaurantId: staff.restaurantId,
+        restaurant: staff.restaurant || undefined
+      };
+
+      return {
+        token,
+        refreshToken,
+        staff: userData,
+        user: userData
+      };
+    }
+
+    // Generate tokens with session ID
     const tokenPayload: JWTPayload = {
       staffId: staff.id,
+      sessionId: session.sessionId,
       restaurantId: staff.restaurantId,
       role: staff.role,
       email: staff.email
@@ -119,18 +192,24 @@ export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
     const token = generateToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
-    // Update last login to be implemented!!!
+    // Create user object with session info
+    const userWithSession = {
+      id: staff.id,
+      name: staff.name,
+      email: staff.email,
+      role: staff.role,
+      restaurantId: staff.restaurantId,
+      sessionId: session.sessionId,
+      restaurant: staff.restaurant || undefined
+    };
 
     return {
       token,
       refreshToken,
-      staff: {
-        id: staff.id,
-        name: staff.name,
-        email: staff.email,
-        role: staff.role,
-        restaurant: staff.restaurant || undefined
-      }
+      // Keep staff for backwards compatibility
+      staff: userWithSession,
+      // Add user for new standard format
+      user: userWithSession
     };
   }
 
@@ -151,9 +230,39 @@ export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
         throw new ApiError(401, 'INVALID_TOKEN', 'Invalid refresh token');
       }
 
+      // Validate session if present
+      if (payload.sessionId) {
+        try {
+          const sessionValidation = await staffSessionService.validateSession(payload.sessionId);
+          
+          if (!sessionValidation.valid) {
+            throw new ApiError(401, 'SESSION_INVALID', sessionValidation.reason || 'Session is not valid');
+          }
+
+          // Validate refresh token matches session
+          const isValidRefreshToken = await staffSessionService.validateRefreshToken(payload.sessionId, refreshToken);
+          if (!isValidRefreshToken) {
+            throw new ApiError(401, 'INVALID_REFRESH_TOKEN', 'Refresh token does not match session');
+          }
+
+          // Extend session
+          await staffSessionService.extendSession(payload.sessionId);
+          
+        } catch (sessionError) {
+          if (sessionError instanceof ApiError) {
+            throw sessionError; // Re-throw session validation errors
+          }
+          
+          // Handle session service infrastructure errors
+          console.error('Session service error during refresh:', sessionError);
+          throw new ApiError(503, 'SESSION_SERVICE_UNAVAILABLE', 'Session service temporarily unavailable');
+        }
+      }
+
       // Generate new tokens
       const newPayload: JWTPayload = {
         staffId: staff.id,
+        sessionId: payload.sessionId, // Keep same session ID
         restaurantId: staff.restaurantId,
         role: staff.role,
         email: staff.email
@@ -165,7 +274,23 @@ export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
       };
 
     } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
       throw new ApiError(401, 'INVALID_TOKEN', 'Invalid or expired refresh token');
+    }
+  }
+
+  /**
+   * Logout - revoke session
+   */
+  async logout(sessionId: string, staffId: string): Promise<void> {
+    try {
+      await staffSessionService.revokeSession(sessionId, 'logout', staffId);
+    } catch (sessionError) {
+      // Log error but don't fail logout if session service is unavailable
+      console.error('Session service error during logout:', sessionError);
+      // Still allow logout to succeed - JWT will expire naturally
     }
   }
 
@@ -194,6 +319,9 @@ export class AuthService extends BaseService<Prisma.StaffCreateInput, Staff> {
       where: { id: staffId },
       data: { passwordHash: newPasswordHash }
     });
+
+    // Revoke all sessions after password change for security
+    await staffSessionService.revokeAllUserSessions(staffId, 'password_changed', staffId);
   }
 
   /**

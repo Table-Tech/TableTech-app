@@ -54,7 +54,7 @@ class ErrorReportingService {
       componentStack: context.componentStack,
       errorBoundary: context.errorBoundary,
       level: context.level,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }),
       userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'Unknown',
       url: typeof window !== 'undefined' ? window.location.href : 'Unknown',
       errorId: this.generateErrorId(),
@@ -189,7 +189,7 @@ class ErrorReportingService {
     recent: number
   } {
     const errors = this.getStoredErrors()
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' })
 
     return {
       total: errors.length,

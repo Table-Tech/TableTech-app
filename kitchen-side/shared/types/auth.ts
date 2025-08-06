@@ -7,6 +7,8 @@ export interface User {
   name: string;
   email: string;
   role: 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'CHEF' | 'WAITER' | 'CASHIER';
+  restaurantId?: string | null;
+  sessionId?: string; // Session ID for tracking user sessions
   restaurant?: {
     id: string;
     name: string;
@@ -16,5 +18,6 @@ export interface User {
 export interface LoginResponse {
   token: string;
   refreshToken: string;
-  staff: User;
+  staff: User; // Backwards compatibility
+  user: User;  // New standard format
 }

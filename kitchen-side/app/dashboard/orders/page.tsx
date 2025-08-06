@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { apiClient } from '@/shared/services/api-client';
 import { useWebSocket } from '@/shared/services/websocket-client';
-import { Clock, Users, ShoppingCart, RefreshCw, Wifi, WifiOff, TestTube } from 'lucide-react';
+import { useTranslation } from '@/shared/contexts/LanguageContext';
+import { Clock, Users, ShoppingCart, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
 
 interface Order {
@@ -41,10 +42,10 @@ interface Order {
 export default function OrdersPage() {
   const { currentRestaurantId } = useAuth();
   const { connectionStatus, subscribe, updateOrderStatus: wsUpdateOrderStatus } = useWebSocket(currentRestaurantId || undefined);
+  const t = useTranslation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [testOrderLoading, setTestOrderLoading] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     if (!currentRestaurantId) {
@@ -111,31 +112,6 @@ export default function OrdersPage() {
     }
   }, [currentRestaurantId]);
 
-  const createTestOrder = async () => {
-    if (!currentRestaurantId) return;
-    
-    setTestOrderLoading(true);
-    try {
-      // Using Table #2 with specific ID
-      const tableId = "6fcf1085-876a-4755-8915-95a9c0fee02f";
-      const menuItemId = "b77c704d-fcfd-494e-a262-bb82fcf0bfcc";
-      
-      const response = await apiClient.createTestOrder(currentRestaurantId, tableId, menuItemId);
-      
-      if (response.success) {
-        console.log('Test order created successfully:', response.data);
-        // The WebSocket should automatically update the UI
-      } else {
-        console.error('Failed to create test order:', response.error);
-        alert('Failed to create test order: ' + response.error);
-      }
-    } catch (error) {
-      console.error('Error creating test order:', error);
-      alert('Error creating test order');
-    } finally {
-      setTestOrderLoading(false);
-    }
-  };
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
@@ -159,6 +135,18 @@ export default function OrdersPage() {
     }
   };
 
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'PENDING': return t.orders.pending;
+      case 'CONFIRMED': return t.orders.confirmed;
+      case 'PREPARING': return t.orders.preparing;
+      case 'READY': return t.orders.ready;
+      case 'COMPLETED': return t.orders.completed;
+      case 'CANCELLED': return t.orders.cancelled;
+      default: return status;
+    }
+  };
+
   const getNextStatus = (currentStatus: string) => {
     switch (currentStatus) {
       case 'PENDING': return 'CONFIRMED';
@@ -171,7 +159,8 @@ export default function OrdersPage() {
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
+    return date.toLocaleTimeString('nl-NL', { 
+      timeZone: 'Europe/Amsterdam',
       hour: '2-digit', 
       minute: '2-digit' 
     });
@@ -248,7 +237,7 @@ export default function OrdersPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading orders...</p>
+          <p className="mt-4 text-gray-600">{t.orders.loadingOrders}</p>
         </div>
       </div>
     );
@@ -257,72 +246,71 @@ export default function OrdersPage() {
   if (error) {
     return (
       <div className="text-center py-12">
-        <div className="text-red-600 text-xl mb-4">⚠️ Error</div>
+        <div className="text-red-600 text-xl mb-4">⚠️ {t.orders.error}</div>
         <p className="text-gray-600 mb-4">{error}</p>
         <button
           onClick={fetchOrders}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
-          Try Again
+          {t.orders.tryAgain}
         </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Live Orders</h1>
-          <p className="text-gray-600 mt-1">Manage active restaurant orders</p>
-        </div>
-        <div className="flex items-center space-x-4">
-          {/* Connection Status Indicator */}
-          <div className={`flex items-center space-x-2 px-3 py-1 rounded-lg ${
-            connectionStatus === 'connected' 
-              ? 'bg-green-100 text-green-700' 
-              : 'bg-red-100 text-red-700'
-          }`}>
-            {connectionStatus === 'connected' ? (
-              <>
-                <Wifi className="w-4 h-4" />
-                <span className="text-sm font-medium">Live</span>
-              </>
-            ) : (
-              <>
-                <WifiOff className="w-4 h-4" />
-                <span className="text-sm font-medium">Offline</span>
-              </>
-            )}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
+      {/* Header Section */}
+      <div className="max-w-6xl mx-auto px-6 pt-6">
+        <div className="bg-gradient-to-br from-white/70 via-orange-50/60 to-red-50/40 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 shadow-sm mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="space-y-1">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-700 bg-clip-text text-transparent">{t.orders.liveOrders}</h1>
+              <p className="text-gray-600 text-sm">{t.orders.manageActiveOrders}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Connection Status Indicator */}
+              <div className={`flex items-center space-x-2 px-4 py-2 rounded-xl backdrop-blur-sm shadow-sm border transition-all duration-200 ${
+                connectionStatus === 'connected' 
+                  ? 'bg-green-50/80 border-green-200/50 text-green-700' 
+                  : 'bg-red-50/80 border-red-200/50 text-red-700'
+              }`}>
+                {connectionStatus === 'connected' ? (
+                  <>
+                    <Wifi className="w-4 h-4" />
+                    <span className="text-sm font-medium">{t.orders.live}</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-4 h-4" />
+                    <span className="text-sm font-medium">{t.orders.offline}</span>
+                  </>
+                )}
+              </div>
+              <button
+                onClick={fetchOrders}
+                className="bg-white/50 backdrop-blur-sm hover:bg-white/80 border border-gray-200/50 text-gray-700 hover:text-gray-900 px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>{t.orders.refresh}</span>
+              </button>
+            </div>
           </div>
-          <button
-            onClick={createTestOrder}
-            disabled={testOrderLoading}
-            className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <TestTube className="w-4 h-4" />
-            <span>{testOrderLoading ? 'Creating...' : 'Test Order'}</span>
-          </button>
-          <button
-            onClick={fetchOrders}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>Refresh</span>
-          </button>
         </div>
       </div>
 
-      {/* Orders Grid */}
-      {orders.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
+      {/* Content Section */}
+      <div className="max-w-6xl mx-auto px-6 pb-8">
+
+        {/* Orders Grid */}
+        {orders.length === 0 ? (
+          <div className="text-center py-12 bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm">
           <ShoppingCart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-600 mb-2">
-            No active orders
+            {t.orders.noActiveOrders}
           </h3>
           <p className="text-gray-500">
-            New orders will appear here when customers place them.
+            {t.orders.newOrdersWillAppear}
           </p>
         </div>
       ) : (
@@ -341,14 +329,14 @@ export default function OrdersPage() {
                     <div>
                       <h3 className="text-xl font-bold text-gray-900 flex items-center">
                         <Users className="w-5 h-5 mr-2 text-blue-600" />
-                        Table {order.table.number}
+                        {t.orders.table} {order.table.number}
                       </h3>
                       <p className="text-sm text-gray-500">
-                        Order #{order.orderNumber}
+                        {t.orders.orderNumber} #{order.orderNumber}
                       </p>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
-                      {order.status}
+                      {getStatusText(order.status)}
                     </span>
                   </div>
                   
@@ -359,7 +347,7 @@ export default function OrdersPage() {
                     </div>
                     <div className="flex items-center">
                       <ShoppingCart className="w-4 h-4 mr-1" />
-                      {calculateTotalItems(order.orderItems)} items
+                      {calculateTotalItems(order.orderItems)} {t.orders.items}
                     </div>
                   </div>
                 </div>
@@ -389,7 +377,7 @@ export default function OrdersPage() {
                           
                           {item.notes && (
                             <p className="text-sm text-orange-600 mt-1 font-medium">
-                              Note: {item.notes}
+                              {t.orders.note}: {item.notes}
                             </p>
                           )}
                         </div>
@@ -406,7 +394,7 @@ export default function OrdersPage() {
                       onClick={() => updateOrderStatus(order.id, nextStatus)}
                       className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
                     >
-                      Mark as {nextStatus}
+                      {t.orders.markAs} {getStatusText(nextStatus)}
                     </button>
                   </div>
                 )}
@@ -415,6 +403,7 @@ export default function OrdersPage() {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }

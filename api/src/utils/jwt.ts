@@ -9,18 +9,31 @@ const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m'; // Short-lived access token
 const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '7d'; // Long-lived refresh token
 
-// Validate required secrets, to be updated!!!!!!!
-if (!JWT_SECRET || JWT_SECRET === 'your-super-secret-jwt-key-change-in-production') {
-  throw new Error('JWT_SECRET must be set in production');
+// Validate required secrets and their strength
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET must be set in environment variables');
+}
+
+if (JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET must be at least 32 characters long for security');
 }
 
 if (!JWT_REFRESH_SECRET) {
-  // Use different secret for refresh tokens for better security
-  throw new Error('JWT_REFRESH_SECRET must be set in production');
+  throw new Error('JWT_REFRESH_SECRET must be set in environment variables');
+}
+
+if (JWT_REFRESH_SECRET.length < 32) {
+  throw new Error('JWT_REFRESH_SECRET must be at least 32 characters long for security');
+}
+
+// Ensure refresh secret is different from access token secret
+if (JWT_SECRET === JWT_REFRESH_SECRET) {
+  throw new Error('JWT_REFRESH_SECRET must be different from JWT_SECRET for security');
 }
 
 export interface JWTPayload {
   staffId: string;
+  sessionId?: string; // Session ID for session tracking (optional for backward compatibility)
   restaurantId: string | null; // null for SUPER_ADMIN
   role: string;
   email: string;
@@ -159,7 +172,11 @@ export const isTokenExpired = (token: string): boolean => {
  * Generate a token for password reset (different purpose, different secret)
  */
 export const generatePasswordResetToken = (staffId: string): string => {
-  const resetSecret = process.env.JWT_RESET_SECRET || JWT_SECRET + '-reset';
+  const resetSecret = process.env.JWT_RESET_SECRET;
+  
+  if (!resetSecret) {
+    throw new Error('JWT_RESET_SECRET must be set in environment variables for password reset functionality');
+  }
   
   return jwt.sign(
     { staffId, type: 'password-reset' }, 
@@ -173,7 +190,12 @@ export const generatePasswordResetToken = (staffId: string): string => {
  */
 export const verifyPasswordResetToken = (token: string): { staffId: string } => {
   try {
-    const resetSecret = process.env.JWT_RESET_SECRET || JWT_SECRET + '-reset';
+    const resetSecret = process.env.JWT_RESET_SECRET;
+    
+    if (!resetSecret) {
+      throw new Error('JWT_RESET_SECRET must be set in environment variables for password reset functionality');
+    }
+    
     const decoded = jwt.verify(token, resetSecret) as any;
     
     if (decoded.type !== 'password-reset') {
@@ -182,6 +204,9 @@ export const verifyPasswordResetToken = (token: string): { staffId: string } => 
     
     return { staffId: decoded.staffId };
   } catch (error) {
+    if (error instanceof Error && error.message.includes('JWT_RESET_SECRET')) {
+      throw error; // Re-throw configuration errors
+    }
     throw new ApiError(400, 'INVALID_RESET_TOKEN', 'Invalid or expired reset token');
   }
 };

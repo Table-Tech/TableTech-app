@@ -32,7 +32,7 @@ export class AuthController {
     req: AuthenticatedRequest<z.infer<typeof LoginSchema>>,
     reply: FastifyReply
   ) {
-    const result = await this.svc.login(req.body);
+    const result = await this.svc.login(req.body, req.headers['user-agent']);
     return reply.send({
       success: true,
       message: "Login successful",
@@ -69,8 +69,11 @@ export class AuthController {
     req: AuthenticatedRequest,
     reply: FastifyReply
   ) {
-    // TODO: Implement token blacklisting if needed
-    // For now, logout is handled client-side
+    // Revoke session if sessionId present
+    if (req.user.sessionId) {
+      await this.svc.logout(req.user.sessionId, req.user.staffId);
+    }
+    
     return reply.send({
       success: true,
       message: "Logout successful"

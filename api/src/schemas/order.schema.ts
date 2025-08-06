@@ -56,9 +56,14 @@ export const OrderQuerySchema = z.object({
     "PENDING", "CONFIRMED", "PREPARING", 
     "READY", "DELIVERED", "COMPLETED", "CANCELLED"
   ]).optional(),
+  paymentStatus: z.enum(["PENDING", "COMPLETED", "FAILED", "REFUNDED"]).optional(),
   tableId: z.string().uuid().optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
+  dateFilter: z.enum(["today", "yesterday", "week", "month", "all"]).default("today"),
+  excludeStatuses: z.array(z.enum([
+    "PENDING", "COMPLETED", "CANCELLED"
+  ])).optional(),
   limit: z.number().int().min(1).max(100).default(20),
   offset: z.number().int().min(0).default(0)
 });

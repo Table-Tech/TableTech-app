@@ -38,17 +38,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      console.log('AuthContext: initializeAuth started');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('AuthContext: initializeAuth started');
+      }
       // Check for stored auth on mount
       const storedToken = localStorage.getItem('token');
       const storedUser = localStorage.getItem('user');
       const storedSelectedRestaurant = localStorage.getItem('selectedRestaurant');
 
-      console.log('AuthContext: stored data check - token:', !!storedToken, 'user:', !!storedUser);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('AuthContext: stored data check - token:', !!storedToken, 'user:', !!storedUser);
+      }
 
       // If no token or user data, stop loading immediately
       if (!storedToken || !storedUser) {
-        console.log('AuthContext: No stored auth data, stopping loading');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('AuthContext: No stored auth data, stopping loading');
+        }
         setIsLoading(false);
         return;
       }
@@ -75,7 +81,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         
         // Stop loading immediately so user can interact with the app
-        console.log('AuthContext: Setting user data and stopping loading');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('AuthContext: Setting user data and stopping loading');
+        }
         setIsLoading(false);
         
         // Validate token in the background (don't block UI)
@@ -95,7 +103,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             clearAuthData();
           }
         } catch (error) {
-          console.error('Background token validation failed:', error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Background token validation failed:', error);
+          }
           // Only clear auth data if it's a 401 or other auth-related error
           if (error instanceof Error && error.message.includes('401')) {
             clearAuthData();
@@ -103,7 +113,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         
       } catch (error) {
-        console.error('AuthContext: Failed to parse stored user data:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('AuthContext: Failed to parse stored user data:', error);
+        }
         clearAuthData();
         setIsLoading(false);
       }
@@ -114,6 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
+      localStorage.removeItem('sessionId'); // Clear session ID
       localStorage.removeItem('selectedRestaurant');
       setToken(null);
       setUser(null);
@@ -147,7 +160,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAvailableRestaurants(response);
       }
     } catch (error) {
-      console.error('Failed to load restaurants:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to load restaurants:', error);
+      }
     }
   };
 
@@ -156,16 +171,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiClient.login(email, password);
       
       if (response.success && response.data) {
-        const { token: newToken, refreshToken, staff } = response.data;
+        const { token: newToken, refreshToken, staff, user } = response.data;
+        
+        // Use the new user object if available (has sessionId), otherwise fall back to staff
+        const userData = user || staff;
         
         // Store in state
         setToken(newToken);
-        setUser(staff as User);
+        setUser(userData as User);
         
         // Store in localStorage
         localStorage.setItem('token', newToken);
         localStorage.setItem('refreshToken', refreshToken);
-        localStorage.setItem('user', JSON.stringify(staff));
+        localStorage.setItem('user', JSON.stringify(userData));
+        
+        // Store sessionId separately for easy access
+        if (userData.sessionId) {
+          localStorage.setItem('sessionId', userData.sessionId);
+        }
         
         // Handle restaurant selection based on role
         if (staff.role === 'SUPER_ADMIN') {
@@ -211,6 +234,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('sessionId'); // Clear session ID
     localStorage.removeItem('selectedRestaurant');
     localStorage.removeItem('mockUser'); // Clean up cached data
     router.push('/login');
@@ -249,7 +273,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout();
       }
     } catch (error) {
-      console.error('Failed to refresh user:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to refresh user:', error);
+      }
       logout();
     }
   };
