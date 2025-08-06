@@ -36,7 +36,7 @@ export default function MenuItem({
     return (
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 h-full flex flex-col">
             {/* Product Image */}
-            <div className="aspect-square w-full bg-gray-100 overflow-hidden">
+            <div className="aspect-[4/3] w-full bg-gray-100 overflow-hidden">
                 {item.imageUrl ? (
                     <img
                         src={item.imageUrl}
@@ -46,15 +46,15 @@ export default function MenuItem({
                     />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-4xl text-gray-300">🍽️</span>
+                        <span className="text-3xl text-gray-300">🍽️</span>
                     </div>
                 )}
             </div>
 
             {/* Content */}
-            <div className="p-4 flex-1 flex flex-col">
+            <div className="p-3 flex-1 flex flex-col">
                 <div className="flex-1">
-                    <h3 className="font-bold text-gray-800 mb-1 text-sm leading-tight">
+                    <h3 className="font-semibold text-gray-800 mb-1 text-xs leading-tight">
                         {item.name}
                     </h3>
                     {item.description && (
@@ -65,8 +65,8 @@ export default function MenuItem({
                 </div>
 
                 {/* Price and Add Button */}
-                <div className="flex items-center justify-between mt-3">
-                    <span className="text-lg font-bold text-gray-800">
+                <div className="flex items-center justify-between mt-2">
+                    <span className="text-sm font-bold text-gray-800">
                         €{Number(item.price).toFixed(2)}
                     </span>
                     
@@ -76,7 +76,7 @@ export default function MenuItem({
                             onClick={handleAddClick}
                             disabled={showMessage}
                             whileTap={{ scale: 0.95 }}
-                            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-lg ${
                                 showMessage
                                     ? "bg-green-500"
                                     : "bg-blue-500 hover:bg-blue-600"
@@ -91,7 +91,7 @@ export default function MenuItem({
                                     duration: showMessage ? 0.6 : 0,
                                     ease: "easeInOut"
                                 }}
-                                className="text-white text-lg font-bold"
+                                className="text-white text-sm font-bold"
                             >
                                 {showMessage ? "✓" : "+"}
                             </motion.span>
