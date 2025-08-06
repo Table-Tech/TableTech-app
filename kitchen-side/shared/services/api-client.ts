@@ -37,9 +37,12 @@ class ApiClient {
       }
     }
 
-    const defaultHeaders: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
+    const defaultHeaders: HeadersInit = {};
+    
+    // Only set Content-Type for requests that have a body
+    if (options.body || (options.method && !['GET', 'DELETE', 'HEAD'].includes(options.method))) {
+      defaultHeaders['Content-Type'] = 'application/json';
+    }
 
     if (token) {
       defaultHeaders.Authorization = `Bearer ${token}`;

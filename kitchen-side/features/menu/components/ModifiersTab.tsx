@@ -36,6 +36,48 @@ interface ModifiersTabProps {
   restaurantId: string;
 }
 
+interface TemplateAssignment {
+  id: string;
+  displayName?: string;
+  required: boolean;
+  minSelect: number;
+  maxSelect?: number;
+  displayOrder: number;
+  template: {
+    id: string;
+    name: string;
+    type: string;
+    options: Array<{
+      id: string;
+      name: string;
+      price: number;
+      displayOrder: number;
+    }>;
+  };
+  optionOverrides: Array<{
+    id: string;
+    optionId: string;
+    isHidden: boolean;
+    priceOverride: number | null;
+    nameOverride: string | null;
+    isDefault: boolean;
+  }>;
+}
+
+interface CustomizationFormData {
+  displayName: string;
+  required: boolean;
+  minSelect: number;
+  maxSelect?: number;
+  displayOrder: number;
+  optionOverrides: Record<string, {
+    isHidden: boolean;
+    nameOverride: string;
+    priceOverride: number | null;
+    isDefault: boolean;
+  }>;
+}
+
 // Helper function to convert price values to numbers
 const convertToNumber = (value: any): number => {
   if (typeof value === 'number') return value;
@@ -53,6 +95,22 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
   const [isAssigning, setIsAssigning] = useState<string | null>(null);
   const [isUnassigning, setIsUnassigning] = useState<string | null>(null);
   const [customizingTemplate, setCustomizingTemplate] = useState<string | null>(null);
+  const [currentAssignment, setCurrentAssignment] = useState<TemplateAssignment | null>(null);
+  const [customizationForm, setCustomizationForm] = useState<CustomizationFormData>({
+    displayName: '',
+    required: false,
+    minSelect: 0,
+    maxSelect: undefined,
+    displayOrder: 0,
+    optionOverrides: {}
+  });
+  const [isLoadingCustomization, setIsLoadingCustomization] = useState(false);
+  const [isSavingCustomization, setIsSavingCustomization] = useState(false);
+
+  // Debug form state changes
+  useEffect(() => {
+    console.log('📝 CustomizationForm state updated:', customizationForm);
+  }, [customizationForm]);
 
   const fetchModifierGroups = async () => {
     if (!menuItemId) {
@@ -124,7 +182,7 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
         setAssignedGroups(assignments);
       }
     } catch (error) {
-      console.error("Error fetching modifier groups:", error);
+      console.error("Error fetching modifier templates:", error);
       // Reset to empty states on error to prevent stale data
       setAvailableGroups([]);
       setAssignedGroups([]);
@@ -140,7 +198,7 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
   // Refresh data when the tab/window gains focus
   useEffect(() => {
     const handleFocus = () => {
-      // Refresh modifier groups when user returns to the tab
+      // Refresh modifier templates when user returns to the tab
       fetchModifierGroups();
     };
 
@@ -187,6 +245,164 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
     }
   };
 
+  const fetchAssignmentData = async (templateId: string) => {
+    if (!menuItemId) return;
+
+    setIsLoadingCustomization(true);
+    try {
+      const response = await apiClient.getMenuItemModifierTemplates(menuItemId);
+      console.log('📋 Fetched assignments response:', response);
+      
+      // Handle both response.success pattern and direct data response
+      const assignmentData = response.data || response;
+      console.log('📊 Assignment data:', assignmentData);
+      
+      if (Array.isArray(assignmentData)) {
+        console.log('🔍 Looking for templateId:', templateId);
+        console.log('📊 Available assignments:', assignmentData.map((a: any) => ({
+          id: a.id,
+          templateId: a.template?.id || a.templateId,
+          required: a.required,
+          displayName: a.displayName
+        })));
+        
+        // Try to find by template.id or templateId
+        const assignment = assignmentData.find((a: any) => 
+          a.template?.id === templateId || a.templateId === templateId
+        );
+        
+        console.log('✅ Found assignment:', JSON.stringify(assignment, null, 2));
+        
+        if (assignment) {
+          setCurrentAssignment(assignment);
+          
+          // Initialize form with current assignment data
+          const optionOverrides: Record<string, any> = {};
+          
+          // Ensure we have template options
+          if (assignment.template && assignment.template.options) {
+            assignment.template.options.forEach((option: any) => {
+              const override = assignment.optionOverrides?.find((o: any) => o.optionId === option.id);
+              optionOverrides[option.id] = {
+                isHidden: override?.isHidden || false,
+                nameOverride: override?.nameOverride || '',
+                priceOverride: override && override.priceOverride !== null ? convertToNumber(override.priceOverride) : null,
+                isDefault: override?.isDefault || false
+              };
+            });
+          }
+
+          console.log('🎯 Setting form state with:', {
+            displayName: assignment.displayName || assignment.template?.name || '',
+            required: assignment.required,
+            minSelect: assignment.minSelect,
+            maxSelect: assignment.maxSelect,
+            displayOrder: assignment.displayOrder
+          });
+
+          setCustomizationForm({
+            displayName: assignment.displayName || assignment.template?.name || '',
+            required: Boolean(assignment.required), // Ensure boolean value
+            minSelect: assignment.minSelect || 0,
+            maxSelect: assignment.maxSelect || undefined,
+            displayOrder: assignment.displayOrder || 0,
+            optionOverrides
+          });
+        } else {
+          console.log('⚠️ No assignment found for templateId:', templateId);
+        }
+      } else {
+        console.log('⚠️ Assignment data is not an array:', assignmentData);
+      }
+    } catch (error) {
+      console.error('Error fetching assignment data:', error);
+    } finally {
+      setIsLoadingCustomization(false);
+    }
+  };
+
+  const handleSaveCustomization = async () => {
+    if (!menuItemId || !currentAssignment || !customizingTemplate) return;
+
+    setIsSavingCustomization(true);
+    try {
+      // Prepare option overrides for API
+      const optionOverrides = Object.entries(customizationForm.optionOverrides)
+        .map(([optionId, override]) => ({
+          optionId,
+          isHidden: override.isHidden,
+          nameOverride: override.nameOverride || undefined,
+          priceOverride: override.priceOverride || undefined,
+          isDefault: override.isDefault
+        }))
+        .filter(override => 
+          override.isHidden || 
+          override.nameOverride || 
+          override.priceOverride !== undefined || 
+          override.isDefault
+        ); // Only include meaningful overrides
+
+      // Prepare assignment data for update
+      const assignmentData = {
+        templateId: customizingTemplate,
+        displayName: customizationForm.displayName !== currentAssignment.template.name ? customizationForm.displayName : undefined,
+        required: customizationForm.required,
+        minSelect: customizationForm.minSelect,
+        maxSelect: customizationForm.maxSelect,
+        displayOrder: customizationForm.displayOrder,
+        optionOverrides: optionOverrides.length > 0 ? optionOverrides : undefined
+      };
+      
+      console.log('🚀 Saving customization data:', assignmentData);
+      console.log('📊 Option overrides:', optionOverrides);
+
+      // Try to assign template (will handle already assigned case)
+      let assignResponse = await apiClient.assignTemplateToMenuItem(menuItemId, assignmentData);
+      console.log('📝 Assignment response:', assignResponse);
+      
+      if (!assignResponse.success) {
+        // Check if it's already assigned
+        if (assignResponse.error?.includes('already assigned') || assignResponse.error?.includes('ALREADY_ASSIGNED')) {
+          console.log('🔄 Template already assigned, updating via unassign + reassign...');
+          
+          // Unassign first
+          const unassignResponse = await apiClient.unassignTemplateFromMenuItem(menuItemId, customizingTemplate);
+          console.log('📝 Unassign response:', unassignResponse);
+          
+          if (!unassignResponse.success) {
+            throw new Error(`Failed to unassign template: ${unassignResponse.error}`);
+          }
+          
+          // Then reassign with new data
+          assignResponse = await apiClient.assignTemplateToMenuItem(menuItemId, assignmentData);
+          console.log('📝 Reassignment response:', assignResponse);
+          
+          if (!assignResponse.success) {
+            throw new Error(`Failed to reassign template: ${assignResponse.error}`);
+          }
+          
+          console.log('✅ Template updated successfully!');
+        } else {
+          throw new Error(`Assignment failed: ${assignResponse.error}`);
+        }
+      } else {
+        console.log('✅ Template assigned successfully!');
+      }
+
+      // Refresh the modifier templates list
+      await fetchModifierGroups();
+      
+      // Close the modal
+      setCustomizingTemplate(null);
+      setCurrentAssignment(null);
+    } catch (error) {
+      console.error('Error saving customization:', error);
+      alert('Failed to save customizations. Please try again.');
+    } finally {
+      setIsSavingCustomization(false);
+    }
+  };
+
   const handleUnassignGroup = async (groupId: string) => {
     if (!menuItemId || isUnassigning) return;
 
@@ -228,7 +444,7 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
         <Settings2 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
         <h3 className="text-lg font-semibold text-gray-700 mb-2">Save Menu Item First</h3>
         <p className="text-sm text-gray-500">
-          You need to save this menu item before you can assign modifier groups to it.
+          You need to save this menu item before you can assign modifier templates to it.
         </p>
       </div>
     );
@@ -239,7 +455,7 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <LoadingSpinner size="lg" />
-          <p className="text-gray-600 mt-4">Loading modifier groups...</p>
+          <p className="text-gray-600 mt-4">Loading modifier templates...</p>
         </div>
       </div>
     );
@@ -247,7 +463,7 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header with link to manage global modifier groups */}
+      {/* Header with link to manage global modifier templates */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -255,7 +471,7 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
             Menu Item Customizations
           </h3>
           <p className="text-sm text-gray-600 mt-1">
-            Assign existing modifier groups to this menu item
+            Assign existing modifier templates to this menu item
           </p>
         </div>
         <div className="flex gap-2">
@@ -266,7 +482,7 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
             className="text-indigo-600 hover:text-indigo-700 border-indigo-200"
           >
             <ExternalLink className="w-4 h-4 mr-2" />
-            Manage Groups
+            Manage Templates
           </Button>
         </div>
       </div>
@@ -275,13 +491,13 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
       <div>
         <h4 className="text-md font-semibold text-gray-800 mb-3 flex items-center">
           <Tag className="w-4 h-4 mr-2 text-green-600" />
-          Assigned Modifier Groups
+          Assigned Modifier Templates
         </h4>
         
         {assignedGroups.length === 0 ? (
           <div className="bg-gray-50 rounded-lg p-6 text-center">
             <Tag className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p className="text-sm text-gray-500">No modifier groups assigned yet</p>
+            <p className="text-sm text-gray-500">No modifier templates assigned yet</p>
             <p className="text-xs text-gray-400 mt-1">Assign groups below to add customization options</p>
           </div>
         ) : (
@@ -337,7 +553,13 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCustomizingTemplate(group.templateId || group.id)}
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const templateId = group.templateId || group.id;
+                      setCustomizingTemplate(templateId);
+                      await fetchAssignmentData(templateId);
+                    }}
                     className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
                   >
                     Customize
@@ -362,7 +584,7 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
       <div>
         <h4 className="text-md font-semibold text-gray-800 mb-3 flex items-center">
           <Plus className="w-4 h-4 mr-2 text-blue-600" />
-          Available Modifier Groups
+          Available Modifier Templates
         </h4>
         
         {unassignedGroups.length === 0 ? (
@@ -370,14 +592,14 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
             <Settings2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
             <p className="text-sm text-gray-500">
               {availableGroups.length === 0 
-                ? "No modifier groups created yet" 
-                : "All available modifier groups are already assigned"
+                ? "No modifier templates created yet" 
+                : "All available modifier templates are already assigned"
               }
             </p>
             <p className="text-xs text-gray-400 mt-1">
               {availableGroups.length === 0 
-                ? "Create modifier groups in the Modifier Groups management section"
-                : "Create more modifier groups or remove existing assignments to see more options"
+                ? "Create modifier templates in the Modifier Templates management section"
+                : "Create more modifier templates or remove existing assignments to see more options"
               }
             </p>
           </div>
@@ -455,21 +677,30 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
       {/* Customization Modal */}
       <Modal
         isOpen={!!customizingTemplate}
-        onClose={() => setCustomizingTemplate(null)}
+        onClose={() => {
+          console.log('Closing customization modal');
+          setCustomizingTemplate(null);
+        }}
         title="Customize Template for This Item"
       >
-        <div className="space-y-6">
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-            <h4 className="font-medium text-blue-900 mb-2">🎯 Item-Specific Customization</h4>
-            <p className="text-sm text-blue-700">
-              Customize how this template appears for this specific menu item without affecting other items.
-            </p>
+        {isLoadingCustomization ? (
+          <div className="flex items-center justify-center py-8">
+            <LoadingSpinner size="lg" />
+            <p className="ml-3 text-gray-600">Loading template data...</p>
           </div>
+        ) : currentAssignment ? (
+          <div className="space-y-6">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <h4 className="font-medium text-blue-900 mb-2">🎯 Item-Specific Customization</h4>
+              <p className="text-sm text-blue-700">
+                Template: <strong>{currentAssignment.template.name}</strong> • Customize how this appears for this specific menu item.
+              </p>
+            </div>
 
-          <div className="space-y-4">
+            {/* Template Settings */}
             <div className="p-4 bg-gray-50 rounded-lg">
-              <h5 className="font-medium text-gray-900 mb-3">Template Settings</h5>
-              <div className="space-y-3">
+              <h5 className="font-medium text-gray-900 mb-4">Template Settings</h5>
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm font-medium text-gray-700">Required for this item</label>
@@ -477,81 +708,176 @@ export function ModifiersTab({ menuItemId, restaurantId }: ModifiersTabProps) {
                   </div>
                   <Switch
                     id="required-toggle"
-                    checked={false}
-                    onChange={() => {}}
+                    checked={customizationForm.required}
+                    onChange={(checked) => {
+                      console.log('🔄 Switch toggled:', checked);
+                      setCustomizationForm(prev => ({ ...prev, required: checked }));
+                    }}
                   />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Custom Name (optional)
+                      Custom Display Name (optional)
                     </label>
-                    <Input
-                      placeholder="e.g., Pizza Size"
-                      className="text-sm"
+                    <input
+                      type="text"
+                      value={customizationForm.displayName}
+                      onChange={(e) => setCustomizationForm(prev => ({ ...prev, displayName: e.target.value }))}
+                      placeholder={currentAssignment.template.name}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Display Order
                     </label>
-                    <Input
+                    <input
                       type="number"
-                      defaultValue={0}
-                      className="text-sm"
+                      value={customizationForm.displayOrder}
+                      onChange={(e) => setCustomizationForm(prev => ({ ...prev, displayOrder: parseInt(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      min="0"
                     />
                   </div>
                 </div>
+
+                {currentAssignment.template.type === 'MULTIPLE_CHOICE' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Minimum Selections
+                      </label>
+                      <input
+                        type="number"
+                        value={customizationForm.minSelect}
+                        onChange={(e) => setCustomizationForm(prev => ({ ...prev, minSelect: parseInt(e.target.value) || 0 }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        min="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Maximum Selections (optional)
+                      </label>
+                      <input
+                        type="number"
+                        value={customizationForm.maxSelect || ''}
+                        onChange={(e) => setCustomizationForm(prev => ({ ...prev, maxSelect: e.target.value ? parseInt(e.target.value) : undefined }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        placeholder="Unlimited"
+                        min={customizationForm.minSelect}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
+            {/* Option Overrides */}
             <div className="p-4 bg-gray-50 rounded-lg">
-              <h5 className="font-medium text-gray-900 mb-3">Option Overrides</h5>
-              <p className="text-sm text-gray-600 mb-4">
-                Customize individual options for this menu item
-              </p>
-              
+              <h5 className="font-medium text-gray-900 mb-4">Option Customizations</h5>
               <div className="space-y-3">
-                <div className="bg-white p-3 rounded border">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-gray-900">Small Size</span>
-                    <Switch
-                      id="option-small-visible"
-                      checked={true}
-                      onChange={() => {}}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input placeholder="Custom name" className="text-xs" />
-                    <CurrencyInput
-                      value={0}
-                      onChange={() => {}}
-                      placeholder="€0,00"
-                      className="text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="text-center py-2">
-                  <p className="text-xs text-gray-500">More options will appear here based on the selected template</p>
-                </div>
+                {currentAssignment.template.options.map((option) => {
+                  const override = customizationForm.optionOverrides[option.id];
+                  return (
+                    <div key={option.id} className="bg-white p-4 rounded border">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <span className="font-medium text-gray-900">{option.name}</span>
+                          <span className="text-sm text-gray-500">€{option.price.toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-gray-500">Visible:</span>
+                          <Switch
+                            id={`option-${option.id}-visible`}
+                            checked={!override?.isHidden}
+                            onChange={(checked) => setCustomizationForm(prev => ({
+                              ...prev,
+                              optionOverrides: {
+                                ...prev.optionOverrides,
+                                [option.id]: {
+                                  ...prev.optionOverrides[option.id],
+                                  isHidden: !checked
+                                }
+                              }
+                            }))}
+                          />
+                        </div>
+                      </div>
+                      
+                      {!override?.isHidden && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Custom Name</label>
+                            <input
+                              type="text"
+                              value={override?.nameOverride || ''}
+                              onChange={(e) => setCustomizationForm(prev => ({
+                                ...prev,
+                                optionOverrides: {
+                                  ...prev.optionOverrides,
+                                  [option.id]: {
+                                    ...prev.optionOverrides[option.id],
+                                    nameOverride: e.target.value
+                                  }
+                                }
+                              }))}
+                              placeholder={option.name}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Custom Price (€)</label>
+                            <CurrencyInput
+                              value={override?.priceOverride || option.price}
+                              onChange={(value) => setCustomizationForm(prev => ({
+                                ...prev,
+                                optionOverrides: {
+                                  ...prev.optionOverrides,
+                                  [option.id]: {
+                                    ...prev.optionOverrides[option.id],
+                                    priceOverride: value !== option.price ? value : null
+                                  }
+                                }
+                              }))}
+                              placeholder={`€${option.price.toFixed(2)}`}
+                              className="text-xs"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t">
-            <Button
-              variant="outline"
-              onClick={() => setCustomizingTemplate(null)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={() => setCustomizingTemplate(null)}>
-              Save Customizations
-            </Button>
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCustomizingTemplate(null);
+                  setCurrentAssignment(null);
+                }}
+                disabled={isSavingCustomization}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSaveCustomization}
+                disabled={isSavingCustomization}
+              >
+                {isSavingCustomization ? 'Saving...' : 'Save Customizations'}
+              </Button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-gray-500">Failed to load template data.</p>
+          </div>
+        )}
       </Modal>
     </div>
   );
