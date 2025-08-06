@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { HiOutlineUser, HiOutlineReceiptTax, HiPlus } from "react-icons/hi";
 import { IoSearchOutline } from "react-icons/io5";
+import MenuItemSheet from "./components/MenuItemSheet";
 
 export default function ClientPage() {
     const router = useRouter();
@@ -26,6 +27,8 @@ export default function ClientPage() {
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
     const [addAnimations, setAddAnimations] = useState<Record<string, boolean>>({});
     const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
+    const [selectedItem, setSelectedItem] = useState<any>(null);
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
 
     const total = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
     const totalItems = cart.reduce((sum, i) => sum + i.quantity, 0);
@@ -119,6 +122,30 @@ export default function ClientPage() {
         } catch (error) {
             console.error('Error saving cart to localStorage:', error);
         }
+    };
+
+    const handleItemClick = (item: any) => {
+        setSelectedItem(item);
+        setIsSheetOpen(true);
+    };
+
+    const handleAddFromSheet = (cartItem: any) => {
+        if (!isClient) return;
+        
+        const newCart = [...cart, cartItem];
+        setCart(newCart);
+        
+        try {
+            localStorage.setItem("cart", JSON.stringify(newCart));
+        } catch (error) {
+            console.error('Error saving cart to localStorage:', error);
+        }
+        
+        // Trigger add animation for the item
+        setAddAnimations(prev => ({ ...prev, [cartItem.id]: true }));
+        setTimeout(() => {
+            setAddAnimations(prev => ({ ...prev, [cartItem.id]: false }));
+        }, 1000);
     };
 
     const handleGoToCart = () => {
@@ -370,7 +397,7 @@ export default function ClientPage() {
                                                     key={item.id}
                                                     whileHover={{ scale: 1.02 }}
                                                     whileTap={{ scale: 0.98 }}
-                                                    onClick={() => router.push(`/client/${restaurantId}/${tableId}/item/${item.id}`)}
+                                                    onClick={() => handleItemClick(item)}
                                                     className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-100"
                                                 >
                                                     <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
@@ -490,6 +517,22 @@ export default function ClientPage() {
                     </div>
                 </motion.div>
             )}
+
+            {/* Menu Item Detail Sheet */}
+            <MenuItemSheet
+                isOpen={isSheetOpen}
+                onClose={() => {
+                    setIsSheetOpen(false);
+                    // Small delay to allow exit animation to complete
+                    setTimeout(() => {
+                        setSelectedItem(null);
+                    }, 300);
+                }}
+                item={selectedItem}
+                onAddToCart={handleAddFromSheet}
+                restaurantId={restaurantId}
+                tableId={tableId}
+            />
         </>
     );
 }
