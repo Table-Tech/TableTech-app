@@ -93,7 +93,12 @@ export default function MenuItemSheet({
   useEffect(() => {
     if (isOpen) {
       setAnimationComplete(false);
+      // Force reset the y value immediately when opening
       y.set(0);
+    } else {
+      // Also reset when closing to ensure clean state
+      y.set(0);
+      setAnimationComplete(false);
     }
   }, [isOpen, y]);
 
@@ -246,6 +251,7 @@ export default function MenuItemSheet({
 
           {/* Sheet */}
           <motion.div
+            key={`sheet-${item?.id}-${isOpen}`}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
