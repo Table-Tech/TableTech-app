@@ -35,6 +35,7 @@ model Restaurant {
   menuItems       MenuItem[]
   orders          Order[]
   staff           Staff[]
+  modifierTemplates ModifierTemplate[]
 
   // Performance indexes
   @@index([email])               // Email lookups
@@ -121,7 +122,7 @@ model MenuItem {
   restaurantId    String
 
   orderItems      OrderItem[]
-  modifierGroups  ModifierGroup[]
+  modifierTemplates MenuItemModifierGroup[]
 
   // Performance indexes
   @@index([restaurantId])           // Menu items by restaurant
@@ -130,47 +131,92 @@ model MenuItem {
   @@index([restaurantId, isAvailable]) // Available items per restaurant
 }
 
-model ModifierGroup {
-  id             String       @id @default(uuid())
-  name           String
-  required       Boolean      @default(false)
-  multiSelect    Boolean      @default(false)
-  minSelect      Int          @default(0)
-  maxSelect      Int?
-  displayOrder   Int          @default(0)
-  isActive       Boolean      @default(true)   // Soft delete for modifier groups
+// OLD MODIFIER SYSTEM REMOVED - Now using ModifierTemplate system
 
-  menuItem       MenuItem     @relation(fields: [menuItemId], references: [id])
-  menuItemId     String
+// ----------------------------
+// NEW MODIFIER TEMPLATE SYSTEM
+// ----------------------------
 
-  modifiers      Modifier[]
-
-  // Performance indexes
-  @@index([menuItemId])      // Modifier groups for a menu item
-  @@index([displayOrder])    // Ordering modifier groups
-  @@index([isActive])        // Filter active modifier groups
-  @@index([menuItemId, displayOrder]) // Menu item modifier display
-  @@index([menuItemId, isActive]) // Active modifier groups for item
+model ModifierTemplate {
+  id             String   @id @default(uuid())
+  restaurantId   String
+  name           String   
+  description    String?
+  type           String   @default("SINGLE_CHOICE") // SINGLE_CHOICE, MULTIPLE_CHOICE
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id])
+  options        ModifierOption[]
+  menuItems      MenuItemModifierGroup[]
+  
+  @@unique([restaurantId, name])
+  @@index([restaurantId])
+  @@index([isActive])
 }
 
-model Modifier {
-  id              String        @id @default(uuid())
-  name            String
-  price           Decimal       @default(0) @db.Decimal(10, 2)
-  displayOrder    Int           @default(0)
-  isActive        Boolean       @default(true)   // Soft delete for modifiers
+model ModifierOption {
+  id             String   @id @default(uuid())
+  templateId     String
+  name           String   
+  price          Decimal  @default(0) @db.Decimal(10, 2)
+  displayOrder   Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  template       ModifierTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  itemOverrides  MenuItemModifierOption[]
+  orderItems     OrderItemModifier[]
+  
+  @@index([templateId])
+  @@index([templateId, displayOrder])
+  @@index([isActive])
+}
 
-  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id])
-  modifierGroupId String
+model MenuItemModifierGroup {
+  id             String   @id @default(uuid())
+  menuItemId     String
+  templateId     String   
+  
+  displayName    String?  // Override template name for this item
+  required       Boolean  @default(false)
+  minSelect      Int      @default(0)
+  maxSelect      Int?
+  displayOrder   Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  menuItem       MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  template       ModifierTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  optionOverrides MenuItemModifierOption[]
+  
+  @@unique([menuItemId, templateId])
+  @@index([menuItemId])
+  @@index([templateId])
+  @@index([menuItemId, displayOrder])
+}
 
-  orderItemModifiers OrderItemModifier[]
-
-  // Performance indexes
-  @@index([modifierGroupId])         // Modifiers in a group
-  @@index([displayOrder])            // Ordering modifiers
-  @@index([isActive])                // Filter active modifiers
-  @@index([modifierGroupId, displayOrder]) // Group modifier display
-  @@index([modifierGroupId, isActive]) // Active modifiers in group
+model MenuItemModifierOption {
+  id             String   @id @default(uuid())
+  groupId        String   
+  optionId       String   
+  
+  isHidden       Boolean  @default(false)  // Hide this option for this item
+  priceOverride  Decimal? @db.Decimal(10, 2) // Different price for this item
+  nameOverride   String?  // Different display name for this item
+  isDefault      Boolean  @default(false)  // Pre-selected for this item
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  group          MenuItemModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  option         ModifierOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  
+  @@unique([groupId, optionId])
+  @@index([groupId])
+  @@index([optionId])
+  @@index([isHidden])
 }
 
 model Order {
@@ -283,13 +329,13 @@ model OrderItemModifier {
   orderItem       OrderItem  @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
   orderItemId     String
 
-  modifier        Modifier   @relation(fields: [modifierId], references: [id])
-  modifierId      String
+  modifierOption  ModifierOption @relation(fields: [modifierOptionId], references: [id])
+  modifierOptionId String
 
-  @@unique([orderItemId, modifierId])
+  @@unique([orderItemId, modifierOptionId])
   // Performance indexes
   @@index([orderItemId])     // Modifiers for an order item
-  @@index([modifierId])      // Modifier usage tracking
+  @@index([modifierOptionId]) // Option usage tracking
 }
 
 model Staff {

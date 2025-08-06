@@ -259,12 +259,18 @@ export class MenuService extends BaseService<Prisma.MenuItemCreateInput, MenuIte
           where: { isAvailable: true },
           orderBy: { displayOrder: 'asc' },
           include: {
-            modifierGroups: {
+            modifierTemplates: {
               orderBy: { displayOrder: 'asc' },
               include: {
-                modifiers: {
-                  orderBy: { displayOrder: 'asc' }
-                }
+                template: {
+                  include: {
+                    options: {
+                      where: { isActive: true },
+                      orderBy: { displayOrder: 'asc' }
+                    }
+                  }
+                },
+                optionOverrides: true
               }
             }
           }
@@ -325,12 +331,18 @@ export class MenuService extends BaseService<Prisma.MenuItemCreateInput, MenuIte
             where: { isAvailable: true },
             orderBy: { displayOrder: 'asc' },
             include: {
-              modifierGroups: {
+              modifierTemplates: {
                 orderBy: { displayOrder: 'asc' },
                 include: {
-                  modifiers: {
-                    orderBy: { displayOrder: 'asc' }
-                  }
+                  template: {
+                    include: {
+                      options: {
+                        where: { isActive: true },
+                        orderBy: { displayOrder: 'asc' }
+                      }
+                    }
+                  },
+                  optionOverrides: true
                 }
               }
             }
@@ -346,12 +358,21 @@ export class MenuService extends BaseService<Prisma.MenuItemCreateInput, MenuIte
         menuItems: category.menuItems.map(item => ({
           ...item,
           price: Math.round(Number(item.price) * taxMultiplier * 100) / 100, // Round to 2 decimals
-          modifierGroups: item.modifierGroups.map(group => ({
-            ...group,
-            modifiers: group.modifiers.map(modifier => ({
-              ...modifier,
-              price: Math.round(Number(modifier.price) * taxMultiplier * 100) / 100
-            }))
+          modifierTemplates: item.modifierTemplates.map((assignment: any) => ({
+            ...assignment,
+            template: {
+              ...assignment.template,
+              options: assignment.template.options.map((option: any) => {
+                // Apply overrides
+                const override = assignment.optionOverrides?.find((o: any) => o.optionId === option.id);
+                return {
+                  ...option,
+                  name: override?.nameOverride || option.name,
+                  price: Math.round(Number(override?.priceOverride !== null ? override.priceOverride : option.price) * taxMultiplier * 100) / 100,
+                  isHidden: override?.isHidden || false
+                };
+              }).filter((option: any) => !option.isHidden)
+            }
           }))
         }))
       }));
@@ -569,12 +590,18 @@ export class MenuService extends BaseService<Prisma.MenuItemCreateInput, MenuIte
           name: true 
         }
       },
-      modifierGroups: {
+      modifierTemplates: {
         orderBy: { displayOrder: 'asc' as const },
         include: {
-          modifiers: {
-            orderBy: { displayOrder: 'asc' as const }
-          }
+          template: {
+            include: {
+              options: {
+                where: { isActive: true },
+                orderBy: { displayOrder: 'asc' as const }
+              }
+            }
+          },
+          optionOverrides: true
         }
       }
     };

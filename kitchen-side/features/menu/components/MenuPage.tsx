@@ -278,10 +278,10 @@ export function MenuPage({ restaurantId }: MenuPageProps) {
                   onChange={(e) => setShowHiddenItems(e.target.checked)}
                   className="sr-only"
                 />
-                <div className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 shadow-inner ${
+                <div className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 ${
                   showHiddenItems 
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 shadow-blue-200' 
-                    : 'bg-gray-300 shadow-gray-200'
+                    ? 'bg-gradient-to-r from-blue-600 to-blue-800' 
+                    : 'bg-gray-300'
                 }`}>
                   <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-all duration-300 shadow-sm ${
                     showHiddenItems ? 'translate-x-6 shadow-lg' : 'translate-x-1'

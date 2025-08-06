@@ -112,7 +112,7 @@ export function useStaff() {
 
     try {
       setError(null);
-      const response = await apiClient.deleteStaff(id);
+      const response = await apiClient.deleteStaff(id, selectedRestaurant?.id);
       
       if (response.success) {
         await fetchStaff(); // Refresh the list

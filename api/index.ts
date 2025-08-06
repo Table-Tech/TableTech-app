@@ -16,8 +16,8 @@ import restaurantRoutes from "./src/routes/restaurants/index.js";
 import tableRoutes from "./src/routes/tables/index.js";
 import orderRoutes from "./src/routes/orders/index.js";
 import categoryRoutes from "./src/routes/menu-categories/index.js";
-import modifierGroupRoutes from "./src/routes/modifier-groups/index.js";
-import modifierRoutes from "./src/routes/modifiers/index.js";
+// OLD MODIFIER ROUTES REMOVED - Using new template system
+import modifierTemplateRoutes from "./src/routes/modifier-templates/index.js";
 import authRoutes from "./src/routes/auth/index.js";
 import staffRoutes from "./src/routes/staff/index.js";
 import staffSessionRoutes from "./src/routes/staff/sessions.js";
@@ -110,8 +110,8 @@ const start = async () => {
     await fastify.register(tableRoutes, { prefix: "/api" });
     await fastify.register(orderRoutes, { prefix: "/api/orders" });
     await fastify.register(categoryRoutes, { prefix: "/api/menu-categories" });
-    await fastify.register(modifierGroupRoutes, { prefix: "/api/modifier-groups" });
-    await fastify.register(modifierRoutes, { prefix: "/api/modifiers" });
+    // OLD MODIFIER ROUTES REMOVED - Using new template system
+    await fastify.register(modifierTemplateRoutes, { prefix: "/api" });
     await fastify.register(authRoutes, { prefix: "/api/auth" });
     await fastify.register(staffRoutes, { prefix: "/api/staff" });
     await fastify.register(staffSessionRoutes, { prefix: "/api/staff" }); // Staff session management
@@ -151,6 +151,7 @@ const start = async () => {
       console.log(`   🏪 Restaurants: /api/restaurants`);
       console.log(`   🍽️  Menu:       /api/menu`);
       console.log(`   📂 Categories: /api/menu-categories`);
+      console.log(`   🔧 Templates:  /api/staff/modifier-templates`);
       console.log(`   🛎️  Orders:     /api/orders`);
       console.log(`   🪑 Tables:     /api/staff/tables, /api/customer/validate-table`);
       console.log(`   💳 Payments:   /api/payments`);

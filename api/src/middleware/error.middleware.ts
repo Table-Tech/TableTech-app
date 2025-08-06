@@ -70,6 +70,19 @@ export function registerErrorHandlers(fastify: FastifyInstance) {
       });
     }
 
+    // Handle Prisma Database Errors
+    if (error.message?.includes('Invalid `') && error.message?.includes('invocation')) {
+      request.log.error({ error: error.message, context }, 'Database Query Error');
+      return reply.status(500).send({
+        success: false,
+        error: {
+          type: 'SYSTEM_ERROR',
+          message: 'We are experiencing technical difficulties. Our team has been notified and is working on a fix. Please try again later.'
+        },
+        requestId
+      });
+    }
+
     if (error.message?.includes('Foreign key constraint')) {
       request.log.warn({ error: error.message, context }, 'Database Reference Error');
       return reply.status(400).send({
